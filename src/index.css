@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+@layer base {
+  body {
+    /* Fallback/Direct color to avoid @apply race conditions */
+    background-color: #2D1B12; 
+    color: #F5F5F5;
+    @apply font-sans overflow-hidden select-none; /* Keep standard utilities */
+    
+    background-image: url("https://images.unsplash.com/photo-1621360841013-c768371e93cf?q=80&w=2574&auto=format&fit=crop"); /* Dark wood texture */
+    background-size: cover;
+    background-position: center;
+    background-blend-mode: multiply;
+  }
+}
+
+
+
+/* Legacy styles removed - handled by Tailwind layer above */
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Theme is enforced via Tailwind config */
