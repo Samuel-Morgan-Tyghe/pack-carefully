@@ -1,8 +1,12 @@
 import GameLayout from './components/GameLayout';
+import AppInitializer from './components/AppInitializer';
 
 function App() {
   return (
-    <GameLayout />
+    <>
+      <AppInitializer />
+      <GameLayout />
+    </>
   );
 }
 
