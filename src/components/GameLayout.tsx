@@ -1,21 +1,26 @@
 import React from 'react';
 import { useStore } from '@nanostores/react';
-import { $phase } from '../store/gameStore';
+import { $phase, $gameState } from '../store/gameStore';
 import Inventory from './Inventory';
 import Journey from './Journey';
 import Campfire from './Campfire';
 import GameHUD from './layout/GameHUD';
 import SupplyShelf from './layout/SupplyShelf';
 import WelcomeScreen from './layout/WelcomeScreen';
+import GameResultScreen from './layout/GameResultScreen';
 
 const GameLayout: React.FC = () => {
   const phase = useStore($phase);
+  const gameState = useStore($gameState);
+
 
   return (
     <div className="h-screen w-screen bg-wood-900 text-parchment-100 font-sans selection:bg-gold-500 selection:text-wood-900 overflow-hidden relative flex flex-col">
        {/* Background overlay for vignette */}
        <div className="absolute inset-0 pointer-events-none shadow-vignette z-0 mix-blend-multiply" />
        
+       {gameState.isGameOver && <GameResultScreen />}
+
        {phase === 'LOBBY' ? (
            <WelcomeScreen />
        ) : (

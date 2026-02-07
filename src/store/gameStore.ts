@@ -11,6 +11,21 @@ export const $itemsOnGrid = atom<InventoryItemInstance[]>([]);
 export const $availableItems = atom<Item[]>(Object.values(ITEMS));
 export const $draggedItem = atom<string | null>(null); // For drag feedback
 
+// Gamification State
+export interface GameState {
+    day: number;
+    morale: number; // 0-100
+    isGameOver: boolean;
+    gameResult: 'WIN' | 'LOSS' | null;
+}
+
+export const $gameState = atom<GameState>({
+    day: 1,
+    morale: 100,
+    isGameOver: false,
+    gameResult: null
+});
+
 // Derived state example (if needed) or Actions
 // Helper for collision
 export const checkCollision = (
@@ -86,6 +101,7 @@ export const nextPhase = () => {
   let nextIdx = currentIdx + 1;
   
   if (current === 'CAMPFIRE') {
+      advanceDay(); // Advance day when leaving campfire
       $phase.set('PACKING');
   } else {
       $phase.set(phases[nextIdx] || 'LOBBY');
@@ -146,4 +162,32 @@ export const resetGame = () => {
     $phase.set('LOBBY');
     $itemsOnGrid.set([]);
     $players.set([]);
+    $gameState.set({
+        day: 1,
+        morale: 100,
+        isGameOver: false,
+        gameResult: null
+    });
+};
+
+export const damageMorale = (amount: number) => {
+    const current = $gameState.get();
+    const newMorale = Math.max(0, current.morale - amount);
+    
+    if (newMorale === 0) {
+        $gameState.set({ ...current, morale: 0, isGameOver: true, gameResult: 'LOSS' });
+    } else {
+        $gameState.set({ ...current, morale: newMorale });
+    }
+};
+
+export const advanceDay = () => {
+    const current = $gameState.get();
+    const newDay = current.day + 1;
+    
+    if (newDay > 5) { // Win condition: Survive 5 days
+        $gameState.set({ ...current, day: 5, isGameOver: true, gameResult: 'WIN' });
+    } else {
+        $gameState.set({ ...current, day: newDay });
+    }
 };
