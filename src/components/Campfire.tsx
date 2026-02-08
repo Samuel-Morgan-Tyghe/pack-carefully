@@ -1,65 +1,197 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { $players } from '../store/gameStore';
-import { clsx } from 'clsx';
-import { Flame, MessageCircle, Skull } from 'lucide-react';
+import { $players, $gameState, advanceDay, rummageInventory, revealDisguises, healMorale } from '../store/gameStore';
+import { motion } from 'framer-motion';
+import { Flame, Skull, ThumbsDown, MessageSquare } from 'lucide-react';
+import clsx from 'clsx';
 
 const Campfire: React.FC = () => {
     const players = useStore($players);
+    const gameState = useStore($gameState);
+    const [votes, setVotes] = useState<Record<string, string>>({}); // voterId -> targetId
+    const [sabotageFeedback, setSabotageFeedback] = useState<string | null>(null);
+
+    // Mock results for now - in real implementation we'd pull these from history
+    const pathStatus = gameState.pathStatus;
+
+    // Check if local player (mocked as index 0) is Traitor
+    const isTraitor = players[0]?.role === 'Traitor';
+
+    const handleSabotage = (targetId: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Don't trigger vote
+        const success = rummageInventory(targetId);
+        
+        if (success) {
+            setSabotageFeedback("Sabotage Successful! Item moved.");
+        } else {
+            setSabotageFeedback("Sabotage Failed (No items/Start blocked?)");
+        }
+        
+        setTimeout(() => setSabotageFeedback(null), 2000);
+    };
     
+    const handleVote = (targetId: string) => {
+        // For prototype, just toggle vote for "current player" (mocking first player)
+        const myId = players[0].id;
+        setVotes(prev => ({
+            ...prev,
+            [myId]: targetId
+        }));
+    };
+
+    const handleSleep = () => {
+        healMorale(10);
+        advanceDay();
+    };
+
     return (
-        <div className="flex flex-col items-center justify-center p-8 bg-black/60 rounded-3xl backdrop-blur-md border border-camp-orange/30 max-w-2xl mx-auto">
-            <div className="bg-camp-orange/20 p-4 rounded-full mb-6 animate-pulse">
-                <Flame size={48} className="text-camp-fire" />
-            </div>
-            
-            <h2 className="text-3xl font-black text-camp-orange uppercase tracking-widest mb-2">Campfire Discussion</h2>
-            <p className="text-slate-400 mb-8 text-center">
-                Who do you trust? Discuss the journey and vote out the traitor if you can.
-            </p>
-            
-            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Chat Log Simulation */}
-                <div className="bg-night-800 rounded-xl p-4 border border-white/10 h-64 overflow-y-auto">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
-                        <MessageCircle size={14} /> Team Log
+        <div className="flex flex-col items-center justify-center h-full max-w-6xl mx-auto p-8 gap-8">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-4 text-camp-orange mb-8"
+            >
+                <div className="p-4 bg-orange-900/30 rounded-full animate-pulse">
+                    <Flame size={64} className="text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]" />
+                </div>
+                <div>
+                    <h2 className="text-5xl font-black uppercase tracking-widest text-parchment-100">Campfire</h2>
+                    <p className="text-parchment-400 text-xl">Day {gameState.day} Complete</p>
+                </div>
+            </motion.div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 w-full">
+                {/* DEBRIEF SECTION */}
+                <div className="bg-black/40 backdrop-blur-sm border border-wood-600 rounded-xl p-8">
+                    <h3 className="text-2xl font-bold text-parchment-200 mb-6 flex items-center gap-2">
+                        <MessageSquare /> Mission Report
                     </h3>
-                    <div className="space-y-3 text-sm">
-                        <div className="text-blue-400 font-bold">Alex: <span className="text-slate-300 font-normal">We missed the rope at the river. Who had it?</span></div>
-                        <div className="text-green-400 font-bold">Sam: <span className="text-slate-300 font-normal">I thought Jordan grabbed it!</span></div>
-                        <div className="text-yellow-400 font-bold">Jordan: <span className="text-slate-300 font-normal">I was busy packing rations!</span></div>
-                        <div className="text-purple-400 font-bold">Taylor: <span className="text-slate-300 font-normal italic">*suspicious silence*</span></div>
+                    
+                    <div className="space-y-6">
+                        {/* Left Path Result */}
+                        <div className={clsx(
+                            "p-4 rounded-lg border-l-4",
+                            pathStatus.LEFT === 'RESOLVED' ? "bg-green-900/20 border-green-500" : "bg-red-900/20 border-red-500"
+                        )}>
+                            <div className="font-bold text-lg mb-1">The Quiet Trail</div>
+                            <div className="text-parchment-300">
+                                {pathStatus.LEFT === 'RESOLVED' 
+                                    ? " The path was clear. Supplies were gathered."
+                                    : " No one returned from this path (or it was skipped)."
+                                }
+                            </div>
+                        </div>
+
+                        {/* Right Path Result */}
+                        <div className={clsx(
+                            "p-4 rounded-lg border-l-4",
+                            pathStatus.RIGHT === 'RESOLVED' ? "bg-green-900/20 border-green-500" : "bg-red-900/20 border-red-500"
+                        )}>
+                             <div className="font-bold text-lg mb-1">The Dark Woods</div>
+                             <div className="text-parchment-300">
+                                {pathStatus.RIGHT === 'RESOLVED' 
+                                    ? " The beast was repelled. The team survives."
+                                    : " Logic pending for skipped/failed right path."
+                                }
+                             </div>
+                        </div>
+
+                        <div className="mt-8 p-4 bg-wood-800/50 rounded text-center italic text-parchment-400">
+                            "I swear I packed the healing potion!" — Unknown
+                        </div>
                     </div>
                 </div>
-                
-                {/* Voting Area */}
-                <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
-                        <Skull size={14} /> Vote to Kick
+
+                {/* VOTING SECTION */}
+                <div className="bg-black/40 backdrop-blur-sm border border-wood-600 rounded-xl p-8 flex flex-col">
+                    <h3 className="text-2xl font-bold text-parchment-200 mb-2 flex items-center gap-2">
+                        <Skull /> Suspicion Meter
                     </h3>
-                    
-                    {players.map(p => (
-                        <button 
-                            key={p.id}
-                            className={clsx(
-                                "flex items-center gap-3 p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-red-900/40 hover:border-red-500 transition-all text-left group",
-                                p.id === '1' && "opacity-50 cursor-not-allowed" // Can't vote self easily here?
-                            )}
-                        >
-                             <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold", p.avatarColor)}>
-                                 {p.name[0]}
-                             </div>
-                             <div className="flex-1 font-bold text-slate-200">{p.name}</div>
-                             <div className="text-xs text-red-500 opacity-0 group-hover:opacity-100 uppercase font-bold tracking-widest transition-opacity">
-                                 Vote
-                             </div>
-                        </button>
-                    ))}
-                    
-                    <button className="mt-auto py-3 bg-slate-700 rounded-lg text-slate-300 font-bold uppercase tracking-widest text-xs hover:bg-slate-600 transition-colors">
-                        Skip Vote
+                    <p className="text-parchment-400 mb-6 text-sm">
+                        Vote for who you think is sabotaging the group. (Does not kick yet, just pressures)
+                    </p>
+
+                    <div className="flex-1 space-y-3">
+                        {players.map(p => {
+                            const myVote = votes[players[0].id] === p.id;
+                            
+                            return (
+                                <button 
+                                    key={p.id}
+                                    onClick={() => handleVote(p.id)}
+                                    className={clsx(
+                                        "w-full flex items-center gap-4 p-3 rounded-lg border transition-all text-left",
+                                        myVote 
+                                            ? "bg-red-900/40 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" 
+                                            : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30"
+                                    )}
+                                >
+                                    <div className={clsx("w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg", p.avatarColor)}>
+                                        {p.name[0]}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-parchment-100">{p.name}</div>
+                                        <div className="text-xs text-parchment-400">{p.role === 'Traitor' ? '???' : 'Hiker'}</div>
+                                    </div>
+
+                                    {/* Traitor Action */}
+                                    {isTraitor && p.id !== players[0].id && (
+                                        <button
+                                            onClick={(e) => handleSabotage(p.id, e)}
+                                            className="px-3 py-1 bg-purple-900 border border-purple-500 text-purple-200 text-xs font-bold rounded hover:bg-purple-800 mr-2"
+                                            title="Rummage their bag (Shuffle 1 item)"
+                                        >
+                                            SABOTAGE
+                                        </button>
+                                    )}
+
+                                    {/* Investigate Action (Anyone) */}
+                                    {p.id !== players[0].id && (
+                                         <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const count = revealDisguises(p.id);
+                                                alert(`Investigated ${p.name}: Found ${count} disguised items.`);
+                                            }}
+                                            className="px-3 py-1 bg-blue-900 border border-blue-500 text-blue-200 text-xs font-bold rounded hover:bg-blue-800"
+                                            title="Reveal Disguises"
+                                        >
+                                            INSPECT
+                                        </button>
+                                    )}
+                                    
+                                    {/* Vote Indicator */}
+                                    {myVote && (
+                                        <div className="text-red-500 font-black uppercase tracking-widest text-xs flex items-center gap-1">
+                                            <ThumbsDown size={14} /> Suspect
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button 
+                        onClick={handleSleep}
+                        className="mt-8 w-full py-4 bg-wood-600 hover:bg-wood-500 text-parchment-100 font-bold rounded-lg shadow-lg border-t border-wood-400 flex items-center justify-center gap-2 group"
+                    >
+                        <Flame size={20} className="group-hover:animate-pulse" />
+                        SLEEP & RECOVER (+10 Morale)
                     </button>
                 </div>
+            </div>
+
+            <div className="absolute top-4 right-4 space-y-2 pointer-events-none">
+                 {sabotageFeedback && (
+                     <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="bg-purple-900/90 text-purple-100 px-4 py-2 rounded shadow-lg border border-purple-500 font-bold flex items-center gap-2"
+                     >
+                         <Skull size={16} /> {sabotageFeedback}
+                     </motion.div>
+                 )}
             </div>
         </div>
     );

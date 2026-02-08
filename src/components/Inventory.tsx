@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
@@ -9,8 +9,21 @@ const CELL_SIZE = 64;
 const GAP = 4;
 
 const Inventory: React.FC = () => {
-  const itemsOnGrid = useStore($itemsOnGrid);
   const externalDraggedItem = useStore($draggedItem);
+  const players = useStore($players);
+  const ownerId = players[0]?.id || 'solo'; // Default to first player
+  const allItemsOnGrid = useStore($itemsOnGrid);
+  
+  // Sort items: Containers first (Layer 0), then Gear (Layer 1)
+  const itemsOnGrid = allItemsOnGrid
+    .filter(i => i.ownerId === ownerId)
+    .sort((a, b) => {
+        const catA = ITEMS[a.itemId].category;
+        const catB = ITEMS[b.itemId].category;
+        if (catA === 'CONTAINER' && catB !== 'CONTAINER') return -1;
+        if (catA !== 'CONTAINER' && catB === 'CONTAINER') return 1;
+        return 0;
+    });
   const gridRef = useRef<HTMLDivElement>(null);
   
   // Track dragging state
@@ -48,7 +61,7 @@ const Inventory: React.FC = () => {
       if (!itemDef) return false;
       const w = (currentRot === 90 || currentRot === 270) ? itemDef.height : itemDef.width;
       const h = (currentRot === 90 || currentRot === 270) ? itemDef.width : itemDef.height;
-      return !checkCollision(gx, gy, w, h, itemsOnGrid, instanceId);
+      return !checkCollision(gx, gy, w, h, itemsOnGrid, ownerId, instanceId);
   };
 
   const handleDragStart = (instanceId: string) => {
@@ -143,8 +156,38 @@ const Inventory: React.FC = () => {
                     
                     // Only place if within bounds
                     if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-                         if (!checkCollision(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid)) {
-                              placeItem(itemId, gx, gy, 0);
+                         // Check collision. If it returns false (no collision) -> Place it.
+                         // But we also need to check "Support" if it's Gear.
+                         // placeItem does checking internally too, but checkCollision ensures the UI doesn't flicker?
+                         // Actually, let's just allow placeItem to handle logic. drop -> attempt place -> if success -> remove from draft.
+                         
+                         // BUT `placeItem` doesn't know about Draft Pool removal.
+                         // If we are dragging from Draft, we need to call `draftItem` logic but with Coordinates!
+                         
+                         // We need a new action: `draftItemToGrid(playerId, itemId, x, y)`?
+                         // Or refactor `draftItem` in store.
+                         // Currently `draftItem` does auto-placement.
+                         
+                         // Check if we are in Draft Phase?
+                         // Check if we are in Draft Phase?
+                         // Check if we are in Draft Phase?
+                         const isDrafting = useStore($draftState).availableItems.some(i => i.id === itemId);
+                         
+                         if (isDrafting) {
+                             import('../store/gameStore').then(mod => {
+                                 if (mod.draftItemToGrid) {
+                                     mod.draftItemToGrid(ownerId, itemId, gx, gy);
+                                 }
+                             });
+                         } else {
+                             // Standard move/place logic
+                             if (!checkCollision(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId, undefined, ITEMS[itemId].category)) {
+                                  import('../store/gameStore').then(mod => {
+                                      if (ITEMS[itemId].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId))) {
+                                          placeItem(itemId, gx, gy, 0, ownerId);
+                                      }
+                                  });
+                             }
                          }
                     }
                 }
