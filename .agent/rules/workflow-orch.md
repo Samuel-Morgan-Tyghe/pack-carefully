@@ -27,6 +27,7 @@ trigger: always_on
 - Diff behavior between main and your changes when relevant
 - Ask yourself: "Would a staff engineer approve this?"
 - Run tests, check logs, demonstrate correctness
+- **Commit as Proof**: The pre-commit hook is the ultimate gatekeeper. You must verify your work by attempting a commit (`git commit`). If the pre-commit checks (lint, typecheck, build) fail, the work is NOT done. Fix it immediately.
 
 ### 5. Demand Elegance (Balanced)
 - For non-trivial changes: pause and ask "is there a more elegant way?"
