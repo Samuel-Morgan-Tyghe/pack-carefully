@@ -94,8 +94,8 @@ const DebugVerification: React.FC = () => {
             
             log("--- VERIFICATION COMPLETE ---");
 
-        } catch (e: any) {
-            log("❌ TEST FAILED: " + e.message);
+        } catch (e: unknown) {
+            log("❌ TEST FAILED: " + (e as Error).message);
             console.error(e);
         }
     };

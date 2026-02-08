@@ -1,9 +1,11 @@
 import React from 'react';
 import ShelfItem from './ShelfItem';
 
+import type { Item } from '../../types';
+
 interface ShelfCategoryProps {
     category: string;
-    items: any[];
+    items: Item[];
 }
 
 const ShelfCategory: React.FC<ShelfCategoryProps> = ({ category, items }) => {

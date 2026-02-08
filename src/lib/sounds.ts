@@ -1,6 +1,7 @@
 import { zzfx } from './zzfx';
 
-// Pre-generated sounds from https://killedbyapixel.github.io/ZzFX/
+ 
+// ZzFX - Zuper Zmall Zound Zynth - Micro Editiontps://killedbyapixel.github.io/ZzFX/
 export const playSound = {
     click: () => zzfx(1,.05,1596,0,.01,.1,0,1,0,0,0,0,0,0,0,0,0,.5,.07,0), // High click
     pop: () => zzfx(1,.05,373,0,.03,.01,2,3,0,0,0,0,0,0,0,0,0,.55,.02,0), // Pop / Pick up

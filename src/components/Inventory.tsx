@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
 import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
@@ -69,7 +70,7 @@ const Inventory: React.FC = () => {
       // We don't set ghost position yet, wait for move
   };
 
-  const handleDrag = (_instanceId: string, itemId: string, currentRot: number, info: any) => {
+  const handleDrag = (_instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
       const { gridX, gridY } = snapToGrid(info.point);
       
       // Update ghost
@@ -80,11 +81,11 @@ const Inventory: React.FC = () => {
       setIsGhostValid(valid);
   };
 
-  const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: any) => {
+  const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
     const { gridX, gridY } = snapToGrid(info.point);
     
     if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
-        moveItem(instanceId, gridX, gridY, currentRot as any);
+        moveItem(instanceId, gridX, gridY, currentRot as 0 | 90 | 180 | 270);
     }
     
     // Reset state
@@ -171,7 +172,8 @@ const Inventory: React.FC = () => {
                          // Check if we are in Draft Phase?
                          // Check if we are in Draft Phase?
                          // Check if we are in Draft Phase?
-                         const isDrafting = useStore($draftState).availableItems.some(i => i.id === itemId);
+                         // Check if we are in Draft Phase?
+                         const isDrafting = $draftState.get().availableItems.some(i => i.id === itemId);
                          
                          if (isDrafting) {
                              import('../store/gameStore').then(mod => {

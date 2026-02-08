@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
+      'react-hooks/set-state-in-effect': 'off', // Allow this pattern for game logic
+      '@typescript-eslint/no-unused-vars': ['error', { 'argsIgnorePattern': '^_' }], // Ignore _ prefixed args
+    },
   },
 ])

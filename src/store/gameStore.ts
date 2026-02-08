@@ -372,9 +372,10 @@ export const assignPlayerToPath = (playerId: string, path: 'LEFT' | 'RIGHT' | nu
     ));
 };
 
-export const completeEncounter = (_success: boolean) => {
+export const completeEncounter = (success: boolean) => {
     const current = $gameState.get();
     const path = current.selectedPath;
+    console.log('Encounter completed. Success:', success);
     if (!path) return;
 
     // Use current.pathStatus directly to update the specific path

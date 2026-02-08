@@ -57,7 +57,7 @@ const Journey: React.FC = () => {
                      <div className="absolute inset-0 bg-black/40" />
                      {/* Icon bg */}
                      <div className="absolute right-4 top-4 text-white/10">
-                         {React.createElement((LucideIcons as any)[currentEvent.icon] || LucideIcons.Map, { size: 120 })}
+                         {React.createElement((LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[currentEvent.icon] || LucideIcons.Map, { size: 120 })}
                      </div>
                      
                      <div className="relative z-10">
@@ -71,7 +71,7 @@ const Journey: React.FC = () => {
                      <div className="flex items-center justify-between mb-8 p-4 bg-night-900 rounded-xl border border-white/5">
                          <div className="flex items-center gap-4">
                              <div className="p-3 bg-white/5 rounded-lg">
-                                 {React.createElement((LucideIcons as any)[ITEMS[currentEvent.requiredItem]?.icon] || LucideIcons.HelpCircle, { size: 32, className: "text-camp-orange" })}
+                                 {React.createElement((LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[ITEMS[currentEvent.requiredItem]?.icon] || LucideIcons.HelpCircle, { size: 32, className: "text-camp-orange" })}
                              </div>
                              <div>
                                  <div className="text-xs uppercase font-bold text-slate-500">Required Item</div>

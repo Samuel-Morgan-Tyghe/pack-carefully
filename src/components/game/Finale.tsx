@@ -24,6 +24,7 @@ const Finale: React.FC = () => {
         } else {
             playSound.defeat();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // Run once on mount
 
     // Calculate score on mount
@@ -34,6 +35,7 @@ const Finale: React.FC = () => {
         const moraleBonus = gameState.morale * 50;
         const total = baseScore + moraleBonus;
         setScore(total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 

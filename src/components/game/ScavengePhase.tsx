@@ -1,3 +1,4 @@
+ 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { $gameState, completeScavenge, addRandomLoot } from '../../store/gameStore';
@@ -13,8 +14,11 @@ const ScavengePhase: React.FC = () => {
 
     useEffect(() => {
         // Generate a random event on mount
+         
         const newEvent = generateLootPool(gameState.day);
+         
         setEvent(newEvent);
+         
         setLootPool(newEvent.items);
     }, [gameState.day]);
 
@@ -56,7 +60,7 @@ const ScavengePhase: React.FC = () => {
                     <h3 className="text-sm font-bold uppercase text-slate-500 mb-4 tracking-wider">Discovered Items</h3>
                     <div className="grid grid-cols-4 gap-4">
                         {lootPool.map((item, idx) => {
-                             const Icon = (LucideIcons as any)[item.icon] || LucideIcons.HelpCircle;
+                             const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[item.icon] || LucideIcons.HelpCircle;
                              return (
                                 <button 
                                     key={`${item.id}-${idx}`}

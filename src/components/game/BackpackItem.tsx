@@ -123,7 +123,7 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         >
              {/* Icon */}
              {(() => {
-                 const IconComponent = (LucideIcons as any)[displayDef.icon] || LucideIcons.Box;
+                 const IconComponent = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[displayDef.icon] || LucideIcons.Box;
                  return <IconComponent className={clsx("text-parchment-100", w===1 && h===1 ? "w-6 h-6" : "w-8 h-8", item.locked && "text-red-400/50")} />;
              })()}
              

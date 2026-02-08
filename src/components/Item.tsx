@@ -24,7 +24,7 @@ const Item: React.FC<ItemProps> = ({
   isDraggable = true,
   onRotate: _onRotate 
 }) => {
-  const Icon = (Icons[itemDef.icon as keyof typeof Icons] || Icons.HelpCircle) as React.FC<any>;
+  const Icon = (Icons[itemDef.icon as keyof typeof Icons] || Icons.HelpCircle) as React.FC<Icons.LucideProps>;
   
   // Calculate visual size based on grid scale (assuming 1 unit = 4rem/64px)
   const CELL_SIZE = 64;

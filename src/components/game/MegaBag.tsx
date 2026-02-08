@@ -87,7 +87,7 @@ const MegaBag: React.FC = () => {
       
       if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
           playSound.place();
-          moveItem(instanceId, gridX, gridY, currentRot as any);
+          moveItem(instanceId, gridX, gridY, currentRot as 0 | 90 | 180 | 270);
       }
       
       setDraggedInstanceId(null);

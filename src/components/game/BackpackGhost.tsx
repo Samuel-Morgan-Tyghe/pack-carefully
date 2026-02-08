@@ -1,13 +1,14 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { ITEMS } from '../../lib/items';
+import type { InventoryItemInstance } from '../../types';
 
 interface BackpackGhostProps {
     ghostPosition: { x: number, y: number } | null;
     isGhostValid: boolean;
     draggedInstanceId: string | null;
     externalDraggedItem: string | null;
-    itemsOnGrid: any[];
+    itemsOnGrid: InventoryItemInstance[];
     CELL_SIZE: number;
     GAP: number;
 }

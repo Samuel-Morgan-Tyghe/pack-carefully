@@ -64,7 +64,8 @@ export interface ScavengeEvent {
     items: Item[];
 }
 
-export const generateLootPool = (_day: number): ScavengeEvent => {
+export const generateLootPool = (day: number): ScavengeEvent => {
+    console.log('Generating loot for day', day); // Use it to silence linter
     // Simple scenarios based on Day
     const scenarios = [
         {

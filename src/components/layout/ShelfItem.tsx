@@ -60,7 +60,7 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
             <div className="flex justify-between items-start w-full relative z-10">
                 <div className="p-1 bg-wood-200/50 rounded">
                     {React.createElement(
-                        (LucideIcons as any)[item.icon] || LucideIcons.Package,
+                        (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[item.icon] || LucideIcons.Package,
                         { size: 20, className: "text-wood-900" }
                     )}
                 </div>
