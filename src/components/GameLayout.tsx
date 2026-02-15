@@ -20,7 +20,7 @@ const GameLayout: React.FC = () => {
     const gameState = useStore($gameState);
 
     return (
-        <div className="h-screen w-screen bg-wood-900 text-parchment-100 font-sans selection:bg-gold-500 selection:text-wood-900 overflow-hidden relative flex flex-col">
+        <div className="min-h-screen w-screen bg-wood-900 text-parchment-100 font-sans selection:bg-gold-500 selection:text-wood-900 overflow-y-auto overflow-x-hidden relative flex flex-col">
            {/* Background overlay for vignette */}
            <div className="absolute inset-0 pointer-events-none shadow-vignette z-0 mix-blend-multiply" />
            
@@ -35,7 +35,7 @@ const GameLayout: React.FC = () => {
 
 
                    {/* Main Content Area - Fullscreen Grid + Sidebar */}
-                   <main className="flex-1 flex w-full h-full relative z-10 pt-20 pb-8 px-8 gap-8 overflow-hidden">
+                   <main className="flex-1 flex w-full min-h-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 overflow-y-auto overflow-x-hidden flex-col md:flex-row">
                       
                       {/* Center Stage: Inventory / Game Board */}
                        <section className="flex-1 flex flex-col justify-start items-center h-full relative">

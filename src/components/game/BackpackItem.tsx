@@ -15,6 +15,9 @@ interface BackpackItemProps {
     onDragStart: (id: string) => void;
     onDrag: (id: string, itemId: string, rotation: number, info: PanInfo) => void;
     onDragEnd: (instanceId: string, itemId: string, rotation: number, info: PanInfo) => void;
+    onTouchStart?: (e: React.TouchEvent, instanceId: string, itemId: string, rotation: number) => void;
+    onTouchMove?: (e: React.TouchEvent) => void;
+    onTouchEnd?: (e: React.TouchEvent, instanceId: string) => void;
     CELL_SIZE: number;
     GAP: number;
     isHighlighted?: boolean;
@@ -29,6 +32,9 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     onDragStart,
     onDrag,
     onDragEnd,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
     CELL_SIZE,
     GAP,
     isHighlighted,
@@ -95,7 +101,26 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             }}
             onDrag={(_, info) => !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)}
             onDragEnd={(_, info) => !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)}
-            
+
+            onTouchStart={(e) => {
+                if (!item.locked) {
+                    console.log('📱 BackpackItem touchStart:', item.instanceId);
+                    playSound.pop();
+                    onTouchStart?.(e, item.instanceId, item.itemId, item.rotation);
+                }
+            }}
+            onTouchMove={(e) => {
+                if (!item.locked) {
+                    onTouchMove?.(e);
+                }
+            }}
+            onTouchEnd={(e) => {
+                if (!item.locked) {
+                    console.log('📱 BackpackItem touchEnd:', item.instanceId);
+                    onTouchEnd?.(e, item.instanceId);
+                }
+            }}
+
             onClick={(e) => {
                 if (e.shiftKey) {
                     toggleLock(item.instanceId);
