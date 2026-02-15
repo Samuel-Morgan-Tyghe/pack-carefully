@@ -44,14 +44,14 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
     const h = (rot === 90 || rot === 270) ? itemDef.width : itemDef.height;
 
     return (
-        <div 
+        <div
             className={cn(
-                "absolute top-4 left-4 rounded-lg border-2 border-dashed z-40 transition-all duration-75 pointer-events-none",
+                "absolute rounded-lg border-2 border-dashed z-40 transition-all duration-75 pointer-events-none",
                 isGhostValid ? "bg-green-500/20 border-green-400" : "bg-red-500/20 border-red-400"
             )}
             style={{
-                left: 16 + ghostPosition.x * (CELL_SIZE + GAP),
-                top: 16 + ghostPosition.y * (CELL_SIZE + GAP),
+                left: 16 + ghostPosition.x,
+                top: 16 + ghostPosition.y,
                 width: (w * CELL_SIZE) + ((w - 1) * GAP),
                 height: (h * CELL_SIZE) + ((h - 1) * GAP),
             }}

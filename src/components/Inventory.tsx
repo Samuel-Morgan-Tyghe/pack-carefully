@@ -49,25 +49,32 @@ const Inventory: React.FC = () => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const snapToGrid = (point: {x: number, y: number}) => {
+  const snapToGrid = (point: {x: number, y: number}, itemWidth: number = 1, itemHeight: number = 1) => {
      if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 };
      const rect = gridRef.current.getBoundingClientRect();
      // rect.left includes the 4px border.
      // The inner content starts at rect.left + 4px (border) + 16px (padding) = 20px offset.
-     const xOffset = point.x - (rect.left + 20); 
+     const xOffset = point.x - (rect.left + 20);
      const yOffset = point.y - (rect.top + 20);
-     
-     // Use Math.floor to ensure we select the cell we are hovering over, 
-     // rather than snapping to the next one halfway through.
-     const gridX = Math.floor(xOffset / (CELL_SIZE + GAP));
-     const gridY = Math.floor(yOffset / (CELL_SIZE + GAP));
-     
-     // Clamp to grid bounds to prevent "way off" values outside
-     const clampedX = Math.max(0, Math.min(GRID_SIZE - 1, gridX));
-     const clampedY = Math.max(0, Math.min(GRID_SIZE - 1, gridY));
 
-     return { 
-         x: clampedX * (CELL_SIZE + GAP), 
+     // Center the item under the cursor by offsetting by half the item size
+     const centerOffsetX = (itemWidth * (CELL_SIZE + GAP)) / 2;
+     const centerOffsetY = (itemHeight * (CELL_SIZE + GAP)) / 2;
+
+     // Adjust for centering
+     const centeredX = xOffset - centerOffsetX;
+     const centeredY = yOffset - centerOffsetY;
+
+     // Snap to grid
+     const gridX = Math.round(centeredX / (CELL_SIZE + GAP));
+     const gridY = Math.round(centeredY / (CELL_SIZE + GAP));
+
+     // Clamp to grid bounds to prevent "way off" values outside
+     const clampedX = Math.max(0, Math.min(GRID_SIZE - itemWidth, gridX));
+     const clampedY = Math.max(0, Math.min(GRID_SIZE - itemHeight, gridY));
+
+     return {
+         x: clampedX * (CELL_SIZE + GAP),
          y: clampedY * (CELL_SIZE + GAP),
          gridX: clampedX,
          gridY: clampedY
@@ -155,19 +162,24 @@ const Inventory: React.FC = () => {
   };
 
   const handleDrag = (_instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
-      const { gridX, gridY } = snapToGrid(info.point);
-      
-      // Update ghost
-      setGhostPosition({ x: gridX, y: gridY });
-      
-      // Check validation
+      const itemDef = ITEMS[itemId];
+      const w = (currentRot === 90 || currentRot === 270) ? itemDef.height : itemDef.width;
+      const h = (currentRot === 90 || currentRot === 270) ? itemDef.width : itemDef.height;
+      const { x, y, gridX, gridY } = snapToGrid(info.point, w, h);
+
+      // Update ghost with pixel coordinates
+      setGhostPosition({ x, y });
+
+      // Check validation with grid coordinates
       const valid = calculateGhostValidity(gridX, gridY, itemId, draggedInstanceId || undefined, currentRot);
       setIsGhostValid(valid);
   };
 
   const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
-    const { gridX, gridY } = snapToGrid(info.point);
     const itemDef = ITEMS[itemId];
+    const w = (currentRot === 90 || currentRot === 270) ? itemDef.height : itemDef.width;
+    const h = (currentRot === 90 || currentRot === 270) ? itemDef.width : itemDef.height;
+    const { gridX, gridY } = snapToGrid(info.point, w, h);
 
     if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
         moveItem(instanceId, gridX, gridY, currentRot as 0 | 90 | 180 | 270);
@@ -187,23 +199,24 @@ const Inventory: React.FC = () => {
   // HTML5 Drag Over (from Sidebar)
   const handleDragOverExtern = (e: React.DragEvent) => {
       e.preventDefault();
-      
+
       // Only show ghost if we know what item is being dragged (from store)
       if (externalDraggedItem) {
-          const rect = gridRef.current?.getBoundingClientRect();
-          if (rect) {
-              const x = e.clientX - (rect.left + 20);
-              const y = e.clientY - (rect.top + 20);
-              const gx = Math.floor(x / (CELL_SIZE + GAP));
-              const gy = Math.floor(y / (CELL_SIZE + GAP));
-              
-              // Allow ghost to show even if out of bounds (to show red), but clamp for stability or check bounds
-              if (gx >= -1 && gx <= GRID_SIZE && gy >= -1 && gy <= GRID_SIZE) {
-                   setGhostPosition({ x: gx, y: gy });
-                   const valid = calculateGhostValidity(gx, gy, externalDraggedItem);
-                   setIsGhostValid(valid);
-              }
-          }
+          const itemDef = ITEMS[externalDraggedItem];
+          if (!itemDef) return;
+
+          const { x, y, gridX, gridY } = snapToGrid(
+              { x: e.clientX, y: e.clientY },
+              itemDef.width,
+              itemDef.height
+          );
+
+          // Update ghost with pixel coordinates
+          setGhostPosition({ x, y });
+
+          // Check validation with grid coordinates
+          const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem);
+          setIsGhostValid(valid);
       }
   };
 
