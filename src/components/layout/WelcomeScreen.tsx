@@ -19,18 +19,18 @@ const WelcomeScreen: React.FC = () => {
                      <LucideIcons.Map size={64} className="text-gold-500" />
                 </div>
                 
-                <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-parchment-100 to-parchment-500 mb-6 drop-shadow-lg font-display uppercase tracking-widest leading-none text-balance">
+                <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-parchment-100 to-parchment-500 mb-6 drop-shadow-lg font-display uppercase tracking-widest leading-none text-balance px-4">
                     Pack<br/>Carefully
                 </h1>
                 
-                <p className="text-2xl text-gold-500 max-w-lg mx-auto font-serif italic mb-4 border-t border-b border-wood-600 py-4 bg-wood-900/30">
+                <p className="text-lg md:text-2xl text-gold-500 max-w-lg mx-auto font-serif italic mb-4 border-t border-b border-wood-600 py-4 bg-wood-900/30 px-4">
                     "The journey is long, the pack is heavy.<br/>Choose your companions wisely."
                 </p>
 
                 {/* Game Mode Badge */}
-                <div className="mb-8 inline-flex items-center gap-2 bg-blue-500/20 border-2 border-blue-500 rounded-full px-6 py-2">
+                <div className="mb-8 inline-flex items-center gap-2 bg-blue-500/20 border-2 border-blue-500 rounded-full px-4 md:px-6 py-2">
                     <LucideIcons.Users size={20} className="text-blue-400" />
-                    <span className="text-blue-300 font-bold uppercase text-sm tracking-wider">
+                    <span className="text-blue-300 font-bold uppercase text-xs md:text-sm tracking-wider">
                         Local Multiplayer • Hot-Seat
                     </span>
                 </div>
@@ -146,7 +146,7 @@ const WelcomeScreen: React.FC = () => {
                 <button
                     onClick={startGame}
                     disabled={players.length < 2}
-                    className="group relative px-12 py-5 bg-gradient-to-r from-gold-600 to-gold-500 border-y-2 border-gold-300 text-wood-900 rounded-lg font-display font-black text-2xl tracking-[0.2em] shadow-[0_0_40px_rgba(234,179,8,0.3)] hover:shadow-[0_0_60px_rgba(234,179,8,0.5)] hover:scale-105 transition-all duration-300 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="group relative px-8 md:px-12 py-4 md:py-5 bg-gradient-to-r from-gold-600 to-gold-500 border-y-2 border-gold-300 text-wood-900 rounded-lg font-display font-black text-xl md:text-2xl tracking-[0.2em] shadow-[0_0_40px_rgba(234,179,8,0.3)] hover:shadow-[0_0_60px_rgba(234,179,8,0.5)] hover:scale-105 active:scale-95 transition-all duration-300 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 touch-manipulation"
                 >
                     <span className="relative z-10 flex items-center gap-4">
                         Start Expedition <LucideIcons.ArrowRight className="group-hover:translate-x-1 transition-transform" />

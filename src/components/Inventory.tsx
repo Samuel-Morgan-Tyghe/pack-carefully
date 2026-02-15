@@ -7,10 +7,23 @@ import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
 import clsx from 'clsx';
 
-const CELL_SIZE = 64; 
-const GAP = 4;
-
 const Inventory: React.FC = () => {
+  // Responsive cell size - smaller on mobile
+  const [cellSize, setCellSize] = React.useState(64);
+  const CELL_SIZE = cellSize;
+  const GAP = 4;
+
+  // Detect mobile and adjust cell size
+  React.useEffect(() => {
+    const updateCellSize = () => {
+      const isMobile = window.innerWidth < 768;
+      setCellSize(isMobile ? 48 : 64);
+    };
+
+    updateCellSize();
+    window.addEventListener('resize', updateCellSize);
+    return () => window.removeEventListener('resize', updateCellSize);
+  }, []);
   const externalDraggedItem = useStore($draggedItem);
   const players = useStore($players);
   const ownerId = players[0]?.id || 'solo'; // Default to first player
@@ -201,15 +214,15 @@ const Inventory: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-full px-2 md:px-0">
       {/* Error Message */}
       {errorMessage && (
-        <div className="mb-4 px-6 py-3 bg-red-500/20 border-2 border-red-500 rounded-lg text-red-200 font-bold text-sm animate-in fade-in slide-in-from-top-2">
+        <div className="mb-4 px-4 md:px-6 py-3 bg-red-500/20 border-2 border-red-500 rounded-lg text-red-200 font-bold text-xs md:text-sm animate-in fade-in slide-in-from-top-2 max-w-full">
           ⚠️ {errorMessage}
         </div>
       )}
 
-      <div className="mb-4 text-camp-orange font-bold text-xl uppercase tracking-widest">
+      <div className="mb-4 text-camp-orange font-bold text-lg md:text-xl uppercase tracking-widest">
         Backpack Capacity
       </div>
 
@@ -221,16 +234,53 @@ const Inventory: React.FC = () => {
       )}
       
       {/* Grid Container - The "Backpack" */}
-      <div 
+      <div
         ref={gridRef}
-        className="relative rounded-3xl p-4 shadow-leather-stitch bg-leather-texture transition-colors"
+        className="relative rounded-3xl p-4 shadow-leather-stitch bg-leather-texture transition-colors touch-manipulation max-w-full overflow-auto"
         id="inventory-grid"
         style={{
-          width: GRID_SIZE * CELL_SIZE + 32 + (GRID_SIZE - 1) * GAP, 
+          width: GRID_SIZE * CELL_SIZE + 32 + (GRID_SIZE - 1) * GAP,
           height: GRID_SIZE * CELL_SIZE + 32 + (GRID_SIZE - 1) * GAP,
+          maxWidth: '100%',
+          touchAction: 'manipulation'
         }}
         onDragOver={handleDragOverExtern}
         onDragLeave={handleDragLeaveExtern}
+        onClick={(e) => {
+            // Handle tap-to-place for mobile/touch
+            if (!externalDraggedItem) return;
+
+            const rect = gridRef.current?.getBoundingClientRect();
+            if (rect) {
+                const x = e.clientX - (rect.left + 20);
+                const y = e.clientY - (rect.top + 20);
+
+                const gx = Math.floor(x / (CELL_SIZE + GAP));
+                const gy = Math.floor(y / (CELL_SIZE + GAP));
+
+                if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
+                    const isDrafting = $draftState.get().availableItems.some(i => i.id === externalDraggedItem);
+
+                    if (isDrafting) {
+                        import('../store/gameStore').then(mod => {
+                            if (mod.draftItemToGrid) {
+                                mod.draftItemToGrid(ownerId, externalDraggedItem, gx, gy);
+                                $draggedItem.set(null);
+                            }
+                        });
+                    } else {
+                        if (!checkCollision(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId, undefined, ITEMS[externalDraggedItem].category)) {
+                            import('../store/gameStore').then(mod => {
+                                if (ITEMS[externalDraggedItem].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId))) {
+                                    placeItem(externalDraggedItem, gx, gy, 0, ownerId);
+                                    $draggedItem.set(null);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        }}
         onDrop={(e) => {
             e.preventDefault();
             const itemId = e.dataTransfer.getData('itemId');
@@ -364,15 +414,18 @@ const Inventory: React.FC = () => {
 
       </div>
       
-      <div className="flex flex-col gap-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-center">
+      <div className="flex flex-col gap-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-center px-2">
         <div>Total: {itemsOnGrid.length}</div>
-        <div className="flex gap-3 flex-wrap justify-center">
+        <div className="hidden md:flex gap-3 flex-wrap justify-center">
           <span>Click: Select</span>
           <span>R/E: Rotate</span>
           <span>Q: Rotate CCW</span>
           <span>Space: Lock</span>
           <span>Del: Remove</span>
           <span>Tab: Cycle</span>
+        </div>
+        <div className="md:hidden text-center text-slate-400">
+          <span>📱 Tap items to select • Tap grid to place</span>
         </div>
       </div>
     </div>
