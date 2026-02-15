@@ -150,6 +150,18 @@ export const addPlayer = (name: string) => {
   ]);
 };
 
+export const removePlayer = (playerId: string) => {
+  const currentPlayers = $players.get();
+  $players.set(currentPlayers.filter(p => p.id !== playerId));
+
+  // Also remove their containers and items
+  const currentContainers = $containers.get();
+  $containers.set(currentContainers.filter(c => c.ownerId !== playerId));
+
+  const currentItems = $itemsOnGrid.get();
+  $itemsOnGrid.set(currentItems.filter(i => i.ownerId !== playerId));
+};
+
 export const startGame = () => {
   const currentPlayers = $players.get();
   const numPlayers = currentPlayers.length;
@@ -270,8 +282,6 @@ export const moveItem = (instanceId: string, x: number, y: number, rotation?: 0 
 
   if (item.locked) return false; // Cannot move locked items
 
-  if (item.locked) return false; // Cannot move locked items
-
   if (checkCollision(x, y, w, h, items, item.ownerId, instanceId)) return false;
 
   $itemsOnGrid.set(items.map(i => 
@@ -291,9 +301,26 @@ export const rotateItem = (instanceId: string) => {
 
 export const toggleLock = (instanceId: string) => {
     const items = $itemsOnGrid.get();
-    $itemsOnGrid.set(items.map(i => 
+    $itemsOnGrid.set(items.map(i =>
         i.instanceId === instanceId ? { ...i, locked: !i.locked } : i
     ));
+};
+
+export const removeItem = (instanceId: string) => {
+    const items = $itemsOnGrid.get();
+    const item = items.find(i => i.instanceId === instanceId);
+    if (!item || item.locked) return; // Cannot remove locked items
+
+    $itemsOnGrid.set(items.filter(i => i.instanceId !== instanceId));
+};
+
+export const rotateItemCounterClockwise = (instanceId: string) => {
+  const items = $itemsOnGrid.get();
+  const item = items.find(i => i.instanceId === instanceId);
+  if (!item || item.locked) return;
+
+  const newRot = (item.rotation - 90 + 360) % 360 as 0 | 90 | 180 | 270;
+  moveItem(instanceId, item.x, item.y, newRot);
 };
 
 export const resetGame = () => {

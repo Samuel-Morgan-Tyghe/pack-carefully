@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '@nanostores/react';
 import { motion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
-import { $adjacencyBonuses, toggleLock, rotateItem } from '../../store/gameStore';
+import { $adjacencyBonuses, toggleLock } from '../../store/gameStore';
 import * as LucideIcons from 'lucide-react';
 import { ITEMS } from '../../lib/items';
 import type { InventoryItemInstance } from '../../types';
@@ -19,18 +19,22 @@ interface BackpackItemProps {
     GAP: number;
     isHighlighted?: boolean;
     cooldown?: number; // 0-100%
+    isSelected?: boolean;
+    onSelect?: () => void;
 }
 
-const BackpackItem: React.FC<BackpackItemProps> = ({ 
-    item, 
-    draggedInstanceId, 
-    onDragStart, 
-    onDrag, 
+const BackpackItem: React.FC<BackpackItemProps> = ({
+    item,
+    draggedInstanceId,
+    onDragStart,
+    onDrag,
     onDragEnd,
     CELL_SIZE,
     GAP,
     isHighlighted,
-    cooldown = 0
+    cooldown = 0,
+    isSelected = false,
+    onSelect
 }) => {
     // If disguised, use the disguise item definition for visuals (Icon, Size?) 
     // Spec says "Alter appearance". Usually this means Icon. 
@@ -96,8 +100,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 if (e.shiftKey) {
                     toggleLock(item.instanceId);
                 } else if (!isDragging) {
-                    playSound.rotate();
-                    rotateItem(item.instanceId);
+                    // Select the item
+                    onSelect?.();
                 }
             }}
             
@@ -105,6 +109,7 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 "absolute cursor-grab active:cursor-grabbing hover:z-20 transition-transform",
                 isDragging ? "z-50 scale-105 pointer-events-none opacity-80" : "z-10",
                 isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50 bg-green-900/20",
+                isSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50 shadow-[0_0_20px_rgba(59,130,246,0.6)]",
                 "rounded-md shadow-md border-2 flex flex-col items-center justify-center select-none touching-action-none transition-colors",
                 // Base colors based on category
                 displayDef.category === 'ESSENTIAL' ? "bg-blue-800 border-blue-600/50" :

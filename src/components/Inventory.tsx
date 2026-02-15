@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
+import clsx from 'clsx';
 
 const CELL_SIZE = 64; 
 const GAP = 4;
@@ -14,6 +15,7 @@ const Inventory: React.FC = () => {
   const players = useStore($players);
   const ownerId = players[0]?.id || 'solo'; // Default to first player
   const allItemsOnGrid = useStore($itemsOnGrid);
+  const allContainers = useStore($containers);
   
   // Sort items: Containers first (Layer 0), then Gear (Layer 1)
   const itemsOnGrid = allItemsOnGrid
@@ -31,6 +33,8 @@ const Inventory: React.FC = () => {
   const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(null);
   const [ghostPosition, setGhostPosition] = useState<{x: number, y: number} | null>(null);
   const [isGhostValid, setIsGhostValid] = useState(true);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const snapToGrid = (point: {x: number, y: number}) => {
      if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 };
@@ -62,8 +66,75 @@ const Inventory: React.FC = () => {
       if (!itemDef) return false;
       const w = (currentRot === 90 || currentRot === 270) ? itemDef.height : itemDef.width;
       const h = (currentRot === 90 || currentRot === 270) ? itemDef.width : itemDef.height;
-      return !checkCollision(gx, gy, w, h, itemsOnGrid, ownerId, instanceId);
+
+      // Check collision first
+      if (checkCollision(gx, gy, w, h, itemsOnGrid, ownerId, instanceId, itemDef.category)) {
+        return false;
+      }
+
+      // For non-container items, also check support (must be inside containers)
+      if (itemDef.category !== 'CONTAINER') {
+        return checkSupport(gx, gy, w, h, itemsOnGrid, ownerId);
+      }
+
+      return true;
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Cancel drag on Escape
+      if (e.key === 'Escape' && draggedInstanceId) {
+        setDraggedInstanceId(null);
+        setGhostPosition(null);
+        return;
+      }
+
+      // If no item is selected, ignore other shortcuts
+      if (!selectedItemId) return;
+
+      const item = itemsOnGrid.find(i => i.instanceId === selectedItemId);
+      if (!item) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'r':
+        case 'e':
+          e.preventDefault();
+          rotateItem(selectedItemId);
+          break;
+        case 'q':
+          e.preventDefault();
+          rotateItemCounterClockwise(selectedItemId);
+          break;
+        case 'delete':
+        case 'backspace':
+          e.preventDefault();
+          removeItem(selectedItemId);
+          setSelectedItemId(null);
+          break;
+        case ' ':
+          e.preventDefault();
+          toggleLock(selectedItemId);
+          break;
+        case 'tab': {
+          e.preventDefault();
+          // Cycle to next item
+          const currentIndex = itemsOnGrid.findIndex(i => i.instanceId === selectedItemId);
+          const nextIndex = (currentIndex + 1) % itemsOnGrid.length;
+          setSelectedItemId(itemsOnGrid[nextIndex]?.instanceId || null);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItemId, itemsOnGrid, draggedInstanceId]);
 
   const handleDragStart = (instanceId: string) => {
       setDraggedInstanceId(instanceId);
@@ -83,11 +154,18 @@ const Inventory: React.FC = () => {
 
   const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
     const { gridX, gridY } = snapToGrid(info.point);
-    
+    const itemDef = ITEMS[itemId];
+
     if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
         moveItem(instanceId, gridX, gridY, currentRot as 0 | 90 | 180 | 270);
+    } else {
+        // Show error message
+        if (itemDef.category !== 'CONTAINER' && !checkSupport(gridX, gridY, itemDef.width, itemDef.height, itemsOnGrid, ownerId)) {
+          setErrorMessage('Items must be placed inside containers!');
+          setTimeout(() => setErrorMessage(null), 3000);
+        }
     }
-    
+
     // Reset state
     setDraggedInstanceId(null);
     setGhostPosition(null);
@@ -124,9 +202,23 @@ const Inventory: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center">
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mb-4 px-6 py-3 bg-red-500/20 border-2 border-red-500 rounded-lg text-red-200 font-bold text-sm animate-in fade-in slide-in-from-top-2">
+          ⚠️ {errorMessage}
+        </div>
+      )}
+
       <div className="mb-4 text-camp-orange font-bold text-xl uppercase tracking-widest">
         Backpack Capacity
       </div>
+
+      {/* Helper message when no containers */}
+      {allContainers.filter(c => c.ownerId === ownerId).length === 0 && (
+        <div className="mb-4 px-6 py-3 bg-blue-500/20 border-2 border-blue-500 rounded-lg text-blue-200 font-bold text-sm max-w-md text-center">
+          💡 Tip: Place containers (backpacks, pouches) first, then place items inside them!
+        </div>
+      )}
       
       {/* Grid Container - The "Backpack" */}
       <div 
@@ -197,22 +289,51 @@ const Inventory: React.FC = () => {
         }}
       >
         {/* Render Grid Background Cells */}
-        <div 
+        <div
           className="grid gap-[4px]"
-          style={{ 
+          style={{
             gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
             gridTemplateRows: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`
           }}
         >
           {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
               return (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="bg-black/20 border-white/5 rounded-sm border shadow-cell-inset"
                 />
               );
           })}
         </div>
+
+        {/* Container Cell Overlays - Show valid placement zones */}
+        {allContainers
+          .filter(c => c.ownerId === ownerId)
+          .map(container =>
+            container.cells.map((cell, idx) => {
+              const isDisabled = container.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y);
+              if (isDisabled) return null;
+
+              return (
+                <div
+                  key={`${container.id}-${idx}`}
+                  className={clsx(
+                    "absolute pointer-events-none transition-all",
+                    draggedInstanceId || externalDraggedItem
+                      ? "bg-green-500/20 border-2 border-green-500/50"
+                      : "bg-blue-500/5 border border-blue-500/20"
+                  )}
+                  style={{
+                    left: cell.x * (CELL_SIZE + GAP),
+                    top: cell.y * (CELL_SIZE + GAP),
+                    width: CELL_SIZE,
+                    height: CELL_SIZE,
+                    borderRadius: '4px'
+                  }}
+                />
+              );
+            })
+          )}
 
         {/* Ghost Highlight */}
         <BackpackGhost 
@@ -227,7 +348,7 @@ const Inventory: React.FC = () => {
 
         {/* Render Items */}
         { itemsOnGrid.map((item) => (
-            <BackpackItem 
+            <BackpackItem
                 key={item.instanceId}
                 item={item}
                 draggedInstanceId={draggedInstanceId}
@@ -236,14 +357,23 @@ const Inventory: React.FC = () => {
                 onDragEnd={handleDragEnd}
                 CELL_SIZE={CELL_SIZE}
                 GAP={GAP}
+                isSelected={selectedItemId === item.instanceId}
+                onSelect={() => setSelectedItemId(item.instanceId)}
             />
         ))}
 
       </div>
       
-      <div className="flex gap-4 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+      <div className="flex flex-col gap-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-center">
         <div>Total: {itemsOnGrid.length}</div>
-        <div>Drag to move • Right-click rotate</div>
+        <div className="flex gap-3 flex-wrap justify-center">
+          <span>Click: Select</span>
+          <span>R/E: Rotate</span>
+          <span>Q: Rotate CCW</span>
+          <span>Space: Lock</span>
+          <span>Del: Remove</span>
+          <span>Tab: Cycle</span>
+        </div>
       </div>
     </div>
   );

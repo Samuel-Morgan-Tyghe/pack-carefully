@@ -12,6 +12,8 @@ import DraftBoard from './game/DraftBoard';
 import JourneyPhase from './game/JourneyPhase';
 import Finale from './game/Finale';
 import DebugVerification from './DebugVerification';
+import Tutorial from './layout/Tutorial';
+import Settings from './layout/Settings';
 
 const GameLayout: React.FC = () => {
     const phase = useStore($phase);
@@ -53,6 +55,8 @@ const GameLayout: React.FC = () => {
                </>
            )}
            <DebugVerification />
+           <Tutorial />
+           <Settings />
         </div>
     );
 };
