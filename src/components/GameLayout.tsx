@@ -35,13 +35,13 @@ const GameLayout: React.FC = () => {
                     <GameHUD />
 
                     {/* Main Content Area - Standard Flow */}
-                    <main className="flex-1 flex w-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 flex-col lg:flex-row max-w-7xl mx-auto">
+                    <main className="flex-1 flex w-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 flex-col xl:flex-row max-w-7xl mx-auto">
 
                         {/* Right Sidebar: Supply Shelf (Comes first in DOM for flex-col stack) */}
                         {(phase === 'PACKING' || phase === 'DRAFT') && <SupplyShelf />}
 
                         {/* Center Stage: Inventory / Game Board */}
-                        <section className="flex-1 flex flex-col justify-start items-center w-full relative min-w-0">
+                        <section className="flex-1 flex flex-col justify-start items-center w-full relative min-w-0 order-last xl:order-none">
                             {phase === 'BAG_BUILDING' && <BagBuilder />}
                             {phase === 'DRAFT' && <SimultaneousDraftBoard />}
 
