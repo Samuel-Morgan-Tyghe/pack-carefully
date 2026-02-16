@@ -53,14 +53,30 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
     const localPlayerId = useStore($localPlayerId);
     const isMe = viewingPlayerId === localPlayerId;
 
+    const draggedItem = useStore($draggedItem);
+    const isSelected = draggedItem === item.id;
+
     return (
         <div
             draggable={isMe}
             onDragStart={(e) => isMe && handleDragStart(e)}
             onDragEnd={handleDragEnd}
+            onClick={() => {
+                if (isMe) {
+                    if (isSelected) {
+                        $draggedItem.set(null);
+                    } else {
+                        $draggedItem.set(item.id);
+                    }
+                }
+            }}
             className={clsx(
                 "group flex flex-col gap-2 p-3 rounded transition-all shadow-sm hover:shadow-md relative overflow-hidden",
-                isMe ? "bg-parchment-100 hover:bg-white border-2 border-parchment-500 hover:border-gold-500 cursor-grab active:cursor-grabbing" : "bg-white/5 border-2 border-white/5 opacity-50 grayscale cursor-not-allowed"
+                isMe ? (
+                    isSelected
+                        ? "bg-gold-50 border-2 border-gold-600 ring-2 ring-gold-400 cursor-pointer"
+                        : "bg-parchment-100 hover:bg-white border-2 border-parchment-500 hover:border-gold-500 cursor-grab active:cursor-grabbing"
+                ) : "bg-white/5 border-2 border-white/5 opacity-50 grayscale cursor-not-allowed"
             )}
         >
             {/* Texture noise */}
