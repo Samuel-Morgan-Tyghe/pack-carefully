@@ -514,8 +514,8 @@ const Inventory: React.FC = () => {
                   className={clsx(
                     "absolute pointer-events-none transition-all",
                     draggedInstanceId || externalDraggedItem
-                      ? "bg-green-500/20 border-2 border-green-500/50"
-                      : "bg-blue-500/5 border border-blue-500/20"
+                      ? "bg-green-500/30 rounded-sm"
+                      : "bg-blue-500/10 rounded-sm"
                   )}
                   style={{
                     left: cell.x * (CELL_SIZE + GAP),
