@@ -140,7 +140,7 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 isDragging ? "z-50 opacity-90" : "z-10",
                 isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50 bg-green-900/20",
                 isSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50 shadow-[0_0_25px_rgba(59,130,246,0.8)] scale-[1.02]",
-                "rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touching-action-none",
+                "rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touch-none",
                 // Base colors based on category
                 displayDef.category === 'ESSENTIAL' ? "bg-gradient-to-br from-blue-700 to-blue-900 border-blue-500/50" :
                     displayDef.category === 'WEAPON' ? "bg-gradient-to-br from-red-800 to-red-950 border-red-600/50" :
