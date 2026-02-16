@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
@@ -49,7 +49,8 @@ const Inventory: React.FC = () => {
   }, []);
   const externalDraggedItem = useStore($draggedItem);
   const players = useStore($players);
-  const ownerId = players[0]?.id || 'solo'; // Default to first player
+  const currentPlayerId = useStore($currentPlayerId);
+  const ownerId = currentPlayerId || players[0]?.id || 'solo';
   const allItemsOnGrid = useStore($itemsOnGrid);
   const allContainers = useStore($containers);
 
@@ -559,6 +560,50 @@ const Inventory: React.FC = () => {
         ))}
 
       </div>
+
+      {/* Item Detail Panel */}
+      {selectedItemId && (() => {
+        const selectedItem = itemsOnGrid.find(i => i.instanceId === selectedItemId);
+        if (!selectedItem) return null;
+        const def = ITEMS[selectedItem.itemId];
+        if (!def) return null;
+        return (
+          <div className="mt-3 max-w-md w-full bg-slate-800/90 border border-slate-600 rounded-xl p-3 md:p-4 text-sm">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-lg font-black text-white">{def.name}</span>
+              <span className="text-xs uppercase tracking-wider text-slate-400 bg-slate-700 px-2 py-0.5 rounded">{def.category}</span>
+              <span className="text-xs text-slate-500 ml-auto">{def.width}×{def.height}</span>
+            </div>
+            <p className="text-slate-300 text-xs mb-2">{def.description}</p>
+            {def.combatStats && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {def.combatStats.damage ? <span className="text-red-400 text-xs font-bold">⚔️ {def.combatStats.damage} DMG</span> : null}
+                {def.combatStats.defense ? <span className="text-blue-400 text-xs font-bold">🛡️ {def.combatStats.defense} DEF</span> : null}
+                {def.combatStats.speed ? <span className="text-yellow-400 text-xs font-bold">⚡ {def.combatStats.speed} SPD</span> : null}
+                {def.combatStats.accuracy ? <span className="text-green-400 text-xs font-bold">🎯 {def.combatStats.accuracy}% ACC</span> : null}
+                {def.combatStats.heal ? <span className="text-emerald-400 text-xs font-bold">💚 {def.combatStats.heal} HEAL</span> : null}
+              </div>
+            )}
+            {def.effects && def.effects.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {def.effects.map((eff, i) => (
+                  <span key={i} className="text-purple-300 text-xs font-bold bg-purple-900/50 px-2 py-0.5 rounded">
+                    {eff.type} ({eff.value}{eff.chance ? `, ${eff.chance}%` : ''})
+                  </span>
+                ))}
+              </div>
+            )}
+            {def.adjacency && def.adjacency.length > 0 && (
+              <div className="border-t border-slate-700 pt-2 mt-2">
+                <span className="text-xs text-slate-400 uppercase tracking-wider">Adjacency Bonuses:</span>
+                {def.adjacency.map((adj, i) => (
+                  <div key={i} className="text-xs text-amber-300 mt-1">✨ {adj.effect}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="flex flex-col gap-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-center px-2">
         <div>Total: {itemsOnGrid.length}</div>

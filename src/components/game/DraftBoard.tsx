@@ -31,13 +31,14 @@ const DraftBoard: React.FC = () => {
 
     return (
         <div className="w-full bg-slate-900/90 border-b-4 border-wood-800 p-2 md:p-4 flex flex-col items-center justify-center shadow-2xl z-40 animate-slide-down">
+            {/* Prominent Turn Banner */}
+            {currentTurnPlayer && (
+                <div className={`w-full max-w-md mx-auto mb-3 md:mb-4 py-2 md:py-3 px-4 md:px-6 rounded-xl text-center font-black text-lg md:text-2xl uppercase tracking-wider border-2 animate-pulse ${currentTurnPlayer.avatarColor} border-white/30 text-white shadow-lg`}>
+                    🎯 {currentTurnPlayer.name}'s Turn
+                </div>
+            )}
             <h2 className="text-lg md:text-2xl font-black text-white uppercase tracking-widest mb-1 md:mb-2 flex flex-col md:flex-row items-center gap-1 md:gap-4">
                 <span>Pick {draft.pickIndex + 1} / {draft.roundOrder.length}</span>
-                {currentTurnPlayer && (
-                     <span className="text-sm md:text-lg text-blue-400 normal-case font-normal animate-pulse">
-                        ({currentTurnPlayer.name}'s Turn)
-                    </span>
-                )}
             </h2>
             <div className="text-slate-400 mb-3 md:mb-6 text-xs md:text-sm flex gap-1 items-center bg-slate-800/50 p-1 md:p-2 rounded-full px-2 md:px-4 overflow-x-auto max-w-full">
                 <span className="mr-2 uppercase text-xs font-bold tracking-widest text-slate-500">Draft Order:</span>
@@ -48,21 +49,21 @@ const DraftBoard: React.FC = () => {
                     return (
                         <div key={idx} className={clsx(
                             "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all shrink-0",
-                            isCurrent ? `border-white scale-125 z-10 shadow-lg ${p?.avatarColor}` : 
-                            isPast ? "border-slate-700 bg-slate-800 text-slate-600" : `border-transparent opacity-50 ${p?.avatarColor}`
+                            isCurrent ? `border-white scale-125 z-10 shadow-lg ${p?.avatarColor}` :
+                                isPast ? "border-slate-700 bg-slate-800 text-slate-600" : `border-transparent opacity-50 ${p?.avatarColor}`
                         )}>
                             {p?.name[0]}
                         </div>
                     );
                 })}
             </div>
-            
+
 
 
             <div className="flex flex-wrap gap-2 md:gap-3 lg:gap-4 justify-center max-w-4xl px-1 md:px-2">
                 {draft.availableItems.map((item) => {
                     const Icon = (LucideIcons[item.icon as keyof typeof LucideIcons] || LucideIcons.Box) as React.ElementType;
-                    
+
                     const isSelected = selectedItemId === item.id;
 
                     return (
@@ -91,7 +92,7 @@ const DraftBoard: React.FC = () => {
                         >
                             <Icon className="text-white mb-1 md:mb-2 w-6 h-6 md:w-8 md:h-8" />
                             <span className="text-[8px] sm:text-[10px] md:text-xs font-bold text-slate-200 text-center px-1 leading-tight">{item.name}</span>
-                            
+
                             {/* Stats Tooltip */}
                             <div className="absolute bottom-full mb-2 bg-slate-900 text-xs p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity w-40 z-50 pointer-events-none border border-slate-700 shadow-xl">
                                 {item.description}

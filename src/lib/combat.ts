@@ -28,11 +28,12 @@ export interface CombatEntity {
     image?: string;
     stats: CombatStats;
     statuses: StatusEffect[];
-    synergies?: SynergyEffect[]; // New field
+    synergies?: SynergyEffect[];
+    onHitEffects?: { type: StatusEffect['type']; value: number; chance?: number }[];
     name: string;
 }
 
-export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { stats: CombatStats, synergies: SynergyEffect[] } => {
+export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { stats: CombatStats, synergies: SynergyEffect[], onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] } => {
     const totalStats: CombatStats = {
         damage: 0,
         defense: 0,
@@ -66,20 +67,20 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
     const bonusesMap = getAdjacencyBonuses(items);
     Object.values(bonusesMap).forEach(bonusResult => {
         bonusResult.activeRules.forEach(rule => {
-             if (rule.includes('DMG')) {
-                 const match = rule.match(/([+-]?\d+)\s+DMG/);
-                 if (match) totalStats.damage += parseInt(match[1]);
-             } else if (rule.includes('Defense')) {
-                 const match = rule.match(/([+-]?\d+)\s+Defense/);
-                 if (match) totalStats.defense += parseInt(match[1]);
-             }
-             // Add others as needed
+            if (rule.includes('DMG')) {
+                const match = rule.match(/([+-]?\d+)\s+DMG/);
+                if (match) totalStats.damage += parseInt(match[1]);
+            } else if (rule.includes('Defense')) {
+                const match = rule.match(/([+-]?\d+)\s+Defense/);
+                if (match) totalStats.defense += parseInt(match[1]);
+            }
+            // Add others as needed
         });
     });
 
     // 3. Advanced Synergies
     const synergies = calculateSynergies(items);
-    
+
     // Some synergies might modify stats immediately (e.g. Cooldown Reduction -> Speed?)
     synergies.forEach(syn => {
         if (syn.type === 'COOLDOWN_REDUCTION') {
@@ -87,7 +88,22 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         }
     });
 
-    return { stats: totalStats, synergies };
+    // 4. Collect On-Hit Effects from weapons
+    const onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] = [];
+    items.forEach(instance => {
+        const def = ITEMS[instance.itemId];
+        if (def.effects) {
+            def.effects.forEach(eff => {
+                onHitEffects.push({
+                    type: eff.type as StatusEffect['type'],
+                    value: eff.value,
+                    chance: eff.chance
+                });
+            });
+        }
+    });
+
+    return { stats: totalStats, synergies, onHitEffects };
 };
 
 export interface CombatLogEntry {
@@ -101,7 +117,7 @@ export const resolveCombatTurn = (
     enemy: CombatEntity,
     round: number
 ): { player: CombatEntity, enemy: CombatEntity, log: CombatLogEntry[] } => {
-    
+
     // Deep copy to avoid mutating state directly
     const p = JSON.parse(JSON.stringify(player));
     const e = JSON.parse(JSON.stringify(enemy));
@@ -136,14 +152,14 @@ export const resolveCombatTurn = (
     if (p.hp <= 0 || e.hp <= 0) return { player: p, enemy: e, log };
 
     // --- PHASE 2: Actions ---
-    
+
     // Check Stuns
     const playerStunned = p.statuses.some((s: StatusEffect) => s.type === 'STUN');
     const enemyStunned = e.statuses.some((s: StatusEffect) => s.type === 'STUN');
 
     // Decrement Stun duration
-    p.statuses = p.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? {...s, value: s.value -1} : s);
-    e.statuses = e.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? {...s, value: s.value -1} : s);
+    p.statuses = p.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? { ...s, value: s.value - 1 } : s);
+    e.statuses = e.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? { ...s, value: s.value - 1 } : s);
 
     // Player Turn
     if (!playerStunned) {
@@ -153,13 +169,13 @@ export const resolveCombatTurn = (
         const hit = Math.random() * 100 <= acc;
 
         if (!hit) {
-             log.push({ round, message: `You missed!`, type: 'MISS' });
+            log.push({ round, message: `You missed!`, type: 'MISS' });
         } else {
             // Calculate Damage
             const dmg = p.stats.damage;
-            
+
             // Check Mitigation
-            let actualDmg = Math.max(0, dmg - e.stats.defense); 
+            let actualDmg = Math.max(0, dmg - e.stats.defense);
             // Helper: Block is temporary HP buffer? Or separate? 
             // Spec: "Block provides temporary HP buffer". 
             if (e.stats.block > 0) {
@@ -172,17 +188,23 @@ export const resolveCombatTurn = (
             e.hp -= actualDmg;
             log.push({ round, message: `You hit ${e.name} for ${actualDmg} damage!`, type: 'DAMAGE' });
 
-            // Apply On-Hit Effects (e.g. from specific weapons)
-            // For now, simple implementation logic:
-            // If player has synergies like STATUS_MULTIPLIER, we check if we applied a status.
-            // Since we don't track *which* item hit, we apply global effects?
-            // "Double Poison": If we apply poison, apply 2x.
-            
-            // NOTE: Ideally we pass Items to resolveCombatTurn to know what hit.
-            // For now, let's assume if you have a Poison Dagger (implied by Synergies referencing it), it applies poison.
-            // ...but we don't know if we have a dagger here.
-            // Simplified: We need "OnHit" effects in CombatStats or CombatEntity.
-            
+            // Apply On-Hit Effects from equipped weapons
+            if (p.onHitEffects) {
+                p.onHitEffects.forEach((eff: { type: StatusEffect['type']; value: number; chance?: number }) => {
+                    const chance = eff.chance ?? 100; // Default 100% if no chance specified
+                    if (Math.random() * 100 <= chance) {
+                        const existing = e.statuses.find((s: StatusEffect) => s.type === eff.type);
+                        if (existing) {
+                            // Stack the effect
+                            existing.value += eff.value;
+                            log.push({ round, message: `${eff.type} stacks on ${e.name}! (${existing.value} total)`, type: 'EFFECT' });
+                        } else {
+                            e.statuses.push({ type: eff.type, value: eff.value });
+                            log.push({ round, message: `${e.name} is afflicted with ${eff.type}!`, type: 'EFFECT' });
+                        }
+                    }
+                });
+            }
         }
     } else {
         log.push({ round, message: `You are Stunned!`, type: 'INFO' });
@@ -191,14 +213,14 @@ export const resolveCombatTurn = (
     // Enemy Turn
     if (!enemyStunned && e.hp > 0) { // If enemy survived and not stunned
         const dmg = e.stats.damage;
-        
+
         let actualDmg = Math.max(0, dmg - p.stats.defense);
         if (p.stats.block > 0) {
-             const blocked = Math.min(p.stats.block, actualDmg);
-             p.stats.block -= blocked; // Block degrades? Or is it per turn?
-             // Spec usually implies Block refreshes or is consumed. Let's consume it.
-             actualDmg -= blocked;
-             log.push({ round, message: `You blocked ${blocked} damage.`, type: 'BLOCK' });
+            const blocked = Math.min(p.stats.block, actualDmg);
+            p.stats.block -= blocked; // Block degrades? Or is it per turn?
+            // Spec usually implies Block refreshes or is consumed. Let's consume it.
+            actualDmg -= blocked;
+            log.push({ round, message: `You blocked ${blocked} damage.`, type: 'BLOCK' });
         }
 
         p.hp -= actualDmg;
@@ -223,7 +245,7 @@ export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity
         maxMana: 0,
         manaRegen: 0
     };
-    
+
     const entity: CombatEntity = {
         name: "Unknown",
         hp: 50 + (difficulty * 10),
@@ -257,7 +279,7 @@ export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity
             break;
         case 'EVASIVE':
             entity.name = "Mist Spirit";
-            entity.stats.defense = 0; 
+            entity.stats.defense = 0;
             entity.stats.speed = 10;
             break;
         case 'BOSS':

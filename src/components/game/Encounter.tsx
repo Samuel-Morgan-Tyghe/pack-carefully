@@ -22,9 +22,9 @@ const Encounter: React.FC = () => {
     // Filter items to only include those owned by players on the current path
     const activePlayers = players.filter(p => p.currentPath === selectedPath).map(p => p.id);
     const pathItems = items.filter(i => activePlayers.includes(i.ownerId));
-    
+
     const [feedback, setFeedback] = useState<string | null>(null);
-    const [combatState, setCombatState] = useState<{player: CombatEntity, enemy: CombatEntity} | null>(null);
+    const [combatState, setCombatState] = useState<{ player: CombatEntity, enemy: CombatEntity } | null>(null);
     const [isFighting, setIsFighting] = useState(false);
     const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
     const [shake, setShake] = useState(0);
@@ -46,7 +46,7 @@ const Encounter: React.FC = () => {
     const handleFight = async () => {
         setIsFighting(true);
         // Create Mock Player Entity from Items
-        const { stats, synergies } = calculatePlayerCombatInfo(pathItems);
+        const { stats, synergies, onHitEffects } = calculatePlayerCombatInfo(pathItems);
         const playerEntity: CombatEntity = {
             name: "Expedition",
             hp: 100, // Shared HP?
@@ -54,7 +54,8 @@ const Encounter: React.FC = () => {
             mana: 0,
             stats,
             statuses: [],
-            synergies
+            synergies,
+            onHitEffects
         };
 
         // Create Enemy (Generic for now, based on threat)
@@ -63,77 +64,77 @@ const Encounter: React.FC = () => {
             hp: difficulty * 2,
             maxHp: difficulty * 2,
             mana: 0,
-            stats: { 
-                damage: 5 + Math.floor(difficulty/5), 
-                defense: 0, 
-                block: 0, 
-                heal: 0, 
-                speed: 5, 
-                accuracy: 90, 
-                maxMana: 0, 
-                manaRegen: 0 
+            stats: {
+                damage: 5 + Math.floor(difficulty / 5),
+                defense: 0,
+                block: 0,
+                heal: 0,
+                speed: 5,
+                accuracy: 90,
+                maxMana: 0,
+                manaRegen: 0
             },
             statuses: [],
             synergies: []
         };
-        
+
         let p = playerEntity;
         let e = enemyEntity;
-        setCombatState({player: p, enemy: e});
-        
+        setCombatState({ player: p, enemy: e });
+
         // Simulating 5 turns
         let victory = false;
-        
-        for(let r=1; r<=5; r++) {
-             await wait(800);
-             const res = resolveCombatTurn(p, e, r);
-             
-             // Process Log for Effects
-             for (const entry of res.log) {
-                 await wait(400); // Stagger events
-                 
-                 // Determine who was hit/acted based on message (Simple heuristic for now)
-                 // Ideally log would have source/target IDs.
-                 const isPlayerAction = entry.message.startsWith("You");
-                 // const isEnemyAction = entry.message.includes(e.name); // Unused
-                 
-                 if (entry.type === 'DAMAGE') {
-                     playSound.combatHit();
-                     setShake(prev => prev + 1);
-                     // If player damaged enemy
-                     if (entry.message.includes(e.name) && entry.message.includes("hit")) {
-                         addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", 200, -50, '#ef4444');
-                     }
-                     // If enemy damaged player
-                     if (entry.message.includes("attacks for")) {
-                         addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", -200, -50, '#ef4444');
-                     }
-                     // Keep existing sound logic or move it here? 
-                     // Moving it here for sync.
-                 } else if (entry.type === 'BLOCK') {
-                     playSound.combatBlock();
-                     addFloatingText("Blocked", isPlayerAction ? -200 : 200, -80, '#3b82f6');
-                 } else if (entry.type === 'MISS') {
-                     playSound.combatMiss();
-                     addFloatingText("Miss", isPlayerAction ? 200 : -200, -80, '#9ca3af');
-                 }
-             }
 
-             p = res.player;
-             e = res.enemy;
-             setCombatState({player: p, enemy: e}); // Update UI
+        for (let r = 1; r <= 5; r++) {
+            await wait(800);
+            const res = resolveCombatTurn(p, e, r);
 
-             if (e.hp <= 0) {
-                 victory = true;
-                 break;
-             }
-             if (p.hp <= 0) break;
+            // Process Log for Effects
+            for (const entry of res.log) {
+                await wait(400); // Stagger events
+
+                // Determine who was hit/acted based on message (Simple heuristic for now)
+                // Ideally log would have source/target IDs.
+                const isPlayerAction = entry.message.startsWith("You");
+                // const isEnemyAction = entry.message.includes(e.name); // Unused
+
+                if (entry.type === 'DAMAGE') {
+                    playSound.combatHit();
+                    setShake(prev => prev + 1);
+                    // If player damaged enemy
+                    if (entry.message.includes(e.name) && entry.message.includes("hit")) {
+                        addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", 200, -50, '#ef4444');
+                    }
+                    // If enemy damaged player
+                    if (entry.message.includes("attacks for")) {
+                        addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", -200, -50, '#ef4444');
+                    }
+                    // Keep existing sound logic or move it here? 
+                    // Moving it here for sync.
+                } else if (entry.type === 'BLOCK') {
+                    playSound.combatBlock();
+                    addFloatingText("Blocked", isPlayerAction ? -200 : 200, -80, '#3b82f6');
+                } else if (entry.type === 'MISS') {
+                    playSound.combatMiss();
+                    addFloatingText("Miss", isPlayerAction ? 200 : -200, -80, '#9ca3af');
+                }
+            }
+
+            p = res.player;
+            e = res.enemy;
+            setCombatState({ player: p, enemy: e }); // Update UI
+
+            if (e.hp <= 0) {
+                victory = true;
+                break;
+            }
+            if (p.hp <= 0) break;
         }
-        
+
         const success = victory || (p.hp > e.hp); // Win if killed or have more HP after 5 rounds
-        
+
         await wait(1000);
-        
+
         // Apply consequences immediately
         if (!success) {
             playSound.defeat();
@@ -149,7 +150,7 @@ const Encounter: React.FC = () => {
         // Update result locally for display (since gameStore might not store detailed result in history yet? 
         // Actually completeEncounter doesn't take result object, just success boolean.
         // But we added lastEncounterResult to GameState in types!
-        
+
         $gameState.set({
             ...current,
             lastEncounterResult: {
@@ -159,7 +160,7 @@ const Encounter: React.FC = () => {
                 message: success ? "Victory!" : "Defeat!"
             }
         });
-        
+
         // Mark as resolved and move to results
         completeEncounter(success);
         setIsFighting(false);
@@ -168,12 +169,12 @@ const Encounter: React.FC = () => {
     const handleTacticalLoss = () => {
         // Find a random player on this path to take the scrap
         const randomVictimId = activePlayers[Math.floor(Math.random() * activePlayers.length)];
-        
+
         // Intentionally lose to get Cursed Scrap
-        damageMorale(15); 
+        damageMorale(15);
         addRandomLoot('curse_scrap', randomVictimId);
         playSound.defeat();
-        
+
         setFeedback("Scavenged Cursed Scrap! (-15 Morale)");
 
         setTimeout(() => {
@@ -191,13 +192,13 @@ const Encounter: React.FC = () => {
     };
 
     return (
-        <motion.div 
+        <motion.div
             animate={{ x: shake % 2 === 0 ? 0 : [0, -10, 10, -10, 10, 0] }}
             transition={{ duration: 0.4 }}
             className="flex flex-col items-center justify-center text-parchment-100 p-8 h-full relative"
         >
             <h2 className="text-5xl font-black mb-8 text-red-500 tracking-wider">ENCOUNTER!</h2>
-            
+
             <div className="flex gap-32 mb-12 items-center relative">
                 {/* ENEMY */}
                 <div className="flex flex-col items-center relative">
@@ -205,23 +206,23 @@ const Encounter: React.FC = () => {
                         {isFighting && combatState ? combatState.enemy.name : "THREAT"}
                     </div>
                     {isFighting && combatState ? (
-                         <div className="relative">
-                             <motion.div 
+                        <div className="relative">
+                            <motion.div
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ repeat: Infinity, duration: 2 }}
                                 className="text-6xl font-black text-red-500"
                             >
                                 {combatState.enemy.hp}
-                             </motion.div>
-                             {/* HP Bar */}
-                             <div className="w-32 h-4 bg-red-900 rounded-full mt-2 overflow-hidden border border-red-500">
-                                 <motion.div 
+                            </motion.div>
+                            {/* HP Bar */}
+                            <div className="w-32 h-4 bg-red-900 rounded-full mt-2 overflow-hidden border border-red-500">
+                                <motion.div
                                     className="h-full bg-red-500"
                                     initial={{ width: '100%' }}
                                     animate={{ width: `${(combatState.enemy.hp / combatState.enemy.maxHp) * 100}%` }}
-                                 />
-                             </div>
-                         </div>
+                                />
+                            </div>
+                        </div>
                     ) : (
                         <div className="text-6xl font-black text-red-500">{difficulty}</div>
                     )}
@@ -240,15 +241,15 @@ const Encounter: React.FC = () => {
                                 {combatState.player.hp}
                             </div>
                             <div className="w-32 h-4 bg-green-900 rounded-full mt-2 overflow-hidden border border-green-500">
-                                 <motion.div 
+                                <motion.div
                                     className="h-full bg-green-500"
                                     initial={{ width: '100%' }}
                                     animate={{ width: `${(combatState.player.hp / combatState.player.maxHp) * 100}%` }}
-                                 />
-                             </div>
+                                />
+                            </div>
                         </div>
                     ) : (
-                        <motion.div 
+                        <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             className={`text-6xl font-black ${power >= difficulty ? 'text-green-400' : 'text-yellow-500'}`}
@@ -257,8 +258,8 @@ const Encounter: React.FC = () => {
                         </motion.div>
                     )}
                 </div>
-                
-                {/* Floating Texts Layer */ }
+
+                {/* Floating Texts Layer */}
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <AnimatePresence>
                         {floatingTexts.map(ft => (
@@ -268,8 +269,8 @@ const Encounter: React.FC = () => {
                                 animate={{ opacity: 0, y: -100, scale: 1.5 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 1 }}
-                                style={{ 
-                                    position: 'absolute', 
+                                style={{
+                                    position: 'absolute',
                                     left: ft.x > 0 ? '60%' : '20%', // Rough positioning relative to center
                                     top: '40%',
                                     color: ft.color,
@@ -291,7 +292,7 @@ const Encounter: React.FC = () => {
 
             {!isFighting && (
                 <div className="flex gap-8">
-                    <motion.button 
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleFight}
@@ -299,8 +300,8 @@ const Encounter: React.FC = () => {
                     >
                         FIGHT!
                     </motion.button>
-                    
-                    <motion.button 
+
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleTacticalLoss}
@@ -313,7 +314,7 @@ const Encounter: React.FC = () => {
             )}
 
             {feedback && (
-                <motion.div 
+                <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     className="absolute inset-0 flex items-center justify-center bg-black/60 z-50 pointer-events-none"

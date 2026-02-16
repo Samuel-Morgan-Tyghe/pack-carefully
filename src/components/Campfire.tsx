@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { $players, $gameState, advanceDay, rummageInventory, revealDisguises, healMorale } from '../store/gameStore';
+import { $players, $gameState, advanceDay, rummageInventory, revealDisguises, healMorale, $currentPlayerId } from '../store/gameStore';
 import { motion } from 'framer-motion';
 import { Flame, Skull, ThumbsDown, MessageSquare } from 'lucide-react';
 import clsx from 'clsx';
@@ -8,31 +8,34 @@ import clsx from 'clsx';
 const Campfire: React.FC = () => {
     const players = useStore($players);
     const gameState = useStore($gameState);
+    const currentPlayerId = useStore($currentPlayerId);
     const [votes, setVotes] = useState<Record<string, string>>({}); // voterId -> targetId
     const [sabotageFeedback, setSabotageFeedback] = useState<string | null>(null);
 
     // Mock results for now - in real implementation we'd pull these from history
     const pathStatus = gameState.pathStatus;
 
-    // Check if local player (mocked as index 0) is Traitor
-    const isTraitor = players[0]?.role === 'Traitor';
+    // Find current player from the tracked ID
+    const currentPlayer = players.find(p => p.id === currentPlayerId) || players[0];
+    const isTraitor = currentPlayer?.role === 'Traitor';
 
     const handleSabotage = (targetId: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Don't trigger vote
         const success = rummageInventory(targetId);
-        
+
         if (success) {
             setSabotageFeedback("Sabotage Successful! Item moved.");
         } else {
             setSabotageFeedback("Sabotage Failed (No items/Start blocked?)");
         }
-        
+
         setTimeout(() => setSabotageFeedback(null), 2000);
     };
-    
+
     const handleVote = (targetId: string) => {
-        // For prototype, just toggle vote for "current player" (mocking first player)
-        const myId = players[0].id;
+        // For prototype, just toggle vote for current player
+        const myId = currentPlayer?.id;
+        if (!myId) return;
         setVotes(prev => ({
             ...prev,
             [myId]: targetId
@@ -46,7 +49,7 @@ const Campfire: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center h-full max-w-6xl mx-auto p-8 gap-8">
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-4 text-camp-orange mb-8"
@@ -66,7 +69,7 @@ const Campfire: React.FC = () => {
                     <h3 className="text-2xl font-bold text-parchment-200 mb-6 flex items-center gap-2">
                         <MessageSquare /> Mission Report
                     </h3>
-                    
+
                     <div className="space-y-6">
                         {/* Left Path Result */}
                         <div className={clsx(
@@ -75,7 +78,7 @@ const Campfire: React.FC = () => {
                         )}>
                             <div className="font-bold text-lg mb-1">The Quiet Trail</div>
                             <div className="text-parchment-300">
-                                {pathStatus.LEFT === 'RESOLVED' 
+                                {pathStatus.LEFT === 'RESOLVED'
                                     ? " The path was clear. Supplies were gathered."
                                     : " No one returned from this path (or it was skipped)."
                                 }
@@ -87,13 +90,13 @@ const Campfire: React.FC = () => {
                             "p-4 rounded-lg border-l-4",
                             pathStatus.RIGHT === 'RESOLVED' ? "bg-green-900/20 border-green-500" : "bg-red-900/20 border-red-500"
                         )}>
-                             <div className="font-bold text-lg mb-1">The Dark Woods</div>
-                             <div className="text-parchment-300">
-                                {pathStatus.RIGHT === 'RESOLVED' 
+                            <div className="font-bold text-lg mb-1">The Dark Woods</div>
+                            <div className="text-parchment-300">
+                                {pathStatus.RIGHT === 'RESOLVED'
                                     ? " The beast was repelled. The team survives."
                                     : " Logic pending for skipped/failed right path."
                                 }
-                             </div>
+                            </div>
                         </div>
 
                         <div className="mt-8 p-4 bg-wood-800/50 rounded text-center italic text-parchment-400">
@@ -113,16 +116,16 @@ const Campfire: React.FC = () => {
 
                     <div className="flex-1 space-y-3">
                         {players.map(p => {
-                            const myVote = votes[players[0].id] === p.id;
-                            
+                            const myVote = currentPlayer && votes[currentPlayer.id] === p.id;
+
                             return (
-                                <button 
+                                <button
                                     key={p.id}
                                     onClick={() => handleVote(p.id)}
                                     className={clsx(
                                         "w-full flex items-center gap-4 p-3 rounded-lg border transition-all text-left",
-                                        myVote 
-                                            ? "bg-red-900/40 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" 
+                                        myVote
+                                            ? "bg-red-900/40 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
                                             : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30"
                                     )}
                                 >
@@ -135,7 +138,7 @@ const Campfire: React.FC = () => {
                                     </div>
 
                                     {/* Traitor Action */}
-                                    {isTraitor && p.id !== players[0].id && (
+                                    {isTraitor && currentPlayer && p.id !== currentPlayer.id && (
                                         <button
                                             onClick={(e) => handleSabotage(p.id, e)}
                                             className="px-3 py-1 bg-purple-900 border border-purple-500 text-purple-200 text-xs font-bold rounded hover:bg-purple-800 mr-2"
@@ -146,12 +149,13 @@ const Campfire: React.FC = () => {
                                     )}
 
                                     {/* Investigate Action (Anyone) */}
-                                    {p.id !== players[0].id && (
-                                         <button
+                                    {currentPlayer && p.id !== currentPlayer.id && (
+                                        <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 const count = revealDisguises(p.id);
-                                                alert(`Investigated ${p.name}: Found ${count} disguised items.`);
+                                                setSabotageFeedback(`Investigated ${p.name}: Found ${count} disguised item${count !== 1 ? 's' : ''}.`);
+                                                setTimeout(() => setSabotageFeedback(null), 4000);
                                             }}
                                             className="px-3 py-1 bg-blue-900 border border-blue-500 text-blue-200 text-xs font-bold rounded hover:bg-blue-800"
                                             title="Reveal Disguises"
@@ -159,7 +163,7 @@ const Campfire: React.FC = () => {
                                             INSPECT
                                         </button>
                                     )}
-                                    
+
                                     {/* Vote Indicator */}
                                     {myVote && (
                                         <div className="text-red-500 font-black uppercase tracking-widest text-xs flex items-center gap-1">
@@ -171,7 +175,7 @@ const Campfire: React.FC = () => {
                         })}
                     </div>
 
-                    <button 
+                    <button
                         onClick={handleSleep}
                         className="mt-8 w-full py-4 bg-wood-600 hover:bg-wood-500 text-parchment-100 font-bold rounded-lg shadow-lg border-t border-wood-400 flex items-center justify-center gap-2 group"
                     >
@@ -182,16 +186,16 @@ const Campfire: React.FC = () => {
             </div>
 
             <div className="absolute top-4 right-4 space-y-2 pointer-events-none">
-                 {sabotageFeedback && (
-                     <motion.div 
+                {sabotageFeedback && (
+                    <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
                         className="bg-purple-900/90 text-purple-100 px-4 py-2 rounded shadow-lg border border-purple-500 font-bold flex items-center gap-2"
-                     >
-                         <Skull size={16} /> {sabotageFeedback}
-                     </motion.div>
-                 )}
+                    >
+                        <Skull size={16} /> {sabotageFeedback}
+                    </motion.div>
+                )}
             </div>
         </div>
     );
