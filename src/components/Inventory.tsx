@@ -5,6 +5,8 @@ import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, rotate
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
+import { Star } from 'lucide-react';
+import { getAdjacencyBonuses, type AdjacencyResult } from '../lib/adjacency';
 import clsx from 'clsx';
 
 interface InventoryProps {
@@ -97,6 +99,13 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
 
   const bagWidthCells = (maxX - minX + 1);
   const bagHeightCells = (maxY - minY + 1);
+
+  // Calculate Adjacency Bonuses & Stars
+  const adjacencyResults = getAdjacencyBonuses(itemsOnGrid);
+
+  // Collect all squares that have stars
+  const allStarredSquares = Object.values(adjacencyResults).flatMap((res: AdjacencyResult) => res.boostedSquares || []);
+  const starredKeys = new Set(allStarredSquares.map((s: { x: number, y: number }) => `${s.x},${s.y}`));
 
 
   const snapToGrid = (point: { x: number, y: number }, itemWidth: number = 1, itemHeight: number = 1) => {
@@ -529,6 +538,13 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
                 >
                   {/* Internal Texture Noise/Pattern */}
                   <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
+                  {/* Star Indication */}
+                  {starredKeys.has(`${cell.x},${cell.y}`) && (
+                    <div className="absolute inset-0 flex items-center justify-center animate-pulse pointer-events-none">
+                      <Star className="w-5 h-5 text-gold-400 fill-gold-400 opacity-50" />
+                    </div>
+                  )}
+
                   {/* Valid Placement Highlight */}
                   {(draggedInstanceId || externalDraggedItem) && (
                     <div className="absolute inset-0 bg-green-500/20 animate-pulse" />
@@ -567,6 +583,7 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
             onSelect={() => setSelectedItemId(item.instanceId)}
             minX={minX}
             minY={minY}
+            adjacencyResult={adjacencyResults[item.instanceId]}
           />
         ))}
 

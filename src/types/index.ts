@@ -4,12 +4,18 @@ export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'JOURNEY' | 'CAMPFI
 
 export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABOTAGE' | 'CONTAINER' | 'WEAPON' | 'CLOTHING';
 
+export type AdjacencyPattern = 'ADJACENT' | 'PARALLEL' | 'TWO_ACROSS' | { dx: number, dy: number }[];
+
 export interface AdjacencyRule {
-  type: 'BUFF' | 'DEBUFF' | 'MECHANIC';
+  type: 'BUFF' | 'DEBUFF' | 'MULTIPLIER' | 'BOOST_SQUARE';
+  pattern: AdjacencyPattern;
   targetCategories?: ItemCategory[];
   targetIds?: string[];
+  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown';
   effect: string;
-  value: number;
+  value: number; // For BUFF/DEBUFF: added value. For MULTIPLIER: factor (e.g. 1.5). For BOOST_SQUARE: level?
+  stacking?: boolean; // If true, applies for EACH item matching the pattern
+  targetSelf?: boolean; // If true, the buff applies to the source item, not the target
 }
 
 export interface Item {

@@ -65,21 +65,49 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
 
     // 2. Adjacency Bonuses
     const bonusesMap = getAdjacencyBonuses(items);
+
+    // Multipliers collect factors (e.g. 1.5, 2.0)
+    const totalMultipliers: Record<string, number> = {
+        damage: 1,
+        defense: 1,
+        block: 1,
+        heal: 1,
+        speed: 1,
+        accuracy: 1
+    };
+
     Object.values(bonusesMap).forEach(bonusResult => {
-        bonusResult.activeRules.forEach(rule => {
-            if (rule.includes('DMG')) {
-                const match = rule.match(/([+-]?\d+)\s+DMG/);
-                if (match) totalStats.damage += parseInt(match[1]);
-            } else if (rule.includes('Defense')) {
-                const match = rule.match(/([+-]?\d+)\s+Defense/);
-                if (match) totalStats.defense += parseInt(match[1]);
-            }
-            // Add others as needed
-        });
+        // Apply Additive Buffs
+        if (bonusResult.buffs) {
+            Object.entries(bonusResult.buffs).forEach(([stat, val]) => {
+                if (stat in totalStats) {
+                    (totalStats as unknown as Record<string, number>)[stat] += val;
+                }
+            });
+        }
+
+        // Apply Multiplicative Buffs (factors)
+        if (bonusResult.multipliers) {
+            Object.entries(bonusResult.multipliers).forEach(([stat, val]) => {
+                if (stat in totalMultipliers) {
+                    totalMultipliers[stat] *= val;
+                }
+            });
+        }
     });
+
+    // Finalize stats with multipliers
+    totalStats.damage = Math.floor(totalStats.damage * totalMultipliers.damage);
+    totalStats.defense = Math.floor(totalStats.defense * totalMultipliers.defense);
+    totalStats.block = Math.floor(totalStats.block * totalMultipliers.block);
+    totalStats.heal = Math.floor(totalStats.heal * totalMultipliers.heal);
+    totalStats.speed = Math.floor(totalStats.speed * totalMultipliers.speed);
+    totalStats.accuracy = Math.floor(totalStats.accuracy * totalMultipliers.accuracy);
 
     // 3. Advanced Synergies
     const synergies = calculateSynergies(items);
+
+    // ... rest of the function remains similar ...
 
     // Some synergies might modify stats immediately (e.g. Cooldown Reduction -> Speed?)
     synergies.forEach(syn => {

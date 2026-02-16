@@ -1,13 +1,13 @@
-import React from 'react';
-import { useStore } from '@nanostores/react';
 import { motion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
-import { $adjacencyBonuses, toggleLock } from '../../store/gameStore';
+import { toggleLock } from '../../store/gameStore';
 import * as LucideIcons from 'lucide-react';
 import { ITEMS } from '../../lib/items';
 import type { InventoryItemInstance } from '../../types';
 import clsx from 'clsx';
 import { playSound } from '../../lib/sounds';
+
+import type { AdjacencyResult } from '../../lib/adjacency';
 
 interface BackpackItemProps {
     item: InventoryItemInstance;
@@ -26,6 +26,7 @@ interface BackpackItemProps {
     onSelect?: () => void;
     minX: number;
     minY: number;
+    adjacencyResult?: AdjacencyResult;
 }
 
 const BackpackItem: React.FC<BackpackItemProps> = ({
@@ -44,7 +45,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     isSelected = false,
     onSelect,
     minX,
-    minY
+    minY,
+    adjacencyResult
 }) => {
     // If disguised, use the disguise item definition for visuals (Icon, Size?) 
     // Spec says "Alter appearance". Usually this means Icon. 
@@ -66,9 +68,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     const displayDef = disguiseDef || realItemDef;
     const itemDef = realItemDef; // Used for dimensions/logic
 
-    const adjacency = useStore($adjacencyBonuses);
     const isDragging = draggedInstanceId === item.instanceId;
-    const myBonus = adjacency[item.instanceId];
+    const myBonus = adjacencyResult;
 
     // Dimensions
     const w = (item.rotation === 90 || item.rotation === 270) ? itemDef.height : itemDef.width;
@@ -77,7 +78,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     const widthPx = w * CELL_SIZE + (w - 1) * GAP;
     const heightPx = h * CELL_SIZE + (h - 1) * GAP;
 
-
+    // Detect if x2 speed is active
+    const hasSpeedBoost = myBonus?.multipliers?.speed === 2;
 
     return (
         <motion.div
@@ -137,7 +139,7 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 }
             }}
 
-            className={clsx( // Changed from 'cn' to 'clsx' to match existing import
+            className={clsx(
                 "absolute cursor-grab active:cursor-grabbing hover:z-20 transition-all duration-200",
                 isDragging ? "z-50 opacity-90" : "z-10",
                 isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50 bg-green-900/20",
@@ -152,7 +154,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                                     "bg-gradient-to-br from-gray-600 to-gray-800 border-gray-500/50",
 
                 // Active Adjacency Glow
-                myBonus?.totalBuff > 0 && "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
+                (myBonus?.totalBuff || 0) > 0 && "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
+                hasSpeedBoost && "shadow-[0_0_20px_rgba(255,255,255,0.6)] border-white scale-[1.05]",
 
                 // Locked Visual
                 item.locked && "grayscale opacity-90 border-red-500/50 ring-2 ring-red-900/40"
@@ -175,7 +178,12 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 </span>
             )}
 
-
+            {/* Speed Boost Badge */}
+            {hasSpeedBoost && (
+                <div className="absolute top-0 left-0 bg-white text-black text-[8px] font-black px-1 rounded-br-md shadow-md animate-pulse">
+                    X2 SPEED
+                </div>
+            )}
 
             {/* Lock Icon Overlay */}
             {item.locked && (
@@ -193,10 +201,18 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                     transition={{ duration: 0.1 }}
                 />
             )}
-            {/* Adjacency Badge */}
-            {myBonus?.totalBuff > 0 && !item.locked && (
+
+            {/* Adjacency Badge (Additive) */}
+            {myBonus && (myBonus.totalBuff || 0) > 0 && !item.locked && (
                 <div className="absolute -top-2 -right-2 bg-gold-500 text-wood-900 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white transform scale-100 animate-bounce-subtle z-20">
                     +{myBonus.totalBuff}
+                </div>
+            )}
+
+            {/* Multiplier Badge */}
+            {myBonus && Object.keys(myBonus.multipliers).length > 0 && !item.locked && (
+                <div className="absolute -bottom-2 -left-2 bg-blue-500 text-white font-bold text-[8px] px-1 py-0.5 rounded shadow-lg border border-white z-20">
+                    {Object.entries(myBonus.multipliers).map(([stat, val]) => `x${val} ${stat.slice(0, 3)}`).join(', ')}
                 </div>
             )}
 
@@ -204,9 +220,9 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             <div className="absolute inset-0 opacity-0 hover:opacity-100 bg-black/80 flex flex-col items-center justify-center text-[10px] p-1 text-center pointer-events-none transition-opacity z-10">
                 <div className="font-bold text-gold-500">{itemDef.name}</div>
                 <div>{itemDef.description}</div>
-                {myBonus?.activeRules.length > 0 && (
+                {(myBonus?.activeRules?.length || 0) > 0 && (
                     <div className="text-green-400 mt-1 border-t border-white/20 pt-1">
-                        {myBonus.activeRules.map((r, i) => <div key={i}>{r}</div>)}
+                        {myBonus!.activeRules.map((r, i) => <div key={i}>{r}</div>)}
                     </div>
                 )}
             </div>

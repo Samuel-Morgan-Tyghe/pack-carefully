@@ -600,28 +600,36 @@ export const startDraft = () => {
     players.forEach(p => {
         const pool: Item[] = [];
 
-        // Scaling Logic:
-        // Day 1: Common mostly, maybe 1 Uncommon
-        // Day 5: Likely Uncommon, Rare, maybe Legendary
-        for (let i = 0; i < 3; i++) {
+        // Helper to roll rarity
+        const rollRarity = (): 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY' => {
             const roll = Math.random();
-            // Simple rarity weight adjustment based on day
-            // Day 1 (day=1): common=0.8, uncommon=0.2
-            // Day 5 (day=5): uncommon=0.4, rare=0.3, legendary=0.1
             const uncommonWeight = Math.min(0.5, 0.1 + (day * 0.08));
             const rareWeight = Math.min(0.3, day * 0.06);
-            // Legendary weight only starts appearing after day 3
             const legendaryWeight = day >= 4 ? 0.05 + (day - 4) * 0.05 : 0;
 
-            let selectedRarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY' = 'COMMON';
-            if (roll < legendaryWeight) selectedRarity = 'LEGENDARY';
-            else if (roll < legendaryWeight + rareWeight) selectedRarity = 'RARE';
-            else if (roll < legendaryWeight + rareWeight + uncommonWeight) selectedRarity = 'UNCOMMON';
+            if (roll < legendaryWeight) return 'LEGENDARY';
+            if (roll < legendaryWeight + rareWeight) return 'RARE';
+            if (roll < legendaryWeight + rareWeight + uncommonWeight) return 'UNCOMMON';
+            return 'COMMON';
+        };
 
+        // 1. Guaranteed Offensive (Weapon)
+        const weaponRarity = rollRarity();
+        const weapons = allItems.filter(i => i.category === 'WEAPON' && i.rarity === weaponRarity);
+        const guaranteedWeapon = (weapons.length > 0 ? weapons : allItems.filter(i => i.category === 'WEAPON'))[Math.floor(Math.random() * (weapons.length || allItems.filter(i => i.category === 'WEAPON').length))];
+        pool.push(guaranteedWeapon);
+
+        // 2. Guaranteed Defensive (Clothing/Survival/Shield)
+        const defRarity = rollRarity();
+        const defensiveItems = allItems.filter(i => (i.category === 'CLOTHING' || i.category === 'SURVIVAL' || i.combatStats?.defense || i.combatStats?.block) && i.rarity === defRarity);
+        const guaranteedDefensive = (defensiveItems.length > 0 ? defensiveItems : allItems.filter(i => i.category === 'CLOTHING'))[Math.floor(Math.random() * (defensiveItems.length || allItems.filter(i => i.category === 'CLOTHING').length))];
+        pool.push(guaranteedDefensive);
+
+        // 3. 6 Random Items
+        for (let i = 0; i < 6; i++) {
+            const selectedRarity = rollRarity();
             const filters = allItems.filter(item => item.rarity === selectedRarity && item.category !== 'SABOTAGE');
-            // Fallback if no items in rarity (shouldn't happen with our db)
             const finalPool = filters.length > 0 ? filters : allItems.filter(i => i.rarity === 'COMMON');
-
             pool.push(finalPool[Math.floor(Math.random() * finalPool.length)]);
         }
 
