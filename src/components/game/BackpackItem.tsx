@@ -24,6 +24,8 @@ interface BackpackItemProps {
     cooldown?: number; // 0-100%
     isSelected?: boolean;
     onSelect?: () => void;
+    minX: number;
+    minY: number;
 }
 
 const BackpackItem: React.FC<BackpackItemProps> = ({
@@ -40,7 +42,9 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     isHighlighted,
     cooldown = 0,
     isSelected = false,
-    onSelect
+    onSelect,
+    minX,
+    minY
 }) => {
     // If disguised, use the disguise item definition for visuals (Icon, Size?) 
     // Spec says "Alter appearance". Usually this means Icon. 
@@ -84,18 +88,16 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             whileDrag={{
                 scale: 1.05,
                 zIndex: 100,
-                rotate: item.rotation,
                 boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)"
-            }} // Keep rotation while dragging visually
+            }}
 
             // Initial position
             style={{
                 position: 'absolute',
                 width: widthPx,
                 height: heightPx,
-                left: item.x * (CELL_SIZE + GAP),
-                top: item.y * (CELL_SIZE + GAP),
-                rotate: item.rotation // Apply rotation to the DIV
+                left: (item.x - minX) * (CELL_SIZE + GAP),
+                top: (item.y - minY) * (CELL_SIZE + GAP),
             }}
 
             onDragStart={() => {
@@ -159,7 +161,11 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             {/* Icon */}
             {(() => {
                 const IconComponent = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[displayDef.icon] || LucideIcons.Box;
-                return <IconComponent className={clsx("text-parchment-100", w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8", item.locked && "text-red-400/50")} />;
+                return (
+                    <div style={{ rotate: `${item.rotation}deg` }} className="transition-transform duration-300">
+                        <IconComponent className={clsx("text-parchment-100", w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8", item.locked && "text-red-400/50")} />
+                    </div>
+                );
             })()}
 
             {/* Show Name if space allows */}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useStore } from '@nanostores/react';
 import { $players, $localPlayerId, setLocalPlayer, $phase } from '../store/gameStore';
-import { User, Shield, View } from 'lucide-react';
-import clsx from 'clsx';
+import { Shield } from 'lucide-react';
+import type { Player } from '../types';
 
 const IdentityManager: React.FC = () => {
     const players = useStore($players);
@@ -16,36 +16,15 @@ const IdentityManager: React.FC = () => {
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-4 w-full max-w-xl px-4">
             {!localPlayerId ? (
                 <div className="bg-wood-800/95 border-2 border-gold-500/50 p-6 rounded-2xl shadow-2xl backdrop-blur-md w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <h3 className="text-xl font-display text-gold-500 mb-4 text-center tracking-widest flex items-center justify-center gap-2">
-                        <User className="w-5 h-5" /> CLAIM YOUR CHARACTER
-                    </h3>
-                    <p className="text-parchment-200/70 text-sm mb-6 text-center">
-                        This device will be locked to your character for this session.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        {players.map(player => {
-                            // For BroadcastChannel, we'd need another atom to track claimed status effectively
-                            return (
-                                <button
-                                    key={player.id}
-                                    onClick={() => setLocalPlayer(player.id)}
-                                    className={clsx(
-                                        "p-3 rounded-lg border-2 transition-all flex items-center gap-3 bg-black/40",
-                                        "hover:border-gold-500/50 hover:bg-black/60 active:scale-95",
-                                        "border-white/10 text-parchment-200"
-                                    )}
-                                >
-                                    <div className={clsx("w-3 h-3 rounded-full", player.avatarColor)} />
-                                    <span className="font-bold">{player.name}</span>
-                                </button>
-                            );
-                        })}
+                    <div className="flex flex-col gap-4">
+                        <p className="text-parchment-200 text-center">You need to join the expedition to play.</p>
                         <button
-                            onClick={() => setLocalPlayer('OBSERVER')}
-                            className="col-span-2 p-3 rounded-lg border-2 border-dashed border-white/20 text-parchment-300 hover:border-parchment-400 hover:text-white transition-all flex items-center justify-center gap-2"
+                            onClick={() => {
+                                window.location.reload();
+                            }}
+                            className="bg-gold-600 text-wood-900 font-bold py-3 px-6 rounded-xl uppercase tracking-widest"
                         >
-                            <View className="w-4 h-4" /> WATCH AS OBSERVER
+                            Return to Join
                         </button>
                     </div>
                 </div>
@@ -55,7 +34,7 @@ const IdentityManager: React.FC = () => {
                         <Shield className="w-4 h-4 text-green-500" />
                         <span className="text-xs text-parchment-200/70 uppercase tracking-tighter">Playing as</span>
                         <span className="text-sm font-bold text-parchment-100 italic">
-                            {players.find(p => p.id === localPlayerId)?.name || 'Observer'}
+                            {players.find((p: Player) => p.id === localPlayerId)?.name || 'Observer'}
                         </span>
                     </div>
                     <button

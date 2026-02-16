@@ -10,6 +10,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Compass',
     scoreValue: 10,
+    rarity: 'COMMON'
   },
   water_bottle: {
     id: 'water_bottle',
@@ -20,6 +21,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Droplets',
     scoreValue: 10,
+    rarity: 'COMMON'
   },
   rations: {
     id: 'rations',
@@ -30,6 +32,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Package',
     scoreValue: 10,
+    rarity: 'COMMON'
   },
   map: {
     id: 'map',
@@ -40,6 +43,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Map',
     scoreValue: 15,
+    rarity: 'COMMON'
   },
   flashlight: {
     id: 'flashlight',
@@ -50,6 +54,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Flashlight',
     scoreValue: 5,
+    rarity: 'COMMON'
   },
   rope: {
     id: 'rope',
@@ -57,11 +62,11 @@ export const ITEMS: Record<string, Item> = {
     description: 'For steep cliffs.',
     category: 'TOOL',
     width: 2,
-    height: 3, // Long item
-    icon: 'Ratchet', // approximation
+    height: 3,
+    icon: 'Ratchet',
     scoreValue: 15,
+    rarity: 'COMMON'
   },
-
   first_aid: {
     id: 'first_aid',
     name: 'First Aid Kit',
@@ -71,7 +76,8 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'BriefcaseMedical',
     scoreValue: 20,
-    combatStats: { heal: 15 }
+    combatStats: { heal: 15 },
+    rarity: 'UNCOMMON'
   },
   matches: {
     id: 'matches',
@@ -82,6 +88,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Flame',
     scoreValue: 5,
+    rarity: 'COMMON'
   },
   sleeping_bag: {
     id: 'sleeping_bag',
@@ -92,6 +99,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Bed',
     scoreValue: 5,
+    rarity: 'COMMON'
   },
   rock: {
     id: 'rock',
@@ -100,8 +108,9 @@ export const ITEMS: Record<string, Item> = {
     category: 'SABOTAGE',
     width: 2,
     height: 2,
-    icon: 'Gem', // looks like a rock?
+    icon: 'Gem',
     scoreValue: -10,
+    rarity: 'COMMON'
   },
   broken_radio: {
     id: 'broken_radio',
@@ -112,6 +121,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Radio',
     scoreValue: -5,
+    rarity: 'COMMON'
   },
   dagger: {
     id: 'dagger',
@@ -120,10 +130,11 @@ export const ITEMS: Record<string, Item> = {
     category: 'WEAPON',
     width: 1,
     height: 1,
-    icon: 'Syringe', // closest to poison dagger?
+    icon: 'Syringe',
     scoreValue: 7,
     combatStats: { damage: 2, speed: 8, accuracy: 90 },
-    effects: [{ type: 'POISON', value: 2 }] // 2 stacks
+    effects: [{ type: 'POISON', value: 2 }],
+    rarity: 'UNCOMMON'
   },
   hammer: {
     id: 'hammer',
@@ -135,19 +146,21 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Hammer',
     scoreValue: 12,
     combatStats: { damage: 8, speed: 2, accuracy: 70 },
-    effects: [{ type: 'STUN', value: 1, chance: 30 }] // 30% chance to stun
+    effects: [{ type: 'STUN', value: 1, chance: 30 }],
+    rarity: 'UNCOMMON'
   },
   wand: {
     id: 'wand',
     name: 'Fire Wand',
-    description: 'Burns targets. Needs Mana.',
+    description: 'Burns targets.',
     category: 'WEAPON',
     width: 1,
     height: 2,
     icon: 'Wand2',
     scoreValue: 15,
     combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5 },
-    effects: [{ type: 'FIRE', value: 3 }] // 3 turn burn
+    effects: [{ type: 'FIRE', value: 3 }],
+    rarity: 'UNCOMMON'
   },
   bow: {
     id: 'bow',
@@ -156,9 +169,10 @@ export const ITEMS: Record<string, Item> = {
     category: 'WEAPON',
     width: 1,
     height: 3,
-    icon: 'Target', // or Crosshair
+    icon: 'Target',
     scoreValue: 12,
-    combatStats: { damage: 6, speed: 7, accuracy: 95 }
+    combatStats: { damage: 6, speed: 7, accuracy: 95 },
+    rarity: 'UNCOMMON'
   },
   knife: {
     id: 'knife',
@@ -172,7 +186,8 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { damage: 3, speed: 7 },
     adjacency: [
       { type: 'BUFF', targetCategories: ['ESSENTIAL'], effect: '+5 Defense', value: 5 }
-    ]
+    ],
+    rarity: 'COMMON'
   },
   sword: {
     id: 'sword',
@@ -186,7 +201,8 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { damage: 5, speed: 5 },
     adjacency: [
       { type: 'BUFF', targetCategories: ['ESSENTIAL'], effect: '+5 DMG', value: 5 }
-    ]
+    ],
+    rarity: 'COMMON'
   },
   potion: {
     id: 'potion',
@@ -200,12 +216,13 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { heal: 10 },
     adjacency: [
       { type: 'BUFF', targetIds: ['sword', 'knife'], effect: '+10 DMG', value: 10 }
-    ]
+    ],
+    rarity: 'UNCOMMON'
   },
   curse_scrap: {
     id: 'curse_scrap',
     name: 'Cursed Scrap',
-    description: 'Heavy and ominous. Cannot be moved.',
+    description: 'Heavy and ominous.',
     category: 'SABOTAGE',
     width: 1,
     height: 1,
@@ -213,7 +230,216 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: -20,
     adjacency: [
       { type: 'DEBUFF', targetCategories: ['ESSENTIAL', 'TOOL', 'SURVIVAL'], effect: '-10 Score', value: -10 }
-    ]
+    ],
+    rarity: 'UNCOMMON'
+  },
+
+  // NEW WEAPONS
+  battle_axe: {
+    id: 'battle_axe',
+    name: 'Battle Axe',
+    description: 'Heavy hitter.',
+    category: 'WEAPON',
+    width: 2,
+    height: 2,
+    icon: 'Axe',
+    scoreValue: 15,
+    combatStats: { damage: 12, speed: 3, accuracy: 80 },
+    rarity: 'UNCOMMON'
+  },
+  spear: {
+    id: 'spear',
+    name: 'Boar Spear',
+    description: 'Keep them at distance.',
+    category: 'WEAPON',
+    width: 1,
+    height: 4,
+    icon: 'MoveVertical',
+    scoreValue: 12,
+    combatStats: { damage: 7, speed: 5, accuracy: 85 },
+    rarity: 'UNCOMMON'
+  },
+  crossbow: {
+    id: 'crossbow',
+    name: 'Heavy Crossbow',
+    description: 'Slow but deadly.',
+    category: 'WEAPON',
+    width: 2,
+    height: 3,
+    icon: 'ArrowUpCircle',
+    scoreValue: 20,
+    combatStats: { damage: 15, speed: 2, accuracy: 95 },
+    rarity: 'RARE'
+  },
+  slingshot: {
+    id: 'slingshot',
+    name: 'Slingshot',
+    description: 'Better than nothing.',
+    category: 'WEAPON',
+    width: 1,
+    height: 1,
+    icon: 'CircleDot',
+    scoreValue: 3,
+    combatStats: { damage: 2, speed: 9, accuracy: 80 },
+    rarity: 'COMMON'
+  },
+  katana: {
+    id: 'katana',
+    name: 'Swift Katana',
+    description: 'Razor sharp.',
+    category: 'WEAPON',
+    width: 1,
+    height: 3,
+    icon: 'Zap',
+    scoreValue: 25,
+    combatStats: { damage: 6, speed: 10, accuracy: 90 },
+    rarity: 'RARE'
+  },
+
+  // NEW TOOLS
+  lantern: {
+    id: 'lantern',
+    name: 'Oil Lantern',
+    description: 'Constant light.',
+    category: 'TOOL',
+    width: 1,
+    height: 1,
+    icon: 'Lamp',
+    scoreValue: 12,
+    rarity: 'COMMON'
+  },
+  pickaxe: {
+    id: 'pickaxe',
+    name: 'Rusty Pickaxe',
+    description: 'Good for rocks.',
+    category: 'TOOL',
+    width: 2,
+    height: 2,
+    icon: 'Pickaxe',
+    scoreValue: 8,
+    rarity: 'COMMON'
+  },
+  spyglass: {
+    id: 'spyglass',
+    name: 'Spyglass',
+    description: 'See them coming.',
+    category: 'TOOL',
+    width: 1,
+    height: 2,
+    icon: 'Search',
+    scoreValue: 15,
+    combatStats: { accuracy: 10 },
+    rarity: 'UNCOMMON'
+  },
+  bear_trap: {
+    id: 'bear_trap',
+    name: 'Bear Trap',
+    description: 'Stop them cold.',
+    category: 'TOOL',
+    width: 2,
+    height: 2,
+    icon: 'HandMetal',
+    scoreValue: 10,
+    effects: [{ type: 'STUN', value: 2, chance: 40 }],
+    rarity: 'UNCOMMON'
+  },
+
+  // NEW SURVIVAL
+  large_tent: {
+    id: 'large_tent',
+    name: 'Masterwork Tent',
+    description: 'Home away from home.',
+    category: 'SURVIVAL',
+    width: 3,
+    height: 3,
+    icon: 'Tent',
+    scoreValue: 50,
+    rarity: 'RARE'
+  },
+  canteen: {
+    id: 'canteen',
+    name: 'Giant Canteen',
+    description: 'Lots of water.',
+    category: 'ESSENTIAL',
+    width: 1,
+    height: 2,
+    icon: 'Droplets',
+    scoreValue: 15,
+    rarity: 'UNCOMMON'
+  },
+  dried_meat: {
+    id: 'dried_meat',
+    name: 'Salted Jerky',
+    description: 'Long lasting.',
+    category: 'ESSENTIAL',
+    width: 1,
+    height: 1,
+    icon: 'Beef',
+    scoreValue: 8,
+    rarity: 'COMMON'
+  },
+
+  // NEW COMFORT
+  lux_pillow: {
+    id: 'lux_pillow',
+    name: 'Silk Pillow',
+    description: 'Soft dreams.',
+    category: 'COMFORT',
+    width: 1,
+    height: 1,
+    icon: 'Cloud',
+    scoreValue: 15,
+    rarity: 'UNCOMMON'
+  },
+  wooden_flute: {
+    id: 'wooden_flute',
+    name: 'Wooden Flute',
+    description: 'Eases the mind.',
+    category: 'COMFORT',
+    width: 1,
+    height: 2,
+    icon: 'Music',
+    scoreValue: 12,
+    rarity: 'COMMON'
+  },
+  adventure_journal: {
+    id: 'adventure_journal',
+    name: 'Travel Journal',
+    description: 'Document the trip.',
+    category: 'COMFORT',
+    width: 1,
+    height: 1,
+    icon: 'BookOpen',
+    scoreValue: 20,
+    rarity: 'RARE'
+  },
+
+  // NEW SABOTAGE
+  sticky_tar: {
+    id: 'sticky_tar',
+    name: 'Pot of Tar',
+    description: 'Gunk up the works.',
+    category: 'SABOTAGE',
+    width: 1,
+    height: 1,
+    icon: 'Droplet',
+    scoreValue: -15,
+    adjacency: [
+      { type: 'DEBUFF', targetCategories: ['TOOL'], effect: '-5 Speed', value: -5 }
+    ],
+    rarity: 'UNCOMMON'
+  },
+  rusty_nails: {
+    id: 'rusty_nails',
+    name: 'Bag of Nails',
+    description: 'Sharp and dirty.',
+    category: 'SABOTAGE',
+    width: 1,
+    height: 1,
+    icon: 'Hash',
+    scoreValue: -5,
+    effects: [{ type: 'POISON', value: 1 }],
+    rarity: 'COMMON'
   },
 
   // CONTAINERS
@@ -224,8 +450,9 @@ export const ITEMS: Record<string, Item> = {
     category: 'CONTAINER',
     width: 2,
     height: 2,
-    icon: 'Square', // Placeholder
-    scoreValue: 0
+    icon: 'Square',
+    scoreValue: 0,
+    rarity: 'COMMON'
   },
   backpack: {
     id: 'backpack',
@@ -235,8 +462,33 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 3,
     icon: 'Backpack',
-    scoreValue: 0
+    scoreValue: 0,
+    rarity: 'UNCOMMON'
   },
+  iron_chest: {
+    id: 'iron_chest',
+    name: 'Large Iron Chest',
+    description: 'Massive holds.',
+    category: 'CONTAINER',
+    width: 3,
+    height: 3,
+    icon: 'Container',
+    scoreValue: 0,
+    rarity: 'RARE'
+  },
+  barrel: {
+    id: 'barrel',
+    name: 'Wooden Barrel',
+    description: 'Round and sturdy.',
+    category: 'CONTAINER',
+    width: 2,
+    height: 2,
+    icon: 'Circle',
+    scoreValue: 0,
+    rarity: 'UNCOMMON'
+  },
+
+  // LEGENDARIES & SPECIALS
   mana_crystal: {
     id: 'mana_crystal',
     name: 'Mana Crystal',
@@ -246,11 +498,10 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Sparkles',
     scoreValue: 5,
-    // Passive mana regen? Or consumable?
-    // Let's make it a passive stat stick for now
     adjacency: [
       { type: 'BUFF', targetIds: ['wand'], effect: '+10 Mana', value: 10 }
-    ]
+    ],
+    rarity: 'UNCOMMON'
   },
   pocket: {
     id: 'pocket',
@@ -260,12 +511,13 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 2,
     icon: 'RectangleVertical',
-    scoreValue: 0
+    scoreValue: 0,
+    rarity: 'COMMON'
   },
   catalyst: {
     id: 'catalyst',
     name: 'Catalyst Vial',
-    description: 'Doubles the poison effect of adjacent weapons.',
+    description: 'Doubles poison.',
     category: 'TOOL',
     width: 1,
     height: 1,
@@ -273,22 +525,24 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 8,
     adjacency: [
       { type: 'BUFF', targetCategories: ['WEAPON'], effect: '+Double Poison', value: 2 }
-    ]
+    ],
+    rarity: 'UNCOMMON'
   },
   oil_flask: {
     id: 'oil_flask',
     name: 'Oil Flask',
-    description: 'Volatile. Explodes when adjacent to fire!',
+    description: 'Volatile.',
     category: 'TOOL',
     width: 1,
     height: 1,
     icon: 'Droplets',
     scoreValue: 6,
+    rarity: 'COMMON'
   },
   scope: {
     id: 'scope',
     name: 'Marksman Scope',
-    description: 'Buffs all weapons in the same row.',
+    description: 'Buffs Row.',
     category: 'TOOL',
     width: 2,
     height: 1,
@@ -296,7 +550,69 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 10,
     adjacency: [
       { type: 'BUFF', targetCategories: ['WEAPON'], effect: '+5 Accuracy', value: 5 }
-    ]
+    ],
+    rarity: 'RARE'
+  },
+  excalibur: {
+    id: 'excalibur',
+    name: 'Excalibur',
+    description: 'Pure power.',
+    category: 'WEAPON',
+    width: 2,
+    height: 4,
+    icon: 'Sword',
+    scoreValue: 100,
+    combatStats: { damage: 25, speed: 5, accuracy: 100 },
+    rarity: 'LEGENDARY'
+  },
+  obsidian_shield: {
+    id: 'obsidian_shield',
+    name: 'Obsidian Shield',
+    description: 'Unbreakable.',
+    category: 'TOOL',
+    width: 2,
+    height: 2,
+    icon: 'Shield',
+    scoreValue: 50,
+    combatStats: { defense: 20 },
+    rarity: 'RARE'
+  },
+  golden_feather: {
+    id: 'golden_feather',
+    name: 'Golden Feather',
+    description: 'Prophetic insight.',
+    category: 'ESSENTIAL',
+    width: 1,
+    height: 1,
+    icon: 'Feather',
+    scoreValue: 30,
+    rarity: 'LEGENDARY'
+  },
+  dragon_scale: {
+    id: 'dragon_scale',
+    name: 'Dragon Scale',
+    description: 'Fireproof armor.',
+    category: 'SURVIVAL',
+    width: 2,
+    height: 2,
+    icon: 'ShieldCheck',
+    scoreValue: 80,
+    combatStats: { defense: 30 },
+    rarity: 'LEGENDARY'
+  },
+  crystal_ball: {
+    id: 'crystal_ball',
+    name: 'Crystal Ball',
+    description: 'Know the future.',
+    category: 'ESSENTIAL',
+    width: 1,
+    height: 1,
+    icon: 'CircleDot',
+    scoreValue: 50,
+    adjacency: [
+      { type: 'BUFF', targetCategories: ['ESSENTIAL'], effect: '+10 Score to all Essentials', value: 10 }
+    ],
+    rarity: 'LEGENDARY'
   }
 };
 

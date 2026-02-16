@@ -1,6 +1,6 @@
 export type Role = 'Hiker' | 'Traitor';
 
-export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'PACKING' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER';
+export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER';
 
 export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABOTAGE' | 'CONTAINER' | 'WEAPON' | 'CLOTHING';
 
@@ -21,6 +21,7 @@ export interface Item {
   height: number;
   icon: string; // Lucide icon name or image path
   scoreValue: number; // Positive for good items, negative for sabotage
+  rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
   adjacency?: AdjacencyRule[];
   combatStats?: {
     damage?: number;
@@ -88,8 +89,8 @@ export interface GridCell {
   x: number;
   y: number;
   itemId: string | null;
-  containerId?: string | null; // ID of container occupying this cell
-  ownerId?: string | null; // Owner of the container
+  occupied: boolean;
+  ownerId?: string | null;
 }
 
 export interface InventoryItemInstance {

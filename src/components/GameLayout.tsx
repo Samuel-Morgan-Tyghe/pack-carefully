@@ -8,7 +8,6 @@ import SupplyShelf from './layout/SupplyShelf';
 import WelcomeScreen from './layout/WelcomeScreen';
 import GameResultScreen from './layout/GameResultScreen';
 
-import SimultaneousDraftBoard from './game/SimultaneousDraftBoard';
 import BagBuilder from './game/BagBuilder';
 import JourneyPhase from './game/JourneyPhase';
 import Finale from './game/Finale';
@@ -38,15 +37,15 @@ const GameLayout: React.FC = () => {
                     <main className="flex-1 flex w-full relative z-10 pt-4 pb-8 px-1 md:px-8 gap-4 flex-col 2xl:flex-row max-w-7xl mx-auto">
 
                         {/* Items Shelf - Always first in DOM to be on top */}
-                        {(phase === 'PACKING' || phase === 'DRAFT') && <SupplyShelf />}
+                        {phase === 'DRAFT' && <SupplyShelf />}
 
                         {/* Inventory Section - Stays below shelf on mobile */}
                         <section className="flex-1 flex flex-col justify-start items-center w-full relative min-w-0">
                             {phase === 'BAG_BUILDING' && <BagBuilder />}
-                            {phase === 'DRAFT' && <SimultaneousDraftBoard />}
+                            {/* Simplified Draft: No overlay board, just shelf + bag */}
 
                             <div className="w-full flex-1 flex flex-col justify-center items-center">
-                                {(phase === 'PACKING' || phase === 'DRAFT') && (
+                                {phase === 'DRAFT' && (
                                     <Inventory playerId={viewingPlayerId || undefined} />
                                 )}
                                 {phase === 'JOURNEY' && <JourneyPhase />}

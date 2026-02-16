@@ -40,6 +40,9 @@ export const setLocalPlayer = (id: string | null) => {
     }
 };
 
+// Flag to prevent broadcast cycles
+let isSyncing = false;
+
 export const setViewingPlayer = (id: string | null) => {
     $viewingPlayerId.set(id);
 };
@@ -48,22 +51,27 @@ export const setViewingPlayer = (id: string | null) => {
 if (syncChannel) {
     syncChannel.onmessage = (event) => {
         const { type, payload } = event.data;
-        console.log('📡 Sync Received:', type, payload);
 
-        switch (type) {
-            case 'PHASE_UPDATE': $phase.set(payload); break;
-            case 'PLAYERS_UPDATE': $players.set(payload); break;
-            case 'CONTAINERS_UPDATE': $containers.set(payload); break;
-            case 'ITEMS_UPDATE': $itemsOnGrid.set(payload); break;
-            case 'GAME_STATE_UPDATE': $gameState.set(payload); break;
-            case 'DRAFT_STATE_UPDATE': $draftState.set(payload); break;
-            case 'DRAGGED_ITEM_UPDATE': $draggedItem.set(payload); break;
+        isSyncing = true;
+        try {
+            switch (type) {
+                case 'PHASE_UPDATE': $phase.set(payload); break;
+                case 'PLAYERS_UPDATE': $players.set(payload); break;
+                case 'CONTAINERS_UPDATE': $containers.set(payload); break;
+                case 'ITEMS_UPDATE': $itemsOnGrid.set(payload); break;
+                case 'GAME_STATE_UPDATE': $gameState.set(payload); break;
+                case 'DRAFT_STATE_UPDATE': $draftState.set(payload); break;
+                case 'DRAGGED_ITEM_UPDATE': $draggedItem.set(payload); break;
+            }
+        } finally {
+            isSyncing = false;
         }
     };
 }
 
 // Helper to broadcast changes
 const broadcast = (type: string, payload: unknown) => {
+    if (isSyncing) return; // Prevent echoing sync messages
     if (syncChannel) {
         syncChannel.postMessage({ type, payload });
     }
@@ -190,7 +198,7 @@ export const checkSupport = (
 };
 
 // Actions
-export const addPlayer = (name: string) => {
+export const addPlayer = (name: string): string => {
     const currentPlayers = $players.get();
     const id = generateId();
     const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500'];
@@ -212,6 +220,8 @@ export const addPlayer = (name: string) => {
             currentPath: null
         }
     ]);
+
+    return id;
 };
 
 export const removePlayer = (playerId: string) => {
@@ -285,16 +295,12 @@ export const nextPhase = () => {
     } else if (current === 'BAG_BUILDING') {
         startDraft(); // Go to Draft after building
     } else if (current === 'DRAFT') {
-        $phase.set('PACKING');
-    } else if (current === 'PACKING') {
         $phase.set('JOURNEY');
     } else if (current === 'JOURNEY') {
         $phase.set('CAMPFIRE');
     } else if (current === 'CAMPFIRE') {
         advanceDay(); // Advance day when leaving campfire
         if ($gameState.get().isGameOver) {
-            // Stay on summary/gameover screen? Or back to Lobby?
-            // For now, let's assume UI handles GameOver overlay, but phase might go to Lobby or stay Campfire
             $phase.set('LOBBY');
         } else {
             startDraft(); // Start new day with Draft
@@ -319,38 +325,23 @@ export const placeItem = (itemId: string, x: number, y: number, rotation: 0 | 90
     }
 
     // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
+    const currentItems = items;
     if ($phase.get() === 'DRAFT') {
         const draft = $draftState.get();
         const personalPool = draft.availableItems[ownerId] || [];
-        const isDraftItem = personalPool.some(i => i.id === itemId);
+        const draftItemIndex = personalPool.findIndex(i => i.id === itemId);
 
-        if (isDraftItem) {
-            // Remove any other items from the personal pool that are already on the grid
-            const poolIds = new Set(personalPool.map(i => i.id));
-            const itemsToRemove = items.filter(i => poolIds.has(i.itemId) && i.ownerId === ownerId);
-
-            if (itemsToRemove.length > 0) {
-                // We need to remove them from 'items' before adding new one
-                // Mutable array op for the local 'items' variable to store correct state
-                // actually $itemsOnGrid.set will replace it, so we just filter `items`
-                // BUT `items` is const.
-                // We will update the state directly.
-            }
-        }
-    }
-
-    // Actually, simpler:
-    let currentItems = items;
-    // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
-    if ($phase.get() === 'DRAFT') {
-        const draft = $draftState.get();
-        const personalPool = draft.availableItems[ownerId] || [];
-        const isDraftItem = personalPool.some(i => i.id === itemId);
-
-        if (isDraftItem) {
-            const poolIds = new Set(personalPool.map(i => i.id));
-            // Remove any other items from this player's pool that are already on the grid
-            currentItems = currentItems.filter(i => !(poolIds.has(i.itemId) && i.ownerId === ownerId));
+        if (draftItemIndex >= 0) {
+            // Remove from pool
+            const newPool = [...personalPool];
+            newPool.splice(draftItemIndex, 1);
+            $draftState.set({
+                ...draft,
+                availableItems: {
+                    ...draft.availableItems,
+                    [ownerId]: newPool
+                }
+            });
         }
     }
 
@@ -509,6 +500,7 @@ export const advanceDay = () => {
     }
 };
 
+
 export const choosePath = (path: 'LEFT' | 'RIGHT') => {
     const current = $gameState.get();
 
@@ -597,31 +589,47 @@ export const returnToSplitScreen = () => {
     }
 };
 
-// Draft Actions
 export const startDraft = () => {
     const players = $players.get();
+    const day = $gameState.get().day;
 
-    // Generate Personal Pools for each player
+    // Generate Personal Pools based on Rarity Scaling
     const availableItems: Record<string, Item[]> = {};
     const allItems = Object.values(ITEMS);
 
-    // Ensure at least some useful items
-    const containers = allItems.filter(i => i.category === 'CONTAINER');
-    const weapons = allItems.filter(i => i.category === 'WEAPON');
-    const essentials = allItems.filter(i => i.category === 'ESSENTIAL');
-
     players.forEach(p => {
         const pool: Item[] = [];
-        // Guaranteed 1 Container, 1 Weapon, 1 Essential/Random
-        pool.push(containers[Math.floor(Math.random() * containers.length)]);
-        pool.push(weapons[Math.floor(Math.random() * weapons.length)]);
-        pool.push(essentials[Math.floor(Math.random() * essentials.length)]);
 
-        availableItems[p.id] = pool.sort(() => Math.random() - 0.5);
+        // Scaling Logic:
+        // Day 1: Common mostly, maybe 1 Uncommon
+        // Day 5: Likely Uncommon, Rare, maybe Legendary
+        for (let i = 0; i < 3; i++) {
+            const roll = Math.random();
+            // Simple rarity weight adjustment based on day
+            // Day 1 (day=1): common=0.8, uncommon=0.2
+            // Day 5 (day=5): uncommon=0.4, rare=0.3, legendary=0.1
+            const uncommonWeight = Math.min(0.5, 0.1 + (day * 0.08));
+            const rareWeight = Math.min(0.3, day * 0.06);
+            // Legendary weight only starts appearing after day 3
+            const legendaryWeight = day >= 4 ? 0.05 + (day - 4) * 0.05 : 0;
+
+            let selectedRarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY' = 'COMMON';
+            if (roll < legendaryWeight) selectedRarity = 'LEGENDARY';
+            else if (roll < legendaryWeight + rareWeight) selectedRarity = 'RARE';
+            else if (roll < legendaryWeight + rareWeight + uncommonWeight) selectedRarity = 'UNCOMMON';
+
+            const filters = allItems.filter(item => item.rarity === selectedRarity && item.category !== 'SABOTAGE');
+            // Fallback if no items in rarity (shouldn't happen with our db)
+            const finalPool = filters.length > 0 ? filters : allItems.filter(i => i.rarity === 'COMMON');
+
+            pool.push(finalPool[Math.floor(Math.random() * finalPool.length)]);
+        }
+
+        availableItems[p.id] = pool;
     });
 
     $draftState.set({
-        availableItems, // Record<string, Item[]>
+        availableItems,
         selections: {},
         confirmed: [],
         roundNumber: 1

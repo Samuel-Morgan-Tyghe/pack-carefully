@@ -30,7 +30,7 @@ const GameHUD: React.FC = () => {
          <div className="absolute top-2 left-2 sm:left-1/2 sm:-translate-x-1/2 md:top-4 z-[60] flex flex-col items-center gap-2">
             {/* Phase Bar */}
             <div className="bg-wood-900/95 border-2 border-wood-600 rounded-full px-4 py-1 shadow-xl backdrop-blur-sm flex items-center gap-3">
-               {['LOBBY', 'PACKING', 'JOURNEY', 'CAMPFIRE'].map(p => (
+               {['LOBBY', 'BAG_BUILDING', 'DRAFT', 'JOURNEY', 'CAMPFIRE'].map(p => (
                   <div key={p} className={clsx(
                      "text-[8px] md:text-[9px] font-bold tracking-widest uppercase font-display transition-all duration-300",
                      phase === p ? "text-gold-400 scale-105" : "text-wood-500/50"

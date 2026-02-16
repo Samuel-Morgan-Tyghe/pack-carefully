@@ -104,9 +104,8 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
     const rect = gridRef.current.getBoundingClientRect();
 
     // Convert mouse position to coordinates relative to the cropped bag container
-    // rect.left + 16 (padding)
-    const xOffset = point.x - (rect.left + 16);
-    const yOffset = point.y - (rect.top + 16);
+    const xOffset = point.x - rect.left;
+    const yOffset = point.y - rect.top;
 
     // Center the item under the cursor
     const centerOffsetX = (itemWidth * (CELL_SIZE + GAP)) / 2;
@@ -417,9 +416,19 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
           }
         }}
         onTouchMove={(e) => {
-          console.log('📱 Grid touchMove');
           if (touchState?.active) {
             handleTouchMove(e);
+          } else if (externalDraggedItem) {
+            // Mobile Swipe/Drag preview for selected shelf items
+            const touch = e.touches[0];
+            if (touch && gridRef.current) {
+              const itemDef = ITEMS[externalDraggedItem];
+              if (!itemDef) return;
+              const { x, y, gridX, gridY } = snapToGrid({ x: touch.clientX, y: touch.clientY }, itemDef.width, itemDef.height);
+              const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem);
+              setIsGhostValid(valid);
+              setGhostPosition({ x, y, valid });
+            }
           }
         }}
         onClick={(e) => {
@@ -556,6 +565,8 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
             GAP={GAP}
             isSelected={selectedItemId === item.instanceId}
             onSelect={() => setSelectedItemId(item.instanceId)}
+            minX={minX}
+            minY={minY}
           />
         ))}
 

@@ -183,6 +183,8 @@ const MegaBag: React.FC = () => {
                             CELL_SIZE={CELL_SIZE}
                             GAP={GAP}
                             isHighlighted={highlightedInstanceIds.includes(item.instanceId)}
+                            minX={0}
+                            minY={0}
                         />
                     ))}
                 </div>

@@ -1,12 +1,16 @@
-import React from 'react';
 import { useStore } from '@nanostores/react';
-import { $availableItems } from '../../store/gameStore';
+import { $draftState, $localPlayerId } from '../../store/gameStore';
 import PlayerInfo from './PlayerInfo';
 import ShelfCategory from './ShelfCategory';
 import * as LucideIcons from 'lucide-react';
+import type { Item } from '../../types';
 
 const SupplyShelf: React.FC = () => {
-    const availableItems = useStore($availableItems);
+    const { availableItems: draftPool } = useStore($draftState);
+    const localPlayerId = useStore($localPlayerId);
+
+    // Get personal items for this player, fallback to empty
+    const items = (localPlayerId && draftPool[localPlayerId]) || [];
 
     return (
         <section className="w-full 2xl:w-80 h-auto 2xl:h-full bg-wood-900/90 border-b-4 2xl:border-b-0 2xl:border-l-4 border-wood-700 shadow-2xl p-3 md:p-6 flex flex-col gap-3 md:gap-6 relative z-10 backdrop-blur-sm rounded-t-xl 2xl:rounded-l-xl 2xl:rounded-t-none shrink-0 overflow-hidden">
@@ -16,19 +20,19 @@ const SupplyShelf: React.FC = () => {
                     <LucideIcons.Package size={20} className="2xl:hidden" />
                     Supplies
                 </h3>
-                <span className="text-xs bg-wood-800 px-2 py-1 rounded text-wood-300 font-mono border border-wood-600">{availableItems.length}</span>
+                <span className="text-xs bg-wood-800 px-2 py-1 rounded text-wood-300 font-mono border border-wood-600">{items.length}</span>
             </div>
 
             <div className="flex-1 overflow-x-auto 2xl:overflow-y-auto pb-2 md:pr-2 flex flex-row 2xl:flex-col gap-4 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full">
                 {/* Categories */}
-                {['CONTAINER', 'ESSENTIAL', 'TOOL', 'SURVIVAL', 'COMFORT', 'SABOTAGE'].map(cat => {
-                    const items = availableItems.filter(i => i.category === cat);
-                    if (items.length === 0) return null;
+                {['CONTAINER', 'ESSENTIAL', 'TOOL', 'SURVIVAL', 'COMFORT', 'SABOTAGE', 'WEAPON'].map(cat => {
+                    const categoryItems = items.filter((i: Item) => i.category === cat);
+                    if (categoryItems.length === 0) return null;
                     return (
                         <div key={cat} className="flex-shrink-0 2xl:flex-shrink-1">
                             <ShelfCategory
                                 category={cat}
-                                items={items}
+                                items={categoryItems}
                             />
                         </div>
                     );
