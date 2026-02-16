@@ -13,21 +13,21 @@ interface BackpackGhostProps {
     GAP: number;
 }
 
-const BackpackGhost: React.FC<BackpackGhostProps> = ({ 
-    ghostPosition, 
-    isGhostValid, 
-    draggedInstanceId, 
-    externalDraggedItem, 
-    itemsOnGrid, 
-    CELL_SIZE, 
-    GAP 
+const BackpackGhost: React.FC<BackpackGhostProps> = ({
+    ghostPosition,
+    isGhostValid,
+    draggedInstanceId,
+    externalDraggedItem,
+    itemsOnGrid,
+    CELL_SIZE,
+    GAP
 }) => {
     if (!ghostPosition || (!draggedInstanceId && !externalDraggedItem)) return null;
 
     // Determine which item is ghosting
     let itemId = externalDraggedItem;
     let rot = 0;
-    
+
     if (draggedInstanceId) {
         const item = itemsOnGrid.find(i => i.instanceId === draggedInstanceId);
         if (item) {
@@ -35,7 +35,7 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
             rot = item.rotation;
         }
     }
-    
+
     if (!itemId) return null;
     const itemDef = ITEMS[itemId];
     if (!itemDef) return null;
@@ -50,16 +50,16 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
                 isGhostValid ? "bg-green-500/20 border-green-400" : "bg-red-500/20 border-red-400"
             )}
             style={{
-                left: 16 + ghostPosition.x,
-                top: 16 + ghostPosition.y,
+                left: ghostPosition.x,
+                top: ghostPosition.y,
                 width: (w * CELL_SIZE) + ((w - 1) * GAP),
                 height: (h * CELL_SIZE) + ((h - 1) * GAP),
             }}
         >
-                {/* Optional label */}
-                <div className={cn("absolute -top-6 left-0 text-[10px] font-bold uppercase", isGhostValid ? "text-green-400" : "text-red-400")}>
-                    {isGhostValid ? "Place Here" : "Invalid"}
-                </div>
+            {/* Optional label */}
+            <div className={cn("absolute -top-6 left-0 text-[10px] font-bold uppercase", isGhostValid ? "text-green-400" : "text-red-400")}>
+                {isGhostValid ? "Place Here" : "Invalid"}
+            </div>
         </div>
     );
 };
