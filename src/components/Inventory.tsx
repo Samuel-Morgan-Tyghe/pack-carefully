@@ -380,9 +380,6 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
         </div>
       )}
 
-      <div className="mb-4 text-camp-orange font-bold text-lg md:text-xl uppercase tracking-widest">
-        Backpack Capacity
-      </div>
 
       {/* Helper message when no containers */}
       {allContainers.filter(c => c.ownerId === ownerId).length === 0 && (
@@ -394,16 +391,31 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
       {/* Grid Container - The "Backpack" */}
       <div
         ref={gridRef}
-        className="relative rounded-3xl p-4 shadow-leather-stitch bg-leather-texture transition-all duration-500 touch-manipulation overflow-visible"
+        className="relative transition-all duration-500 touch-manipulation overflow-visible"
         id="inventory-grid"
         style={{
-          width: bagWidthCells * CELL_SIZE + 32 + (bagWidthCells - 1) * GAP,
-          height: bagHeightCells * CELL_SIZE + 32 + (bagHeightCells - 1) * GAP,
+          width: bagWidthCells * CELL_SIZE + (bagWidthCells - 1) * GAP,
+          height: bagHeightCells * CELL_SIZE + (bagHeightCells - 1) * GAP,
           maxWidth: '100%',
           touchAction: 'none'
         }}
         onDragOver={handleDragOverExtern}
         onDragLeave={handleDragLeaveExtern}
+        onMouseMove={(e) => {
+          if (externalDraggedItem && !draggedInstanceId) {
+            const itemDef = ITEMS[externalDraggedItem];
+            if (!itemDef) return;
+            const { x, y, gridX, gridY } = snapToGrid({ x: e.clientX, y: e.clientY }, itemDef.width, itemDef.height);
+            const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem);
+            setIsGhostValid(valid);
+            setGhostPosition({ x, y, valid });
+          }
+        }}
+        onMouseLeave={() => {
+          if (externalDraggedItem && !draggedInstanceId) {
+            setGhostPosition(null);
+          }
+        }}
         onTouchMove={(e) => {
           console.log('📱 Grid touchMove');
           if (touchState?.active) {
@@ -416,9 +428,9 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
 
           const rect = gridRef.current?.getBoundingClientRect();
           if (rect) {
-            // Use same offset logic as snapToGrid (16px padding)
-            const x = e.clientX - (rect.left + 16);
-            const y = e.clientY - (rect.top + 16);
+            // Mapping touch/click to grid
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
             const gx = Math.floor(x / (CELL_SIZE + GAP)) + minX;
             const gy = Math.floor(y / (CELL_SIZE + GAP)) + minY;
@@ -444,8 +456,8 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
           if (itemId) {
             const rect = gridRef.current?.getBoundingClientRect();
             if (rect) {
-              const x = e.clientX - (rect.left + 16);
-              const y = e.clientY - (rect.top + 16);
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
 
               const gx = Math.floor(x / (CELL_SIZE + GAP)) + minX;
               const gy = Math.floor(y / (CELL_SIZE + GAP)) + minY;

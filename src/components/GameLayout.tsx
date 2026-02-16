@@ -34,18 +34,18 @@ const GameLayout: React.FC = () => {
                 <>
                     <GameHUD />
 
-                    {/* Main Content Area - Standard Flow */}
-                    <main className="flex-1 flex w-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 flex-col xl:flex-row max-w-7xl mx-auto">
+                    {/* Main Content Area - Strictly Vertical Stacking on Mobile/Tablet */}
+                    <main className="flex-1 flex w-full relative z-10 pt-4 pb-8 px-1 md:px-8 gap-4 flex-col 2xl:flex-row max-w-7xl mx-auto">
 
-                        {/* Right Sidebar: Supply Shelf (Comes first in DOM for flex-col stack) */}
+                        {/* Items Shelf - Always first in DOM to be on top */}
                         {(phase === 'PACKING' || phase === 'DRAFT') && <SupplyShelf />}
 
-                        {/* Center Stage: Inventory / Game Board */}
-                        <section className="flex-1 flex flex-col justify-start items-center w-full relative min-w-0 order-last xl:order-none">
+                        {/* Inventory Section - Stays below shelf on mobile */}
+                        <section className="flex-1 flex flex-col justify-start items-center w-full relative min-w-0">
                             {phase === 'BAG_BUILDING' && <BagBuilder />}
                             {phase === 'DRAFT' && <SimultaneousDraftBoard />}
 
-                            <div className="w-full flex-1 flex flex-col justify-center items-center mt-4 md:mt-0">
+                            <div className="w-full flex-1 flex flex-col justify-center items-center">
                                 {(phase === 'PACKING' || phase === 'DRAFT') && (
                                     <Inventory playerId={viewingPlayerId || undefined} />
                                 )}
