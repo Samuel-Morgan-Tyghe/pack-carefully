@@ -8,7 +8,7 @@ import SupplyShelf from './layout/SupplyShelf';
 import WelcomeScreen from './layout/WelcomeScreen';
 import GameResultScreen from './layout/GameResultScreen';
 
-import DraftBoard from './game/DraftBoard';
+import SecretDraftPad from './game/SecretDraftPad';
 import JourneyPhase from './game/JourneyPhase';
 import Finale from './game/Finale';
 import DebugVerification from './DebugVerification';
@@ -37,7 +37,7 @@ const GameLayout: React.FC = () => {
 
                         {/* Center Stage: Inventory / Game Board */}
                         <section className="flex-1 flex flex-col justify-start items-center w-full relative">
-                            {phase === 'DRAFT' && <DraftBoard />}
+                            {phase === 'DRAFT' && <SecretDraftPad />}
 
                             <div className="w-full flex-1 flex flex-col justify-center items-center mt-4 md:mt-0">
                                 {(phase === 'PACKING' || phase === 'DRAFT') && <Inventory />}

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, $draftState, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
@@ -403,24 +403,14 @@ const Inventory: React.FC = () => {
             const gy = Math.floor(y / (CELL_SIZE + GAP));
 
             if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-              const isDrafting = $draftState.get().availableItems.some(i => i.id === externalDraggedItem);
-
-              if (isDrafting) {
+              // Standard placement logic
+              if (!checkCollision(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId, undefined, ITEMS[externalDraggedItem].category)) {
                 import('../store/gameStore').then(mod => {
-                  if (mod.draftItemToGrid) {
-                    mod.draftItemToGrid(ownerId, externalDraggedItem, gx, gy);
+                  if (ITEMS[externalDraggedItem].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId))) {
+                    placeItem(externalDraggedItem, gx, gy, 0, ownerId);
                     $draggedItem.set(null);
                   }
                 });
-              } else {
-                if (!checkCollision(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId, undefined, ITEMS[externalDraggedItem].category)) {
-                  import('../store/gameStore').then(mod => {
-                    if (ITEMS[externalDraggedItem].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId))) {
-                      placeItem(externalDraggedItem, gx, gy, 0, ownerId);
-                      $draggedItem.set(null);
-                    }
-                  });
-                }
               }
             }
           }
@@ -434,7 +424,6 @@ const Inventory: React.FC = () => {
           if (itemId) {
             const rect = gridRef.current?.getBoundingClientRect();
             if (rect) {
-              // Same offset logic: border(4) + padding(16) = 20
               const x = e.clientX - (rect.left + 20);
               const y = e.clientY - (rect.top + 20);
 
@@ -443,39 +432,13 @@ const Inventory: React.FC = () => {
 
               // Only place if within bounds
               if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-                // Check collision. If it returns false (no collision) -> Place it.
-                // But we also need to check "Support" if it's Gear.
-                // placeItem does checking internally too, but checkCollision ensures the UI doesn't flicker?
-                // Actually, let's just allow placeItem to handle logic. drop -> attempt place -> if success -> remove from draft.
-
-                // BUT `placeItem` doesn't know about Draft Pool removal.
-                // If we are dragging from Draft, we need to call `draftItem` logic but with Coordinates!
-
-                // We need a new action: `draftItemToGrid(playerId, itemId, x, y)`?
-                // Or refactor `draftItem` in store.
-                // Currently `draftItem` does auto-placement.
-
-                // Check if we are in Draft Phase?
-                // Check if we are in Draft Phase?
-                // Check if we are in Draft Phase?
-                // Check if we are in Draft Phase?
-                const isDrafting = $draftState.get().availableItems.some(i => i.id === itemId);
-
-                if (isDrafting) {
+                // Standard move/place logic
+                if (!checkCollision(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId, undefined, ITEMS[itemId].category)) {
                   import('../store/gameStore').then(mod => {
-                    if (mod.draftItemToGrid) {
-                      mod.draftItemToGrid(ownerId, itemId, gx, gy);
+                    if (ITEMS[itemId].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId))) {
+                      placeItem(itemId, gx, gy, 0, ownerId);
                     }
                   });
-                } else {
-                  // Standard move/place logic
-                  if (!checkCollision(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId, undefined, ITEMS[itemId].category)) {
-                    import('../store/gameStore').then(mod => {
-                      if (ITEMS[itemId].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[itemId].width, ITEMS[itemId].height, itemsOnGrid, ownerId))) {
-                        placeItem(itemId, gx, gy, 0, ownerId);
-                      }
-                    });
-                  }
                 }
               }
             }
@@ -483,22 +446,7 @@ const Inventory: React.FC = () => {
         }}
       >
         {/* Render Grid Background Cells */}
-        <div
-          className="grid gap-[4px]"
-          style={{
-            gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
-            gridTemplateRows: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`
-          }}
-        >
-          {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
-            return (
-              <div
-                key={i}
-                className="bg-black/20 border-white/5 rounded-sm border shadow-cell-inset"
-              />
-            );
-          })}
-        </div>
+        {/* Grid Background Removed - Only Containers Visible */}
 
         {/* Container Cell Overlays - Show valid placement zones */}
         {allContainers
@@ -562,48 +510,50 @@ const Inventory: React.FC = () => {
       </div>
 
       {/* Item Detail Panel */}
-      {selectedItemId && (() => {
-        const selectedItem = itemsOnGrid.find(i => i.instanceId === selectedItemId);
-        if (!selectedItem) return null;
-        const def = ITEMS[selectedItem.itemId];
-        if (!def) return null;
-        return (
-          <div className="mt-3 max-w-md w-full bg-slate-800/90 border border-slate-600 rounded-xl p-3 md:p-4 text-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-lg font-black text-white">{def.name}</span>
-              <span className="text-xs uppercase tracking-wider text-slate-400 bg-slate-700 px-2 py-0.5 rounded">{def.category}</span>
-              <span className="text-xs text-slate-500 ml-auto">{def.width}×{def.height}</span>
+      {
+        selectedItemId && (() => {
+          const selectedItem = itemsOnGrid.find(i => i.instanceId === selectedItemId);
+          if (!selectedItem) return null;
+          const def = ITEMS[selectedItem.itemId];
+          if (!def) return null;
+          return (
+            <div className="mt-3 max-w-md w-full bg-slate-800/90 border border-slate-600 rounded-xl p-3 md:p-4 text-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-lg font-black text-white">{def.name}</span>
+                <span className="text-xs uppercase tracking-wider text-slate-400 bg-slate-700 px-2 py-0.5 rounded">{def.category}</span>
+                <span className="text-xs text-slate-500 ml-auto">{def.width}×{def.height}</span>
+              </div>
+              <p className="text-slate-300 text-xs mb-2">{def.description}</p>
+              {def.combatStats && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {def.combatStats.damage ? <span className="text-red-400 text-xs font-bold">⚔️ {def.combatStats.damage} DMG</span> : null}
+                  {def.combatStats.defense ? <span className="text-blue-400 text-xs font-bold">🛡️ {def.combatStats.defense} DEF</span> : null}
+                  {def.combatStats.speed ? <span className="text-yellow-400 text-xs font-bold">⚡ {def.combatStats.speed} SPD</span> : null}
+                  {def.combatStats.accuracy ? <span className="text-green-400 text-xs font-bold">🎯 {def.combatStats.accuracy}% ACC</span> : null}
+                  {def.combatStats.heal ? <span className="text-emerald-400 text-xs font-bold">💚 {def.combatStats.heal} HEAL</span> : null}
+                </div>
+              )}
+              {def.effects && def.effects.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {def.effects.map((eff, i) => (
+                    <span key={i} className="text-purple-300 text-xs font-bold bg-purple-900/50 px-2 py-0.5 rounded">
+                      {eff.type} ({eff.value}{eff.chance ? `, ${eff.chance}%` : ''})
+                    </span>
+                  ))}
+                </div>
+              )}
+              {def.adjacency && def.adjacency.length > 0 && (
+                <div className="border-t border-slate-700 pt-2 mt-2">
+                  <span className="text-xs text-slate-400 uppercase tracking-wider">Adjacency Bonuses:</span>
+                  {def.adjacency.map((adj, i) => (
+                    <div key={i} className="text-xs text-amber-300 mt-1">✨ {adj.effect}</div>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="text-slate-300 text-xs mb-2">{def.description}</p>
-            {def.combatStats && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {def.combatStats.damage ? <span className="text-red-400 text-xs font-bold">⚔️ {def.combatStats.damage} DMG</span> : null}
-                {def.combatStats.defense ? <span className="text-blue-400 text-xs font-bold">🛡️ {def.combatStats.defense} DEF</span> : null}
-                {def.combatStats.speed ? <span className="text-yellow-400 text-xs font-bold">⚡ {def.combatStats.speed} SPD</span> : null}
-                {def.combatStats.accuracy ? <span className="text-green-400 text-xs font-bold">🎯 {def.combatStats.accuracy}% ACC</span> : null}
-                {def.combatStats.heal ? <span className="text-emerald-400 text-xs font-bold">💚 {def.combatStats.heal} HEAL</span> : null}
-              </div>
-            )}
-            {def.effects && def.effects.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {def.effects.map((eff, i) => (
-                  <span key={i} className="text-purple-300 text-xs font-bold bg-purple-900/50 px-2 py-0.5 rounded">
-                    {eff.type} ({eff.value}{eff.chance ? `, ${eff.chance}%` : ''})
-                  </span>
-                ))}
-              </div>
-            )}
-            {def.adjacency && def.adjacency.length > 0 && (
-              <div className="border-t border-slate-700 pt-2 mt-2">
-                <span className="text-xs text-slate-400 uppercase tracking-wider">Adjacency Bonuses:</span>
-                {def.adjacency.map((adj, i) => (
-                  <div key={i} className="text-xs text-amber-300 mt-1">✨ {adj.effect}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+          );
+        })()
+      }
 
       <div className="flex flex-col gap-2 mt-4 text-xs font-bold uppercase tracking-widest text-slate-500 text-center px-2">
         <div>Total: {itemsOnGrid.length}</div>
@@ -619,7 +569,7 @@ const Inventory: React.FC = () => {
           <span>📱 Tap items to select • Tap grid to place</span>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

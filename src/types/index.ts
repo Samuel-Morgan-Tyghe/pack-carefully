@@ -23,20 +23,20 @@ export interface Item {
   scoreValue: number; // Positive for good items, negative for sabotage
   adjacency?: AdjacencyRule[];
   combatStats?: {
-      damage?: number;
-      defense?: number; // Passive mitigation (Armor)
-      block?: number; // Active mitigation (Shield HP)
-      heal?: number;
-      speed?: number; // Initiative
-      accuracy?: number; // 0-100%
-      manaCost?: number; 
-      maxMana?: number;
-      manaRegen?: number;
+    damage?: number;
+    defense?: number; // Passive mitigation (Armor)
+    block?: number; // Active mitigation (Shield HP)
+    heal?: number;
+    speed?: number; // Initiative
+    accuracy?: number; // 0-100%
+    manaCost?: number;
+    maxMana?: number;
+    manaRegen?: number;
   };
   effects?: {
-      type: 'POISON' | 'FIRE' | 'STUN' | 'SLOW' | 'BLEED';
-      value: number; // Stacks or Duration
-      chance?: number; // % chance to apply
+    type: 'POISON' | 'FIRE' | 'STUN' | 'SLOW' | 'BLEED';
+    value: number; // Stacks or Duration
+    chance?: number; // % chance to apply
   }[];
 }
 
@@ -51,23 +51,23 @@ export interface Player {
 }
 
 export interface GameState {
-    day: number;
-    round: number; // 1-5 (Same as day, but for clarity)
-    morale: number; // 0-100
-    isGameOver: boolean;
-    gameResult: 'WIN' | 'LOSS' | null;
-    journeyStage: 'SELECTION' | 'ENCOUNTER' | 'RESULTS' | 'SCAVENGE';
-    selectedPath: 'LEFT' | 'RIGHT' | null;
-    pathStatus: {
-        LEFT: 'PENDING' | 'RESOLVED';
-        RIGHT: 'PENDING' | 'RESOLVED';
-    };
-    lastEncounterResult: {
-        success: boolean;
-        score: number;
-        difficulty: number;
-        message: string;
-    } | null;
+  day: number;
+  round: number; // 1-5 (Same as day, but for clarity)
+  morale: number; // 0-100
+  isGameOver: boolean;
+  gameResult: 'WIN' | 'LOSS' | null;
+  journeyStage: 'SELECTION' | 'ENCOUNTER' | 'RESULTS' | 'SCAVENGE';
+  selectedPath: 'LEFT' | 'RIGHT' | null;
+  pathStatus: {
+    LEFT: 'PENDING' | 'RESOLVED';
+    RIGHT: 'PENDING' | 'RESOLVED';
+  };
+  lastEncounterResult: {
+    success: boolean;
+    score: number;
+    difficulty: number;
+    message: string;
+  } | null;
 }
 
 export interface Coordinate {
@@ -76,12 +76,12 @@ export interface Coordinate {
 }
 
 export interface Container {
-    id: string;
-    ownerId: string;
-    type: 'POUCH' | 'BACKPACK' | 'POCKET';
-    cells: Coordinate[]; // Absolute grid coordinates map to specific grid slots
-    capacity: number; // Number of cells
-    disabledCells?: Coordinate[]; // Cells that have been "Cut" (Sabotage)
+  id: string;
+  ownerId: string;
+  type: 'POUCH' | 'BACKPACK' | 'POCKET';
+  cells: Coordinate[]; // Absolute grid coordinates map to specific grid slots
+  capacity: number; // Number of cells
+  disabledCells?: Coordinate[]; // Cells that have been "Cut" (Sabotage)
 }
 
 export interface GridCell {
@@ -104,8 +104,8 @@ export interface InventoryItemInstance {
 }
 
 export interface DraftState {
-    availableItems: Item[];
-    currentTurnPlayerId: string | null;
-    roundOrder: string[]; // Array of player IDs
-    pickIndex: number; // Current index in roundOrder
+  availableItems: Record<string, Item[]>; // PlayerID -> Personal Pool
+  selections: Record<string, string>; // PlayerID -> ItemID (Secret)
+  confirmed: string[]; // PlayerIDs who have locked in their choice
+  roundNumber: number; // 1, 2, 3...
 }

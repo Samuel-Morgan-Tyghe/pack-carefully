@@ -38,10 +38,10 @@ export const $gameState = atom<GameState>({
 // Draft State moved to types
 
 export const $draftState = atom<DraftState>({
-    availableItems: [],
-    currentTurnPlayerId: null,
-    roundOrder: [],
-    pickIndex: 0
+    availableItems: {},
+    selections: {},
+    confirmed: [],
+    roundNumber: 1
 });
 
 // Derived state example (if needed) or Actions
@@ -469,143 +469,124 @@ export const returnToSplitScreen = () => {
 // Draft Actions
 export const startDraft = () => {
     const players = $players.get();
-    const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
-    const playerIds = shuffledPlayers.map(p => p.id);
 
-    // Snake Draft Order: 1, 2, 3, 3, 2, 1, 1, 2, 3...
-    // Let's do 3 rounds?
-    const rounds = 3;
-    const order: string[] = [];
-
-    for (let r = 0; r < rounds; r++) {
-        if (r % 2 === 0) {
-            order.push(...playerIds);
-        } else {
-            order.push(...[...playerIds].reverse());
-        }
-    }
-
-    // Generate Balanced Pool
-    // Ensure at least 1 Container and 1 Weapon per player in the pool
+    // Generate Personal Pools for each player
+    const availableItems: Record<string, Item[]> = {};
     const allItems = Object.values(ITEMS);
+
+    // Ensure at least some useful items
     const containers = allItems.filter(i => i.category === 'CONTAINER');
     const weapons = allItems.filter(i => i.category === 'WEAPON');
-    // const others = allItems.filter(i => i.category !== 'CONTAINER' && i.category !== 'WEAPON');
+    const essentials = allItems.filter(i => i.category === 'ESSENTIAL');
 
-    const pool: Item[] = [];
-    const poolSize = order.length + 5; // Larger buffer for more choice
-
-    // Guarantee basic needs
-    for (let i = 0; i < players.length; i++) {
+    players.forEach(p => {
+        const pool: Item[] = [];
+        // Guaranteed 1 Container, 1 Weapon, 1 Essential/Random
         pool.push(containers[Math.floor(Math.random() * containers.length)]);
         pool.push(weapons[Math.floor(Math.random() * weapons.length)]);
-    }
+        pool.push(essentials[Math.floor(Math.random() * essentials.length)]);
 
-    // Fill rest randomly
-    while (pool.length < poolSize) {
-        pool.push(allItems[Math.floor(Math.random() * allItems.length)]);
-    }
-
-    // Shuffle pool
-    const shuffledPool = pool.sort(() => Math.random() - 0.5);
+        availableItems[p.id] = pool.sort(() => Math.random() - 0.5);
+    });
 
     $draftState.set({
-        availableItems: shuffledPool,
-        currentTurnPlayerId: order[0],
-        roundOrder: order,
-        pickIndex: 0
+        availableItems, // Record<string, Item[]>
+        selections: {},
+        confirmed: [],
+        roundNumber: 1
     });
-    $currentPlayerId.set(order[0]);
 
     $phase.set('DRAFT');
 };
 
-
-
-
-export const nextDraftTurn = () => {
+export const selectDraftItem = (playerId: string, itemId: string) => {
     const draft = $draftState.get();
+    const playerPool = draft.availableItems[playerId];
 
-    // Check if pool is empty first
-    if (draft.availableItems.length === 0) {
-        nextPhase();
-        return;
-    }
+    if (!playerPool?.find(i => i.id === itemId)) return; // Invalid selection
 
-    const nextIndex = draft.pickIndex + 1;
-
-    // Check if end of draft
-    if (nextIndex >= draft.roundOrder.length) {
-        nextPhase();
-        return;
-    }
-
-    const nextPlayerId = draft.roundOrder[nextIndex];
+    // Update selection (not confirmed yet)
     $draftState.set({
         ...draft,
-        pickIndex: nextIndex,
-        currentTurnPlayerId: nextPlayerId
-    });
-    $currentPlayerId.set(nextPlayerId);
-};
-
-export const skipDraftTurn = () => {
-    nextDraftTurn();
-};
-
-export const draftItemToGrid = (playerId: string, itemId: string, x: number, y: number) => {
-    const draft = $draftState.get();
-
-    // Validate turn
-    if (draft.currentTurnPlayerId !== playerId) {
-        console.warn("Not your turn!");
-        return;
-    }
-
-    // Validate item in pool
-    const itemInPool = draft.availableItems.find(i => i.id === itemId);
-    if (!itemInPool) {
-        console.warn("Item not in draft pool");
-        return;
-    }
-
-    const itemDef = ITEMS[itemId];
-    const w = itemDef.width;
-    const h = itemDef.height;
-
-    // Validate placement
-    const items = $itemsOnGrid.get();
-
-    // Collision
-    if (checkCollision(x, y, w, h, items, playerId, undefined, itemDef.category)) {
-        console.warn("Collision detected");
-        return;
-    }
-
-    // Support
-    if (itemDef.category !== 'CONTAINER') {
-        if (!checkSupport(x, y, w, h, items, playerId)) {
-            console.warn("No support for item");
-            return;
+        selections: {
+            ...draft.selections,
+            [playerId]: itemId
         }
-    }
+    });
 
-    // Place it
-    placeItem(itemId, x, y, 0, playerId);
+    // Auto-confirm for single player convenience? 
+    // No, let them change mind until "Lock In" or just auto-lock if click?
+    // User wants "Secrecy", so maybe Confirm button.
+};
 
-    // Remove from pool (find index of exact ID or just first match)
-    // Drafting usually removes specific instance from pool
-    const newPool = [...draft.availableItems];
-    const index = newPool.findIndex(i => i.id === itemId);
-    if (index > -1) newPool.splice(index, 1);
+export const confirmDraftSelection = (playerId: string) => {
+    const draft = $draftState.get();
+    if (!draft.selections[playerId]) return;
+    if (draft.confirmed.includes(playerId)) return;
+
+    const newConfirmed = [...draft.confirmed, playerId];
 
     $draftState.set({
         ...draft,
-        availableItems: newPool
+        confirmed: newConfirmed
     });
 
-    // Advance turn
-    nextDraftTurn();
+    // Check if all players confirmed
+    const players = $players.get();
+    if (newConfirmed.length === players.length) {
+        resolveDraftRound();
+    }
+};
+
+const resolveDraftRound = () => {
+    const draft = $draftState.get();
+    const players = $players.get();
+
+    // 1. Add selected items to inventory (or stash)
+    // Since we don't have a "Stash" yet and user said "broken mechanic is drag and drop",
+    // let's try to auto-place or put in a placeholder "Stash" location?
+    // For now, let's use the old `placeItem` logic but find the first open spot?
+    // OR create a "Stash" concept in gameStore?
+
+    // Simplest approach: Try clear spot, if fail -> drop on ground (handled by UI)?
+    // Better: Add to a `stashedItems` array in store, UI shows them floating to be placed?
+
+    // For this refactor, let's trust `addRandomLoot` logic which finds a spot,
+    // or just place it at 0,0 if free.
+
+    players.forEach(p => {
+        const itemId = draft.selections[p.id];
+        if (itemId) {
+            // Try to auto-place
+            // Use a helper that brute-forces a spot
+            addRandomLoot(itemId, p.id);
+        }
+    });
+
+    // 2. Advance Round or End Draft
+    if (draft.roundNumber >= 3) { // 3 Rounds total
+        nextPhase();
+    } else {
+        // Start next round - Regenerate pools? Or pass leftovers?
+        // User implied "First turn 0 shared items". 
+        // Let's regenerate fresh pools for next round to keep it simple and fun.
+        const availableItems: Record<string, Item[]> = {};
+        const allItems = Object.values(ITEMS);
+        players.forEach(p => {
+            const pool: Item[] = [];
+            for (let i = 0; i < 3; i++) {
+                pool.push(allItems[Math.floor(Math.random() * allItems.length)]);
+            }
+            availableItems[p.id] = pool;
+        });
+
+        $draftState.set({
+            availableItems,
+            selections: {},
+            confirmed: [],
+            roundNumber: draft.roundNumber + 1
+        });
+    }
 };
 
 export const rummageInventory = (targetPlayerId: string): boolean => {
