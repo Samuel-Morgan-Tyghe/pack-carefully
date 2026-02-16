@@ -3,7 +3,7 @@ import type { GamePhase, InventoryItemInstance, Item, Player, Role, DraftState, 
 import { ITEMS, GRID_SIZE } from '../lib/items';
 import { generateId } from '../lib/utils';
 import { generateRandomContainers } from '../lib/generators';
-import type { Container } from '../types';
+import type { Coordinate, Container } from '../types';
 
 import { getAdjacencyBonuses } from '../lib/adjacency';
 import { computed } from 'nanostores';
@@ -11,11 +11,65 @@ import { computed } from 'nanostores';
 // State Atoms
 export const $phase = atom<GamePhase>('LOBBY');
 export const $players = atom<Player[]>([]);
-export const $containers = atom<Container[]>([]); // NEW: Polyomino Containers
+export const $containers = atom<Container[]>([]);
 export const $currentPlayerId = atom<string | null>(null);
 export const $itemsOnGrid = atom<InventoryItemInstance[]>([]);
 export const $availableItems = atom<Item[]>(Object.values(ITEMS));
-export const $draggedItem = atom<string | null>(null); // For drag feedback
+export const $draggedItem = atom<string | null>(null);
+
+// Multiplayer Identity & Sync
+export const $localPlayerId = atom<string | (typeof localStorage extends undefined ? null : string | null)>(
+    typeof localStorage !== 'undefined' ? localStorage.getItem('pack_carefully_player_id') : null
+);
+
+// Local View State (not synced)
+export const $viewingPlayerId = atom<string | null>(null);
+
+// BroadcastChannel for cross-tab sync
+const syncChannel = typeof window !== 'undefined' ? new BroadcastChannel('pack_carefully_sync') : null;
+
+export const setLocalPlayer = (id: string | null) => {
+    $localPlayerId.set(id);
+    if (id !== 'OBSERVER') {
+        $viewingPlayerId.set(id);
+    }
+    if (id && typeof localStorage !== 'undefined') {
+        localStorage.setItem('pack_carefully_player_id', id);
+    } else if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('pack_carefully_player_id');
+    }
+};
+
+export const setViewingPlayer = (id: string | null) => {
+    $viewingPlayerId.set(id);
+};
+
+// Syncing state changes
+if (syncChannel) {
+    syncChannel.onmessage = (event) => {
+        const { type, payload } = event.data;
+        console.log('📡 Sync Received:', type, payload);
+
+        switch (type) {
+            case 'PHASE_UPDATE': $phase.set(payload); break;
+            case 'PLAYERS_UPDATE': $players.set(payload); break;
+            case 'CONTAINERS_UPDATE': $containers.set(payload); break;
+            case 'ITEMS_UPDATE': $itemsOnGrid.set(payload); break;
+            case 'GAME_STATE_UPDATE': $gameState.set(payload); break;
+            case 'DRAFT_STATE_UPDATE': $draftState.set(payload); break;
+            case 'DRAGGED_ITEM_UPDATE': $draggedItem.set(payload); break;
+        }
+    };
+}
+
+// Helper to broadcast changes
+const broadcast = (type: string, payload: unknown) => {
+    if (syncChannel) {
+        syncChannel.postMessage({ type, payload });
+    }
+};
+
+
 
 // Derived State
 export const $adjacencyBonuses = computed($itemsOnGrid, items => getAdjacencyBonuses(items));
@@ -43,6 +97,16 @@ export const $draftState = atom<DraftState>({
     confirmed: [],
     roundNumber: 1
 });
+
+// Sync listeners (moved after all atoms declared)
+$phase.listen(val => broadcast('PHASE_UPDATE', val));
+$players.listen(val => broadcast('PLAYERS_UPDATE', val));
+$containers.listen(val => broadcast('CONTAINERS_UPDATE', val));
+$itemsOnGrid.listen(val => broadcast('ITEMS_UPDATE', val));
+$gameState.listen(val => broadcast('GAME_STATE_UPDATE', val));
+$draftState.listen(val => broadcast('DRAFT_STATE_UPDATE', val));
+$draggedItem.listen(val => broadcast('DRAGGED_ITEM_UPDATE', val));
+
 
 // Derived state example (if needed) or Actions
 // Helper for collision
@@ -180,15 +244,46 @@ export const startGame = () => {
     $players.set(newPlayers);
     $currentPlayerId.set(currentPlayers[0]?.id || null);
 
-    // Start the Draft
-    startDraft();
+    // Reset Containers/Items (Players start fresh)
+    $containers.set([]);
+    $itemsOnGrid.set([]);
+
+    // Start with Bag Building
+    $phase.set('BAG_BUILDING');
+};
+
+export const createCustomContainer = (playerId: string, cells: Coordinate[]) => {
+    const newContainer: Container = {
+        id: generateId(),
+        ownerId: playerId,
+        type: 'BACKPACK', // Custom
+        cells: cells,
+        capacity: cells.length
+    };
+
+    const currentContainers = $containers.get();
+    const updatedContainers = [...currentContainers, newContainer];
+    $containers.set(updatedContainers);
+
+    // Check if all players have a container
+    const players = $players.get();
+    const playersWithContainers = new Set(updatedContainers.map(c => c.ownerId));
+
+    if (players.every(p => playersWithContainers.has(p.id))) {
+        // All players ready -> Start Draft
+        setTimeout(() => {
+            nextPhase();
+        }, 1000); // Small delay for UX
+    }
 };
 
 export const nextPhase = () => {
     const current = $phase.get();
 
     if (current === 'LOBBY') {
-        $phase.set('DRAFT');
+        startGame(); // triggers BAG_BUILDING
+    } else if (current === 'BAG_BUILDING') {
+        startDraft(); // Go to Draft after building
     } else if (current === 'DRAFT') {
         $phase.set('PACKING');
     } else if (current === 'PACKING') {
@@ -223,6 +318,42 @@ export const placeItem = (itemId: string, x: number, y: number, rotation: 0 | 90
         if (!checkSupport(x, y, w, h, items, ownerId)) return false;
     }
 
+    // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
+    if ($phase.get() === 'DRAFT') {
+        const draft = $draftState.get();
+        const personalPool = draft.availableItems[ownerId] || [];
+        const isDraftItem = personalPool.some(i => i.id === itemId);
+
+        if (isDraftItem) {
+            // Remove any other items from the personal pool that are already on the grid
+            const poolIds = new Set(personalPool.map(i => i.id));
+            const itemsToRemove = items.filter(i => poolIds.has(i.itemId) && i.ownerId === ownerId);
+
+            if (itemsToRemove.length > 0) {
+                // We need to remove them from 'items' before adding new one
+                // Mutable array op for the local 'items' variable to store correct state
+                // actually $itemsOnGrid.set will replace it, so we just filter `items`
+                // BUT `items` is const.
+                // We will update the state directly.
+            }
+        }
+    }
+
+    // Actually, simpler:
+    let currentItems = items;
+    // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
+    if ($phase.get() === 'DRAFT') {
+        const draft = $draftState.get();
+        const personalPool = draft.availableItems[ownerId] || [];
+        const isDraftItem = personalPool.some(i => i.id === itemId);
+
+        if (isDraftItem) {
+            const poolIds = new Set(personalPool.map(i => i.id));
+            // Remove any other items from this player's pool that are already on the grid
+            currentItems = currentItems.filter(i => !(poolIds.has(i.itemId) && i.ownerId === ownerId));
+        }
+    }
+
     const newItem: InventoryItemInstance = {
         instanceId: generateId(),
         itemId,
@@ -232,7 +363,7 @@ export const placeItem = (itemId: string, x: number, y: number, rotation: 0 | 90
         ownerId
     };
 
-    $itemsOnGrid.set([...items, newItem]);
+    $itemsOnGrid.set([...currentItems, newItem]);
     return true;
 };
 

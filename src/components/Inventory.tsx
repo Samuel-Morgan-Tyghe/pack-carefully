@@ -1,13 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, $players, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId, $localPlayerId } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
 import clsx from 'clsx';
 
-const Inventory: React.FC = () => {
+interface InventoryProps {
+  playerId?: string;
+  className?: string;
+}
+
+const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
   console.log('🎮 Inventory component mounted');
 
   // Responsive cell size - smaller on mobile
@@ -15,46 +20,57 @@ const Inventory: React.FC = () => {
   const CELL_SIZE = cellSize;
   const GAP = 4;
 
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [ghostPosition, setGhostPosition] = useState<{ x: number; y: number; valid: boolean } | null>(null);
+  const [isGhostValid, setIsGhostValid] = useState(true);
+  const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(null);
+  const [touchState, setTouchState] = useState<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    itemId: string | null;
+    instanceId: string | null;
+    initialX: number;
+    initialY: number;
+    rotation: number;
+  } | null>(null);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
   // Detect mobile and adjust cell size
-  React.useEffect(() => {
+  useEffect(() => {
     const updateCellSize = () => {
       const width = window.innerWidth;
-      console.log('📐 Screen width:', width);
-
-      // Very small screens (iPhone SE, etc) - 32px cells
-      if (width < 400) {
-        console.log('📱 Very small screen - 32px cells');
-        setCellSize(32);
-      }
-      // Small mobile screens - 40px cells
-      else if (width < 600) {
-        console.log('📱 Small mobile - 40px cells');
-        setCellSize(40);
-      }
-      // Tablet/larger mobile - 48px cells
-      else if (width < 768) {
-        console.log('📱 Large mobile - 48px cells');
-        setCellSize(48);
-      }
-      // Desktop - 64px cells
-      else {
-        console.log('💻 Desktop - 64px cells');
-        setCellSize(64);
-      }
+      // ... (logging removed for brevity) ... 
+      if (width < 400) setCellSize(32);
+      else if (width < 600) setCellSize(40);
+      else if (width < 768) setCellSize(48);
+      else setCellSize(64);
     };
 
     updateCellSize();
     window.addEventListener('resize', updateCellSize);
     return () => window.removeEventListener('resize', updateCellSize);
   }, []);
+
   const externalDraggedItem = useStore($draggedItem);
-  const players = useStore($players);
   const currentPlayerId = useStore($currentPlayerId);
-  const ownerId = currentPlayerId || players[0]?.id || 'solo';
+  const ownerId = playerId || currentPlayerId || 'solo';
+
   const allItemsOnGrid = useStore($itemsOnGrid);
   const allContainers = useStore($containers);
+  const localPlayerId = useStore($localPlayerId);
 
-  // Sort items: Containers first (Layer 0), then Gear (Layer 1)
+  const isMyInventory = ownerId === localPlayerId;
+  const isObserver = localPlayerId === 'OBSERVER';
+  const canInteract = isMyInventory && !isObserver;
+
+
+
+  // Filter items for THIS player
   const itemsOnGrid = allItemsOnGrid
     .filter(i => i.ownerId === ownerId)
     .sort((a, b) => {
@@ -64,25 +80,7 @@ const Inventory: React.FC = () => {
       if (catA !== 'CONTAINER' && catB === 'CONTAINER') return 1;
       return 0;
     });
-  const gridRef = useRef<HTMLDivElement>(null);
 
-  // Track dragging state
-  const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(null);
-  const [ghostPosition, setGhostPosition] = useState<{ x: number, y: number } | null>(null);
-  const [isGhostValid, setIsGhostValid] = useState(true);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Touch state for mobile drag-and-drop
-  const [touchState, setTouchState] = useState<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-    itemId: string | null;
-    rotation: number;
-  } | null>(null);
 
   const snapToGrid = (point: { x: number, y: number }, itemWidth: number = 1, itemHeight: number = 1) => {
     if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 };
@@ -104,15 +102,11 @@ const Inventory: React.FC = () => {
     const gridX = Math.round(centeredX / (CELL_SIZE + GAP));
     const gridY = Math.round(centeredY / (CELL_SIZE + GAP));
 
-    // Clamp to grid bounds to prevent "way off" values outside
-    const clampedX = Math.max(0, Math.min(GRID_SIZE - itemWidth, gridX));
-    const clampedY = Math.max(0, Math.min(GRID_SIZE - itemHeight, gridY));
-
     return {
-      x: clampedX * (CELL_SIZE + GAP),
-      y: clampedY * (CELL_SIZE + GAP),
-      gridX: clampedX,
-      gridY: clampedY
+      x: gridX * (CELL_SIZE + GAP),
+      y: gridY * (CELL_SIZE + GAP),
+      gridX,
+      gridY
     };
   };
 
@@ -142,6 +136,9 @@ const Inventory: React.FC = () => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
+
+      // Interaction checks
+      if (!canInteract) return;
 
       // Cancel drag on Escape
       if (e.key === 'Escape' && draggedInstanceId) {
@@ -189,25 +186,27 @@ const Inventory: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedItemId, itemsOnGrid, draggedInstanceId]);
+  }, [selectedItemId, itemsOnGrid, draggedInstanceId, canInteract]);
 
   const handleDragStart = (instanceId: string) => {
+    if (!canInteract) return;
     setDraggedInstanceId(instanceId);
     // We don't set ghost position yet, wait for move
   };
 
   const handleDrag = (_instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
+    if (!canInteract) return;
     const itemDef = ITEMS[itemId];
     const w = (currentRot === 90 || currentRot === 270) ? itemDef.height : itemDef.width;
     const h = (currentRot === 90 || currentRot === 270) ? itemDef.width : itemDef.height;
     const { x, y, gridX, gridY } = snapToGrid(info.point, w, h);
 
-    // Update ghost with pixel coordinates
-    setGhostPosition({ x, y });
-
     // Check validation with grid coordinates
     const valid = calculateGhostValidity(gridX, gridY, itemId, draggedInstanceId || undefined, currentRot);
     setIsGhostValid(valid);
+
+    // Update ghost with pixel coordinates
+    setGhostPosition({ x, y, valid });
   };
 
   const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
@@ -234,6 +233,7 @@ const Inventory: React.FC = () => {
   // HTML5 Drag Over (from Sidebar)
   const handleDragOverExtern = (e: React.DragEvent) => {
     e.preventDefault();
+    if (!canInteract) return;
 
     // Only show ghost if we know what item is being dragged (from store)
     if (externalDraggedItem) {
@@ -247,11 +247,12 @@ const Inventory: React.FC = () => {
       );
 
       // Update ghost with pixel coordinates
-      setGhostPosition({ x, y });
-
       // Check validation with grid coordinates
       const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem);
       setIsGhostValid(valid);
+
+      // Update ghost with pixel coordinates
+      setGhostPosition({ x, y, valid });
     }
   };
 
@@ -274,6 +275,9 @@ const Inventory: React.FC = () => {
       currentX: touch.clientX,
       currentY: touch.clientY,
       itemId,
+      instanceId,
+      initialX: touch.clientX,
+      initialY: touch.clientY,
       rotation
     });
     setDraggedInstanceId(instanceId);
@@ -302,10 +306,9 @@ const Inventory: React.FC = () => {
 
       const { x, y, gridX, gridY } = snapToGrid({ x: touch.clientX, y: touch.clientY }, w, h);
 
-      setGhostPosition({ x, y });
-
       const valid = calculateGhostValidity(gridX, gridY, touchState.itemId, draggedInstanceId || undefined, touchState.rotation);
       setIsGhostValid(valid);
+      setGhostPosition({ x, y, valid });
 
       console.log('Ghost updated:', { x, y, gridX, gridY, valid });
     }
@@ -448,7 +451,7 @@ const Inventory: React.FC = () => {
         {/* Render Grid Background Cells */}
         {/* Grid Background Removed - Only Containers Visible */}
 
-        {/* Container Cell Overlays - Show valid placement zones */}
+        {/* Container Cell Overlays - The "Bag" Surface */}
         {allContainers
           .filter(c => c.ownerId === ownerId)
           .map(container =>
@@ -456,23 +459,43 @@ const Inventory: React.FC = () => {
               const isDisabled = container.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y);
               if (isDisabled) return null;
 
+              // Check neighbors for border drawing
+              const hasLeft = container.cells.some(n => n.x === cell.x - 1 && n.y === cell.y);
+              const hasRight = container.cells.some(n => n.x === cell.x + 1 && n.y === cell.y);
+              const hasTop = container.cells.some(n => n.x === cell.x && n.y === cell.y - 1);
+              const hasBottom = container.cells.some(n => n.x === cell.x && n.y === cell.y + 1);
+
               return (
                 <div
                   key={`${container.id}-${idx}`}
                   className={clsx(
-                    "absolute pointer-events-none transition-all",
-                    draggedInstanceId || externalDraggedItem
-                      ? "bg-green-500/30 rounded-sm"
-                      : "bg-blue-500/10 rounded-sm"
+                    "absolute transition-all bg-wood-700/80 shadow-inner pointer-events-none",
+                    draggedInstanceId || externalDraggedItem ? "brightness-125" : ""
                   )}
                   style={{
                     left: cell.x * (CELL_SIZE + GAP),
                     top: cell.y * (CELL_SIZE + GAP),
                     width: CELL_SIZE,
                     height: CELL_SIZE,
-                    borderRadius: '4px'
+                    // Bag Border Logic
+                    borderLeft: !hasLeft ? '3px solid #3E2723' : '1px solid rgba(255,255,255,0.05)',
+                    borderRight: !hasRight ? '3px solid #3E2723' : '1px solid rgba(255,255,255,0.05)',
+                    borderTop: !hasTop ? '3px solid #3E2723' : '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: !hasBottom ? '3px solid #3E2723' : '1px solid rgba(255,255,255,0.05)',
+                    // Small corner rounding for outside edges
+                    borderTopLeftRadius: (!hasTop && !hasLeft) ? '8px' : '0',
+                    borderTopRightRadius: (!hasTop && !hasRight) ? '8px' : '0',
+                    borderBottomLeftRadius: (!hasBottom && !hasLeft) ? '8px' : '0',
+                    borderBottomRightRadius: (!hasBottom && !hasRight) ? '8px' : '0',
                   }}
-                />
+                >
+                  {/* Internal Texture Noise/Pattern */}
+                  <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
+                  {/* Valid Placement Highlight */}
+                  {(draggedInstanceId || externalDraggedItem) && (
+                    <div className="absolute inset-0 bg-green-500/20 animate-pulse" />
+                  )}
+                </div>
               );
             })
           )}

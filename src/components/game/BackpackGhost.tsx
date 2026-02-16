@@ -46,8 +46,10 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
     return (
         <div
             className={cn(
-                "absolute rounded-lg border-2 border-dashed z-40 transition-all duration-75 pointer-events-none",
-                isGhostValid ? "bg-green-500/20 border-green-400" : "bg-red-500/20 border-red-400"
+                "absolute rounded-lg border-2 border-dashed z-[100] transition-all duration-75 pointer-events-none shadow-2xl",
+                isGhostValid
+                    ? "bg-green-500/20 border-green-400/80 shadow-green-500/10"
+                    : "bg-red-500/20 border-red-400/80 shadow-red-500/10"
             )}
             style={{
                 left: ghostPosition.x,
@@ -56,9 +58,20 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
                 height: (h * CELL_SIZE) + ((h - 1) * GAP),
             }}
         >
-            {/* Optional label */}
-            <div className={cn("absolute -top-6 left-0 text-[10px] font-bold uppercase", isGhostValid ? "text-green-400" : "text-red-400")}>
-                {isGhostValid ? "Place Here" : "Invalid"}
+            {/* Pulsing Interior */}
+            <div className={cn(
+                "absolute inset-0 animate-pulse-slow rounded-lg",
+                isGhostValid ? "bg-green-400/5" : "bg-red-400/5"
+            )} />
+
+            {/* Status Badge */}
+            <div className={cn(
+                "absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-lg border",
+                isGhostValid
+                    ? "bg-green-600 text-white border-green-400"
+                    : "bg-red-600 text-white border-red-400"
+            )}>
+                {isGhostValid ? "Valid Spot" : "Invalid Spot"}
             </div>
         </div>
     );

@@ -1,6 +1,8 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
-import { $draggedItem } from '../../store/gameStore';
+import { $draggedItem, $localPlayerId, $viewingPlayerId } from '../../store/gameStore';
+import { useStore } from '@nanostores/react';
+import clsx from 'clsx';
 
 interface ShelfItemProps {
     item: {
@@ -36,10 +38,10 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
         <div style="font-weight: bold; font-family:serif; color: #2D1B12; font-size: 14px; text-transform: uppercase;">${item.name}</div>
         <div style="font-size: 10px; color: #5D4037;">${item.width}x${item.height}</div>
         `;
-        
+
         document.body.appendChild(dragEl);
         e.dataTransfer.setDragImage(dragEl, 32, 32);
-        
+
         setTimeout(() => { document.body.removeChild(dragEl); }, 0);
     };
 
@@ -47,12 +49,19 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
         $draggedItem.set(null);
     };
 
+    const viewingPlayerId = useStore($viewingPlayerId);
+    const localPlayerId = useStore($localPlayerId);
+    const isMe = viewingPlayerId === localPlayerId;
+
     return (
         <div
-            draggable
-            onDragStart={handleDragStart}
+            draggable={isMe}
+            onDragStart={(e) => isMe && handleDragStart(e)}
             onDragEnd={handleDragEnd}
-            className="group flex flex-col gap-2 p-3 rounded bg-parchment-100 hover:bg-white border-2 border-parchment-500 hover:border-gold-500 transition-all cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md relative overflow-hidden"
+            className={clsx(
+                "group flex flex-col gap-2 p-3 rounded transition-all shadow-sm hover:shadow-md relative overflow-hidden",
+                isMe ? "bg-parchment-100 hover:bg-white border-2 border-parchment-500 hover:border-gold-500 cursor-grab active:cursor-grabbing" : "bg-white/5 border-2 border-white/5 opacity-50 grayscale cursor-not-allowed"
+            )}
         >
             {/* Texture noise */}
             <div className="absolute inset-0 bg-paper-texture opacity-30 pointer-events-none" />

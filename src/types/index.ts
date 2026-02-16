@@ -1,6 +1,6 @@
 export type Role = 'Hiker' | 'Traitor';
 
-export type GamePhase = 'LOBBY' | 'DRAFT' | 'PACKING' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER';
+export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'PACKING' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER';
 
 export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABOTAGE' | 'CONTAINER' | 'WEAPON' | 'CLOTHING';
 
