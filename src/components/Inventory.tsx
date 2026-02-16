@@ -81,30 +81,47 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
       return 0;
     });
 
+  // Calculate dynamic bounding box of all containers to "crop" the grid
+  const myContainers = allContainers.filter(c => c.ownerId === ownerId);
+  const myCells = myContainers.flatMap(c => c.cells).filter(cell => {
+    const container = myContainers.find(cnt => cnt.cells.includes(cell));
+    const isDisabled = container?.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y);
+    return !isDisabled;
+  });
+
+  const hasCells = myCells.length > 0;
+  const minX = hasCells ? Math.min(...myCells.map(c => c.x)) : 0;
+  const minY = hasCells ? Math.min(...myCells.map(c => c.y)) : 0;
+  const maxX = hasCells ? Math.max(...myCells.map(c => c.x)) : GRID_SIZE - 1;
+  const maxY = hasCells ? Math.max(...myCells.map(c => c.y)) : GRID_SIZE - 1;
+
+  const bagWidthCells = (maxX - minX + 1);
+  const bagHeightCells = (maxY - minY + 1);
+
 
   const snapToGrid = (point: { x: number, y: number }, itemWidth: number = 1, itemHeight: number = 1) => {
     if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 };
     const rect = gridRef.current.getBoundingClientRect();
-    // rect.left includes the 4px border.
-    // The inner content starts at rect.left + 4px (border) + 16px (padding) = 20px offset.
-    const xOffset = point.x - (rect.left + 20);
-    const yOffset = point.y - (rect.top + 20);
 
-    // Center the item under the cursor by offsetting by half the item size
+    // Convert mouse position to coordinates relative to the cropped bag container
+    // rect.left + 16 (padding)
+    const xOffset = point.x - (rect.left + 16);
+    const yOffset = point.y - (rect.top + 16);
+
+    // Center the item under the cursor
     const centerOffsetX = (itemWidth * (CELL_SIZE + GAP)) / 2;
     const centerOffsetY = (itemHeight * (CELL_SIZE + GAP)) / 2;
 
-    // Adjust for centering
     const centeredX = xOffset - centerOffsetX;
     const centeredY = yOffset - centerOffsetY;
 
-    // Snap to grid
-    const gridX = Math.round(centeredX / (CELL_SIZE + GAP));
-    const gridY = Math.round(centeredY / (CELL_SIZE + GAP));
+    // Map the relative pixel coordinate back to the GLOBAL grid coordinate (0..GRID_SIZE)
+    const gridX = Math.round(centeredX / (CELL_SIZE + GAP)) + minX;
+    const gridY = Math.round(centeredY / (CELL_SIZE + GAP)) + minY;
 
     return {
-      x: gridX * (CELL_SIZE + GAP),
-      y: gridY * (CELL_SIZE + GAP),
+      x: (gridX - minX) * (CELL_SIZE + GAP),
+      y: (gridY - minY) * (CELL_SIZE + GAP),
       gridX,
       gridY
     };
@@ -377,13 +394,13 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
       {/* Grid Container - The "Backpack" */}
       <div
         ref={gridRef}
-        className="relative rounded-3xl p-4 shadow-leather-stitch bg-leather-texture transition-colors touch-manipulation max-w-full overflow-auto"
+        className="relative rounded-3xl p-4 shadow-leather-stitch bg-leather-texture transition-all duration-500 touch-manipulation overflow-visible"
         id="inventory-grid"
         style={{
-          width: GRID_SIZE * CELL_SIZE + 32 + (GRID_SIZE - 1) * GAP,
-          height: GRID_SIZE * CELL_SIZE + 32 + (GRID_SIZE - 1) * GAP,
+          width: bagWidthCells * CELL_SIZE + 32 + (bagWidthCells - 1) * GAP,
+          height: bagHeightCells * CELL_SIZE + 32 + (bagHeightCells - 1) * GAP,
           maxWidth: '100%',
-          touchAction: 'none' // Changed from manipulation to none for better drag control
+          touchAction: 'none'
         }}
         onDragOver={handleDragOverExtern}
         onDragLeave={handleDragLeaveExtern}
@@ -427,11 +444,11 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
           if (itemId) {
             const rect = gridRef.current?.getBoundingClientRect();
             if (rect) {
-              const x = e.clientX - (rect.left + 20);
-              const y = e.clientY - (rect.top + 20);
+              const x = e.clientX - (rect.left + 16);
+              const y = e.clientY - (rect.top + 16);
 
-              const gx = Math.floor(x / (CELL_SIZE + GAP));
-              const gy = Math.floor(y / (CELL_SIZE + GAP));
+              const gx = Math.floor(x / (CELL_SIZE + GAP)) + minX;
+              const gy = Math.floor(y / (CELL_SIZE + GAP)) + minY;
 
               // Only place if within bounds
               if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
@@ -473,8 +490,8 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
                     draggedInstanceId || externalDraggedItem ? "brightness-125" : ""
                   )}
                   style={{
-                    left: cell.x * (CELL_SIZE + GAP),
-                    top: cell.y * (CELL_SIZE + GAP),
+                    left: (cell.x - minX) * (CELL_SIZE + GAP),
+                    top: (cell.y - minY) * (CELL_SIZE + GAP),
                     width: CELL_SIZE,
                     height: CELL_SIZE,
                     // Bag Border Logic
