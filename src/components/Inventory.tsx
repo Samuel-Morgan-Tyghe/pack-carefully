@@ -416,21 +416,21 @@ const Inventory: React.FC<InventoryProps> = ({ playerId }) => {
 
           const rect = gridRef.current?.getBoundingClientRect();
           if (rect) {
-            const x = e.clientX - (rect.left + 20);
-            const y = e.clientY - (rect.top + 20);
+            // Use same offset logic as snapToGrid (16px padding)
+            const x = e.clientX - (rect.left + 16);
+            const y = e.clientY - (rect.top + 16);
 
-            const gx = Math.floor(x / (CELL_SIZE + GAP));
-            const gy = Math.floor(y / (CELL_SIZE + GAP));
+            const gx = Math.floor(x / (CELL_SIZE + GAP)) + minX;
+            const gy = Math.floor(y / (CELL_SIZE + GAP)) + minY;
 
             if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-              // Standard placement logic
-              if (!checkCollision(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId, undefined, ITEMS[externalDraggedItem].category)) {
-                import('../store/gameStore').then(mod => {
-                  if (ITEMS[externalDraggedItem].category === 'CONTAINER' || (mod.checkSupport && mod.checkSupport(gx, gy, ITEMS[externalDraggedItem].width, ITEMS[externalDraggedItem].height, itemsOnGrid, ownerId))) {
-                    placeItem(externalDraggedItem, gx, gy, 0, ownerId);
-                    $draggedItem.set(null);
-                  }
-                });
+              // Same validation as drag drop
+              const itemDef = ITEMS[externalDraggedItem];
+              if (!itemDef) return;
+
+              if (calculateGhostValidity(gx, gy, externalDraggedItem)) {
+                placeItem(externalDraggedItem, gx, gy, 0, ownerId);
+                $draggedItem.set(null); // Clear selection after placement
               }
             }
           }

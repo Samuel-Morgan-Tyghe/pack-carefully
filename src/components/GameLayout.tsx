@@ -35,7 +35,7 @@ const GameLayout: React.FC = () => {
                     <GameHUD />
 
                     {/* Main Content Area - Standard Flow */}
-                    <main className="flex-1 flex w-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 flex-col-reverse md:flex-row max-w-7xl mx-auto">
+                    <main className="flex-1 flex w-full relative z-10 pt-20 pb-8 px-4 md:px-8 gap-4 md:gap-8 flex-col md:flex-row max-w-7xl mx-auto">
 
                         {/* Right Sidebar: Supply Shelf (Comes first in DOM for flex-col-reverse) */}
                         {phase === 'PACKING' && <SupplyShelf />}
