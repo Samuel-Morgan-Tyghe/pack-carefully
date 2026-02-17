@@ -63,8 +63,8 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         manaRegen: 0,
         shieldRegen: 0,
         healthRegen: 0,
-        maxEnergy: 20, // Base energy pool
-        energyRegen: 5  // Base regen per second
+        maxEnergy: 10, // Base energy pool
+        energyRegen: 2  // Base regen per second
     };
 
     items.forEach(instance => {
