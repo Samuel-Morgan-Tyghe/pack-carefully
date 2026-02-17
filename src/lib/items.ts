@@ -4,49 +4,52 @@ export const ITEMS: Record<string, Item> = {
   compass: {
     id: 'compass',
     name: 'Compass',
-    description: 'Never get lost.',
+    description: 'Pathfinder.',
     category: 'ESSENTIAL',
     width: 1,
     height: 1,
     icon: 'Compass',
     scoreValue: 10,
     rarity: 'COMMON',
+    combatStats: { maxEnergy: 10 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+10 Score', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['map', 'spyglass'], stat: 'speed', effect: '+10 Speed (Navigation Duo)', value: 10 }
     ]
   },
   water_bottle: {
     id: 'water_bottle',
     name: 'Water Bottle',
-    description: 'Hydration is key.',
+    description: 'Hydration.',
     category: 'ESSENTIAL',
     width: 1,
     height: 2,
     icon: 'Droplets',
     scoreValue: 10,
     rarity: 'COMMON',
+    combatStats: { energyRegen: 2 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['SURVIVAL'], effect: '+5 Heal', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rations', 'dried_meat'], stat: 'energyRegen', effect: '+3 ⚡Regen (Meal+Drink)', value: 3 }
     ]
   },
   rations: {
     id: 'rations',
     name: 'Rations',
-    description: 'Dried food packs.',
+    description: 'Energy.',
     category: 'ESSENTIAL',
     width: 2,
     height: 2,
     icon: 'Package',
     scoreValue: 10,
     rarity: 'COMMON',
+    combatStats: { energyRegen: 3 },
     adjacency: [
-      { type: 'BUFF', pattern: 'PARALLEL', targetCategories: ['COMFORT'], effect: '+10 Score', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['water_bottle', 'canteen'], stat: 'energyRegen', effect: '+3 ⚡Regen (Meal+Drink)', value: 3 }
     ]
   },
   map: {
     id: 'map',
     name: 'Trail Map',
-    description: 'Know the path.',
+    description: 'Strategic planning.',
     category: 'ESSENTIAL',
     width: 2,
     height: 2,
@@ -54,13 +57,13 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 15,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', effect: 'Stars neighbors', value: 1 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['compass', 'spyglass'], stat: 'accuracy', effect: '+15 Accuracy (Scouting)', value: 15 }
     ]
   },
   flashlight: {
     id: 'flashlight',
     name: 'Flashlight',
-    description: 'See in the dark.',
+    description: 'Spot targets.',
     category: 'TOOL',
     width: 1,
     height: 2,
@@ -68,13 +71,13 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 5,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'multiplier', effect: '1.2x All Stats', value: 1.2 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['bow', 'crossbow'], stat: 'accuracy', effect: '+15 Accuracy (Spot Targets)', value: 15 }
     ]
   },
   rope: {
     id: 'rope',
     name: 'Climbing Rope',
-    description: 'For steep cliffs.',
+    description: 'Mobility.',
     category: 'TOOL',
     width: 2,
     height: 3,
@@ -82,13 +85,13 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 15,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'TWO_ACROSS', targetCategories: ['TOOL'], effect: '+15 Score', value: 15 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['spear', 'bear_trap'], stat: 'defense', effect: '+5 DEF (Perimeter Setup)', value: 5 }
     ]
   },
   first_aid: {
     id: 'first_aid',
     name: 'First Aid Kit',
-    description: 'Patch up wounds.',
+    description: 'Emergency care.',
     category: 'SURVIVAL',
     width: 2,
     height: 2,
@@ -97,13 +100,13 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { heal: 15 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'heal', effect: '1.5x Heal', value: 1.5 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['potion', 'canteen', 'water_bottle'], stat: 'heal', effect: '1.5x Heal (Clean Wounds)', value: 1.5 }
     ]
   },
   matches: {
     id: 'matches',
     name: 'Matches',
-    description: 'Fire is life.',
+    description: 'Firestarter.',
     category: 'SURVIVAL',
     width: 1,
     height: 1,
@@ -111,27 +114,28 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 5,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'PARALLEL', effect: 'Stars across gap', value: 1 }
+      { type: 'BOOST_SQUARE', pattern: 'PARALLEL', stat: 'damage', effect: 'Boosts Damage (+5)', value: 5 }
     ]
   },
   sleeping_bag: {
     id: 'sleeping_bag',
     name: 'Sleeping Bag',
-    description: 'Warm nights.',
+    description: 'Rest well.',
     category: 'COMFORT',
     width: 2,
     height: 3,
     icon: 'Bed',
     scoreValue: 5,
     rarity: 'COMMON',
+    combatStats: { energyRegen: 2, maxEnergy: 20 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['COMFORT'], effect: '+10 Score', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['lux_pillow', 'large_tent'], stat: 'healthRegen', effect: '+3 Regen (Good Sleep)', value: 3 }
     ]
   },
   rock: {
     id: 'rock',
     name: 'Heavy Rock',
-    description: 'Just useless weight.',
+    description: 'Useless weight.',
     category: 'SABOTAGE',
     width: 2,
     height: 2,
@@ -139,20 +143,24 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: -10,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['CONTAINER'], effect: '-5 Capacity (fake)', value: -5 }
+      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON', 'TOOL', 'ESSENTIAL', 'SURVIVAL'], stat: 'speed', effect: '-3 Speed (Heavy)', value: -3 }
     ]
   },
   broken_radio: {
     id: 'broken_radio',
     name: 'Broken Radio',
-    description: 'Makes noise, does nothing.',
+    description: 'Distracting noise.',
     category: 'SABOTAGE',
     width: 2,
     height: 1,
     icon: 'Radio',
     scoreValue: -5,
-    rarity: 'COMMON'
+    rarity: 'COMMON',
+    adjacency: [
+      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['TOOL'], stat: 'accuracy', effect: '-8 Accuracy (Noise)', value: -8 }
+    ]
   },
+  // WEAPONS (Dagger, Hammer, Wand, Bow, Knife, Sword, Potion, Curse Scrap) keep mostly same but check 'Scoring'
   dagger: {
     id: 'dagger',
     name: 'Poison Dagger',
@@ -162,11 +170,11 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Syringe',
     scoreValue: 7,
-    combatStats: { damage: 2, speed: 8, accuracy: 90 },
+    combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 5 },
     effects: [{ type: 'POISON', value: 2 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'speed', effect: '1.5x Speed', value: 1.5 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['katana'], stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
     ]
   },
   hammer: {
@@ -178,11 +186,11 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Hammer',
     scoreValue: 12,
-    combatStats: { damage: 8, speed: 2, accuracy: 70 },
+    combatStats: { damage: 8, speed: 2, accuracy: 70, energyCost: 15 },
     effects: [{ type: 'STUN', value: 1, chance: 30 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'PARALLEL', stat: 'damage', effect: '1.3x DMG', value: 1.3 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['battle_axe'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5 }
     ]
   },
   wand: {
@@ -194,11 +202,11 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Wand2',
     scoreValue: 15,
-    combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5 },
+    combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5, energyCost: 12 },
     effects: [{ type: 'FIRE', value: 3 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'TWO_ACROSS', effect: 'Stars far away', value: 1 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['mana_crystal'], stat: 'manaRegen', effect: '+5 Mana Regen (Arcane Link)', value: 5 }
     ]
   },
   bow: {
@@ -210,10 +218,10 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Target',
     scoreValue: 12,
-    combatStats: { damage: 6, speed: 7, accuracy: 95 },
+    combatStats: { damage: 6, speed: 7, accuracy: 95, energyCost: 10 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'damage', effect: '1.2x DMG', value: 1.2 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['scope', 'spyglass'], stat: 'accuracy', effect: '+10 Accuracy (Aimed Shot)', value: 10 }
     ]
   },
   knife: {
@@ -225,10 +233,10 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Scissors',
     scoreValue: 5,
-    combatStats: { damage: 3, speed: 7 },
+    combatStats: { damage: 3, speed: 7, energyCost: 5 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+5 Defense', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rope', 'first_aid'], stat: 'speed', effect: '+5 Speed (Multitool)', value: 5 }
     ]
   },
   sword: {
@@ -240,10 +248,10 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Sword',
     scoreValue: 10,
-    combatStats: { damage: 5, speed: 5 },
+    combatStats: { damage: 5, speed: 5, energyCost: 8 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+5 DMG', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['obsidian_shield', 'knights_crest'], stat: 'defense', effect: '+8 DEF (Sword & Board)', value: 8 }
     ]
   },
   potion: {
@@ -255,10 +263,10 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'FlaskConical',
     scoreValue: 5,
-    combatStats: { heal: 10 },
+    combatStats: { heal: 10, energyRegen: 2 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['sword', 'knife'], effect: '+10 DMG', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: '+8 DMG (Coated Blade)', value: 8 }
     ]
   },
   curse_scrap: {
@@ -272,11 +280,10 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: -20,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL', 'TOOL', 'SURVIVAL'], effect: '-10 Score', value: -10 }
+      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: '-5 DMG (Cursed)', value: -5 }
     ]
   },
-
-  // NEW WEAPONS
+  // NEW WEAPONS (Battle Axe, Spear, Crossbow, Slingshot, Katana)
   battle_axe: {
     id: 'battle_axe',
     name: 'Battle Axe',
@@ -286,10 +293,10 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Axe',
     scoreValue: 15,
-    combatStats: { damage: 12, speed: 3, accuracy: 80 },
+    combatStats: { damage: 12, speed: 3, accuracy: 80, energyCost: 18 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'damage', effect: '1.4x DMG', value: 1.4 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['hammer'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5 }
     ]
   },
   spear: {
@@ -301,10 +308,10 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'MoveVertical',
     scoreValue: 12,
-    combatStats: { damage: 7, speed: 5, accuracy: 85 },
+    combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 12 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'TWO_ACROSS', targetCategories: ['WEAPON'], effect: '+10 DMG', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['obsidian_shield', 'knights_crest'], stat: 'defense', effect: '+5 DEF (Phalanx)', value: 5, targetSelf: true }
     ]
   },
   crossbow: {
@@ -316,10 +323,10 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'ArrowUpCircle',
     scoreValue: 20,
-    combatStats: { damage: 15, speed: 2, accuracy: 95 },
+    combatStats: { damage: 15, speed: 2, accuracy: 95, energyCost: 20 },
     rarity: 'RARE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'PARALLEL', stat: 'damage', effect: '1.2x DMG', value: 1.2 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['scope'], stat: 'accuracy', effect: '1.5x Accuracy (Scoped Xbow)', value: 1.5 }
     ]
   },
   slingshot: {
@@ -331,10 +338,10 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'CircleDot',
     scoreValue: 3,
-    combatStats: { damage: 2, speed: 9, accuracy: 80 },
+    combatStats: { damage: 2, speed: 9, accuracy: 80, energyCost: 3 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+2 DMG', value: 2 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rock'], stat: 'damage', effect: '+8 DMG (Ammo!)', value: 8 }
     ]
   },
   katana: {
@@ -346,14 +353,13 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Zap',
     scoreValue: 25,
-    combatStats: { damage: 6, speed: 10, accuracy: 90 },
+    combatStats: { damage: 6, speed: 10, accuracy: 90, energyCost: 10 },
     rarity: 'RARE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'speed', effect: '1.2x Speed', value: 1.2 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['dagger'], stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
     ]
   },
-
-  // NEW TOOLS
+  // NEW TOOLS (Lantern, Pickaxe, Spyglass, Bear Trap)
   lantern: {
     id: 'lantern',
     name: 'Oil Lantern',
@@ -365,7 +371,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 12,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', effect: 'Lights neighbors', value: 1 }
+      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', stat: 'accuracy', effect: 'Boosts Accuracy (+15)', value: 15 }
     ]
   },
   pickaxe: {
@@ -379,7 +385,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 8,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'PARALLEL', targetIds: ['rock'], effect: '+10 Score', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rock'], stat: 'damage', effect: '+15 DMG (Break Rock)', value: 15, targetSelf: true }
     ]
   },
   spyglass: {
@@ -394,7 +400,7 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { accuracy: 10 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'accuracy', effect: '1.5x Accuracy', value: 1.5 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['bow', 'crossbow'], stat: 'damage', effect: '1.3x DMG (Spot Weakness)', value: 1.3 }
     ]
   },
   bear_trap: {
@@ -409,7 +415,7 @@ export const ITEMS: Record<string, Item> = {
     effects: [{ type: 'STUN', value: 2, chance: 40 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', effect: 'Trap proximity', value: 1 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rope'], stat: 'defense', effect: '+8 DEF (Rigged Trap)', value: 8 }
     ]
   },
 
@@ -425,7 +431,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 50,
     rarity: 'RARE',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['COMFORT'], effect: '+30 Score', value: 30 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['sleeping_bag', 'lux_pillow'], stat: 'healthRegen', effect: '+3 Regen (Camp)', value: 3 }
     ]
   },
   canteen: {
@@ -438,8 +444,9 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Droplets',
     scoreValue: 15,
     rarity: 'UNCOMMON',
+    combatStats: { energyRegen: 4 },
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'heal', effect: '1.2x heal', value: 1.2 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['first_aid', 'potion'], stat: 'heal', effect: '1.5x Heal (Clean Wounds)', value: 1.5 }
     ]
   },
   dried_meat: {
@@ -452,11 +459,11 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Beef',
     scoreValue: 8,
     rarity: 'COMMON',
+    combatStats: { energyRegen: 2 },
     adjacency: [
-      { type: 'BUFF', pattern: 'PARALLEL', targetCategories: ['SURVIVAL'], effect: '+5 Defense', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rations'], stat: 'energyRegen', effect: '+2 ⚡Regen (More Food)', value: 2 }
     ]
   },
-
   // NEW COMFORT
   lux_pillow: {
     id: 'lux_pillow',
@@ -469,7 +476,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 15,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['COMFORT'], effect: '+20 Score', value: 20 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['sleeping_bag'], stat: 'healthRegen', effect: '+3 Regen (Comfy Sleep)', value: 3 }
     ]
   },
   wooden_flute: {
@@ -483,7 +490,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 12,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'PARALLEL', targetCategories: ['SURVIVAL'], effect: '+10 Score', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['adventure_journal'], stat: 'energyRegen', effect: '+3 ⚡Regen (Creative)', value: 3 }
     ]
   },
   adventure_journal: {
@@ -497,7 +504,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 20,
     rarity: 'RARE',
     adjacency: [
-      { type: 'BUFF', pattern: 'TWO_ACROSS', targetCategories: ['ESSENTIAL'], effect: '+20 Score', value: 20 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['compass', 'map'], stat: 'accuracy', effect: '+10 Accuracy (Document Route)', value: 10 }
     ]
   },
 
@@ -513,7 +520,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: -15,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['TOOL'], effect: '-5 Speed', value: -5 }
+      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'speed', effect: '-5 Speed (Gummed Up)', value: -5 }
     ]
   },
   rusty_nails: {
@@ -528,7 +535,7 @@ export const ITEMS: Record<string, Item> = {
     effects: [{ type: 'POISON', value: 1 }],
     rarity: 'COMMON',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['COMFORT'], effect: '-10 Score', value: -10 }
+      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['COMFORT', 'SURVIVAL'], stat: 'healthRegen', effect: '-3 Regen (Dangerous Rest)', value: -3 }
     ]
   },
 
@@ -544,7 +551,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 0,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+2 Score', value: 2 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], stat: 'energyRegen', effect: '+2 ⚡Regen (Efficient Packing)', value: 2 }
     ]
   },
   backpack: {
@@ -558,7 +565,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 0,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL'], effect: '+5 Score', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['ESSENTIAL', 'WEAPON', 'TOOL', 'SURVIVAL'], stat: 'maxEnergy', effect: '+5 Max ⚡ (More Space)', value: 5 }
     ]
   },
   iron_chest: {
@@ -572,7 +579,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 0,
     rarity: 'RARE',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['TOOL'], effect: '-5 Accuracy', value: -5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'defense', effect: '+3 DEF (Armored Storage)', value: 3 }
     ]
   },
   barrel: {
@@ -586,7 +593,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 0,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', effect: 'Stars neighbors', value: 1 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['SURVIVAL'], stat: 'defense', effect: '+5 DEF (Barricade)', value: 5 }
     ]
   },
 
@@ -601,8 +608,9 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Sparkles',
     scoreValue: 5,
     rarity: 'UNCOMMON',
+    combatStats: { energyRegen: 5, maxEnergy: 30 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['wand'], effect: '+10 Mana', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['wand', 'crystal_ball'], stat: 'energyRegen', effect: '+5 ⚡Regen (Magic Synergy)', value: 5 }
     ]
   },
   pocket: {
@@ -616,7 +624,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 0,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['TOOL'], effect: '+1 DMG', value: 1 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'speed', effect: '+2 Speed (Quick Draw)', value: 2 }
     ]
   },
   catalyst: {
@@ -630,7 +638,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 8,
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'multiplier', effect: '2x Poison (fake)', value: 2 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['dagger', 'rusty_nails'], stat: 'damage', effect: '1.5x DMG (Amplify Poison)', value: 1.5 }
     ]
   },
   oil_flask: {
@@ -644,7 +652,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 6,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'PARALLEL', targetIds: ['matches'], effect: '+20 DMG (fake)', value: 20 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['matches', 'lantern'], stat: 'damage', effect: '+15 DMG (Fire Combo)', value: 15 }
     ]
   },
   scope: {
@@ -658,7 +666,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 10,
     rarity: 'RARE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'PARALLEL', stat: 'accuracy', effect: '1.5x Accuracy', value: 1.5 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['crossbow', 'bow'], stat: 'accuracy', effect: '1.5x Accuracy (Scoped)', value: 1.5 }
     ]
   },
   excalibur: {
@@ -670,7 +678,7 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'Sword',
     scoreValue: 100,
-    combatStats: { damage: 25, speed: 5, accuracy: 100 },
+    combatStats: { damage: 25, speed: 5, accuracy: 100, energyCost: 30 },
     rarity: 'LEGENDARY',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'damage', effect: '2x DMG', value: 2.0 }
@@ -702,7 +710,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 30,
     rarity: 'LEGENDARY',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', effect: 'Divine Stars', value: 5 }
+      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', stat: 'speed', effect: 'Boosts Speed (+20)', value: 20 }
     ]
   },
   dragon_scale: {
@@ -731,7 +739,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 50,
     rarity: 'LEGENDARY',
     adjacency: [
-      { type: 'BUFF', pattern: 'TWO_ACROSS', targetCategories: ['ESSENTIAL'], effect: '+50 Score', value: 50 }
+      { type: 'MULTIPLIER', pattern: 'TWO_ACROSS', targetCategories: ['ESSENTIAL'], stat: 'manaRegen', effect: '2x Mana Regen', value: 2 }
     ]
   },
   prism_light: {
@@ -748,8 +756,9 @@ export const ITEMS: Record<string, Item> = {
       {
         type: 'BOOST_SQUARE',
         pattern: [{ dx: 1, dy: 0 }, { dx: 2, dy: 0 }, { dx: 3, dy: 0 }, { dx: 4, dy: 0 }],
-        effect: 'Beam of Stars',
-        value: 1
+        stat: 'damage',
+        effect: 'Beam of Damage (+10)',
+        value: 10
       }
     ]
   },

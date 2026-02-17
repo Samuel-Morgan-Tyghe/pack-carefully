@@ -16,6 +16,7 @@ export const $currentPlayerId = atom<string | null>(null);
 export const $itemsOnGrid = atom<InventoryItemInstance[]>([]);
 export const $availableItems = atom<Item[]>(Object.values(ITEMS));
 export const $draggedItem = atom<string | null>(null);
+export const $activePreview = atom<{ type: 'instance' | 'definition', id: string } | null>(null);
 
 // Multiplayer Identity & Sync
 export const $localPlayerId = atom<string | (typeof localStorage extends undefined ? null : string | null)>(
@@ -159,6 +160,24 @@ export const checkCollision = (
             return true;
         }
     }
+
+    // 2. Base Container Check (For Container Items only)
+    // Prevent placing a Pouch ON TOP of a Backpack (Nesting)
+    if (isContainer) {
+        const containers = $containers.get();
+        for (const container of containers) {
+            // Containers are defined by a list of cells, not a rect
+            // Quick check: does the new item's rect overlap any of the container's cells?
+            for (let cx = x; cx < x + width; cx++) {
+                for (let cy = y; cy < y + height; cy++) {
+                    if (container.cells.some(cell => cell.x === cx && cell.y === cy)) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
     return false;
 };
 
@@ -168,7 +187,7 @@ export const checkSupport = (
     y: number,
     width: number,
     height: number,
-    _items: InventoryItemInstance[], // Unused now, containers are separate
+    items: InventoryItemInstance[],
     ownerId: string
 ): boolean => {
     // In FINALE, everything floats
@@ -178,6 +197,8 @@ export const checkSupport = (
 
     // Get all valid cells for this player
     const validCells = new Set<string>();
+
+    // 1. Base Containers (Backpacks)
     containers.forEach(c => {
         c.cells.forEach(cell => {
             // Check if cell is disabled
@@ -186,6 +207,24 @@ export const checkSupport = (
                 validCells.add(`${cell.x},${cell.y}`);
             }
         });
+    });
+
+    // 2. Container Items (Pouches, Fanny Packs, etc)
+    // They act as valid ground for other items!
+    items.forEach(item => {
+        if (item.ownerId === ownerId) {
+            const def = ITEMS[item.itemId];
+            if (def && def.category === 'CONTAINER') {
+                const w = (item.rotation === 90 || item.rotation === 270) ? def.height : def.width;
+                const h = (item.rotation === 90 || item.rotation === 270) ? def.width : def.height;
+
+                for (let dx = 0; dx < w; dx++) {
+                    for (let dy = 0; dy < h; dy++) {
+                        validCells.add(`${item.x + dx},${item.y + dy}`);
+                    }
+                }
+            }
+        }
     });
 
     // Check if every cell of the item matches a valid container cell
@@ -861,4 +900,21 @@ export const revealDisguises = (targetPlayerId: string): number => {
         $itemsOnGrid.set(newItems);
     }
     return revealedCount;
+};
+
+export const returnItemToPool = (ownerId: string, itemId: string) => {
+    if ($phase.get() === 'DRAFT') {
+        const draft = $draftState.get();
+        const personalPool = draft.availableItems[ownerId] || [];
+        const itemDef = ITEMS[itemId];
+        if (itemDef) {
+            $draftState.set({
+                ...draft,
+                availableItems: {
+                    ...draft.availableItems,
+                    [ownerId]: [...personalPool, itemDef]
+                }
+            });
+        }
+    }
 };

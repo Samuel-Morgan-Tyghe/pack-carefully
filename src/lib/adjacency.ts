@@ -166,24 +166,37 @@ export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<
             });
         }
 
-        // Apply "Star" (Boost Square) effects to Self or Others?
-        // User: "If star is on weapon, this item triggers * 2 speed..."
-        // This implies: If any square of item is boosted, apply bonus.
+        // Apply "Star" (Boost Square) effects
+        // Apply "Star" (Boost Square) effects
         const cells = getItemCells(sourceItem);
-        const isBoosted = cells.some(c => cellBoosts.has(`${c.x},${c.y}`));
-        if (isBoosted) {
-            // If weapon, x2 speed
-            if (sourceDef.category === 'WEAPON') {
-                results[sourceItem.instanceId].multipliers['speed'] = (results[sourceItem.instanceId].multipliers['speed'] || 1) * 2;
-                results[sourceItem.instanceId].activeRules.push("STAR BOOST: x2 Speed");
-            } else {
-                // General boost: +10 to all relevant stats?
-                results[sourceItem.instanceId].buffs['damage'] = (results[sourceItem.instanceId].buffs['damage'] || 0) + 10;
-                results[sourceItem.instanceId].buffs['defense'] = (results[sourceItem.instanceId].buffs['defense'] || 0) + 10;
-                results[sourceItem.instanceId].totalBuff += 10;
-                results[sourceItem.instanceId].activeRules.push("STAR BOOST: +10 All");
+
+        cells.forEach(c => {
+            const key = `${c.x},${c.y}`;
+            const boostingInstanceIds = cellBoosts.get(key);
+
+            if (boostingInstanceIds) {
+                boostingInstanceIds.forEach(boosterId => {
+                    const boosterItem = gridItems.find(i => i.instanceId === boosterId);
+                    if (!boosterItem) return;
+                    const boosterDef = ITEMS[boosterItem.itemId];
+                    if (!boosterDef || !boosterDef.adjacency) return;
+
+                    // Find the rule that caused this boost
+                    // This is imperfect if multiple rules boost, but usually it's one
+                    const boostRule = boosterDef.adjacency.find(r => r.type === 'BOOST_SQUARE');
+                    if (boostRule) {
+                        const stat = boostRule.stat || 'damage';
+                        const val = boostRule.value || 0;
+
+                        // Apply specific boost
+                        // If checking for "Stars", we assume it boosts specific stats now
+                        results[sourceItem.instanceId].buffs[stat] = (results[sourceItem.instanceId].buffs[stat] || 0) + val;
+                        results[sourceItem.instanceId].totalBuff += val;
+                        results[sourceItem.instanceId].activeRules.push(`From ${boosterDef.name}: +${val} ${stat}`);
+                    }
+                });
             }
-        }
+        });
     }
 
     return results;

@@ -1,6 +1,6 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
-import { $draggedItem, $localPlayerId, $viewingPlayerId } from '../../store/gameStore';
+import { $draggedItem, $localPlayerId, $viewingPlayerId, $activePreview } from '../../store/gameStore';
 import { useStore } from '@nanostores/react';
 import clsx from 'clsx';
 
@@ -14,34 +14,47 @@ interface ShelfItemProps {
     };
 }
 
+import ItemTooltip from './ItemTooltip';
+
+interface ShelfItemProps {
+    item: {
+        id: string;
+        name: string;
+        width: number;
+        height: number;
+        icon: string;
+    };
+}
+
 const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
+    const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+    const [showTooltip, setShowTooltip] = React.useState(false);
+    const itemRef = React.useRef<HTMLDivElement>(null);
+
     const handleDragStart = (e: React.DragEvent) => {
         e.dataTransfer.setData('itemId', item.id);
         e.dataTransfer.effectAllowed = 'copy';
         $draggedItem.set(item.id);
 
-        // Custom Drag Image
+        // Custom Drag Image - Scaled to new grid size (40px)
         const dragEl = document.createElement('div');
-        dragEl.style.width = `${item.width * 64 + (item.width - 1) * 4}px`;
-        dragEl.style.height = `${item.height * 64 + (item.height - 1) * 4}px`;
-        dragEl.style.backgroundColor = '#F5E6CA'; // Parchment
+        const CELL_SIZE = 40;
+        const GAP = 2;
+        dragEl.style.width = `${item.width * CELL_SIZE + (item.width - 1) * GAP}px`;
+        dragEl.style.height = `${item.height * CELL_SIZE + (item.height - 1) * GAP}px`;
+        dragEl.style.backgroundColor = '#F5E6CA';
         dragEl.style.backgroundImage = 'url("https://www.transparenttextures.com/patterns/paper.png")';
         dragEl.style.border = '2px solid #8D6E63';
-        dragEl.style.borderRadius = '0.5rem';
+        dragEl.style.borderRadius = '0.25rem';
         dragEl.style.position = 'absolute';
         dragEl.style.top = '-9999px';
         dragEl.style.display = 'flex';
-        dragEl.style.flexDirection = 'column';
         dragEl.style.alignItems = 'center';
         dragEl.style.justifyContent = 'center';
-        dragEl.innerHTML = `
-        <div style="font-weight: bold; font-family:serif; color: #2D1B12; font-size: 14px; text-transform: uppercase;">${item.name}</div>
-        <div style="font-size: 10px; color: #5D4037;">${item.width}x${item.height}</div>
-        `;
+        dragEl.innerHTML = `<div style="font-size: 10px; color: #2D1B12; font-weight: bold;">${item.name}</div>`;
 
         document.body.appendChild(dragEl);
-        e.dataTransfer.setDragImage(dragEl, 32, 32);
-
+        e.dataTransfer.setDragImage(dragEl, CELL_SIZE / 2, CELL_SIZE / 2);
         setTimeout(() => { document.body.removeChild(dragEl); }, 0);
     };
 
@@ -55,45 +68,101 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
 
     const draggedItem = useStore($draggedItem);
     const isSelected = draggedItem === item.id;
+    const activePreview = useStore($activePreview);
+    const isDetailSelected = activePreview?.type === 'definition' && activePreview.id === item.id;
+
+    // Grid cell size for the mini preview
+    const MINI_CELL = 16;
+    const MINI_GAP = 1;
 
     return (
-        <div
-            draggable={isMe}
-            onDragStart={(e) => isMe && handleDragStart(e)}
-            onDragEnd={handleDragEnd}
-            onClick={() => {
-                if (isMe) {
-                    if (isSelected) {
-                        $draggedItem.set(null);
-                    } else {
-                        $draggedItem.set(item.id);
+        <div className="relative">
+            <div
+                ref={itemRef}
+                draggable={isMe}
+                onDragStart={(e) => isMe && handleDragStart(e)}
+                onDragEnd={handleDragEnd}
+                onMouseEnter={(e) => {
+                    setAnchorRect(e.currentTarget.getBoundingClientRect());
+                    setShowTooltip(true);
+                }}
+                onMouseLeave={() => setShowTooltip(false)}
+                onClick={() => {
+                    if (isMe) {
+                        if (isSelected) {
+                            $draggedItem.set(null);
+                            $activePreview.set(null);
+                        } else {
+                            $draggedItem.set(item.id);
+                            $activePreview.set({ type: 'definition', id: item.id });
+                        }
                     }
-                }
-            }}
-            className={clsx(
-                "group flex flex-col gap-2 p-3 rounded transition-all shadow-sm hover:shadow-md relative overflow-hidden",
-                isMe ? (
-                    isSelected
-                        ? "bg-gold-50 border-2 border-gold-600 ring-2 ring-gold-400 cursor-pointer"
-                        : "bg-parchment-100 hover:bg-white border-2 border-parchment-500 hover:border-gold-500 cursor-grab active:cursor-grabbing"
-                ) : "bg-white/5 border-2 border-white/5 opacity-50 grayscale cursor-not-allowed"
-            )}
-        >
-            {/* Texture noise */}
-            <div className="absolute inset-0 bg-paper-texture opacity-30 pointer-events-none" />
+                }}
+                className={clsx(
+                    "group relative aspect-square flex items-center justify-center rounded-lg transition-all cursor-grab active:cursor-grabbing hover:bg-wood-800/50 p-1",
+                    isSelected || isDetailSelected ? "ring-2 ring-gold-500 bg-gold-500/10 shadow-glow-gold" : "border border-wood-700/50 bg-wood-950/30"
+                )}
+                style={{
+                    width: '100%',
+                    height: '100%'
+                }}
+            >
+                {/* Texture noise */}
+                <div className="absolute inset-0 bg-paper-texture opacity-5 pointer-events-none rounded-lg" />
 
-            <div className="flex justify-between items-start w-full relative z-10">
-                <div className="p-1 bg-wood-200/50 rounded">
-                    {React.createElement(
-                        (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[item.icon] || LucideIcons.Package,
-                        { size: 20, className: "text-wood-900" }
-                    )}
+                {/* Shape Grid */}
+                <div
+                    className="relative pointer-events-none"
+                    style={{
+                        width: item.width * MINI_CELL + (item.width - 1) * MINI_GAP,
+                        height: item.height * MINI_CELL + (item.height - 1) * MINI_GAP,
+                    }}
+                >
+                    {/* Background cells */}
+                    {Array.from({ length: item.width * item.height }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="absolute bg-wood-700/40 rounded-sm border border-wood-800/50"
+                            style={{
+                                width: MINI_CELL,
+                                height: MINI_CELL,
+                                left: (i % item.width) * (MINI_CELL + MINI_GAP),
+                                top: Math.floor(i / item.width) * (MINI_CELL + MINI_GAP),
+                            }}
+                        />
+                    ))}
+
+                    {/* Icon Centered */}
+                    <div className="absolute inset-0 flex items-center justify-center p-1 drop-shadow-md">
+                        {React.createElement(
+                            (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[item.icon] || LucideIcons.Package,
+                            {
+                                size: Math.min(item.width, item.height) >= 2 ? 18 : 12,
+                                className: clsx("transition-transform group-hover:scale-110", isDetailSelected || isSelected ? "text-gold-400" : "text-parchment-300")
+                            }
+                        )}
+                    </div>
                 </div>
+
+                {/* Lock icon if unavailable */}
+                {!isMe && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
+                        <LucideIcons.Lock size={12} className="text-wood-400" />
+                    </div>
+                )}
             </div>
-            <div className="relative z-10">
-                <div className="font-serif font-bold text-sm text-wood-900 leading-tight group-hover:text-wood-600 transition-colors uppercase">{item.name}</div>
-                <div className="text-[10px] text-wood-600 mt-1 font-mono">{item.width}x{item.height}</div>
-            </div>
+
+            {/* Tooltip */}
+            {(showTooltip || isDetailSelected) && anchorRect && (
+                <ItemTooltip
+                    itemId={item.id}
+                    anchorRect={anchorRect}
+                    onClose={() => {
+                        setShowTooltip(false);
+                        if (isDetailSelected) $activePreview.set(null);
+                    }}
+                />
+            )}
         </div>
     );
 };

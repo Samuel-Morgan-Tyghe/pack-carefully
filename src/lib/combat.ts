@@ -13,6 +13,10 @@ export interface CombatStats {
     accuracy: number;
     maxMana: number;
     manaRegen: number;
+    shieldRegen?: number;
+    healthRegen?: number;
+    maxEnergy: number;
+    energyRegen: number;
 }
 
 export interface StatusEffect {
@@ -22,15 +26,29 @@ export interface StatusEffect {
 }
 
 export interface CombatEntity {
+    id: string;
     hp: number;
     maxHp: number;
     mana: number;
+    shield: number;
+    baseDefense: number;
+    energy: number;
+    maxEnergy: number;
     image?: string;
     stats: CombatStats;
     statuses: StatusEffect[];
     synergies?: SynergyEffect[];
     onHitEffects?: { type: StatusEffect['type']; value: number; chance?: number }[];
     name: string;
+    inventory: InventoryItemInstance[];
+}
+
+export interface ItemCooldown {
+    instanceId: string;
+    itemId: string;
+    current: number; // ms remaining
+    max: number;     // ms total
+    baseMax: number; // Original max cooldown before modifiers
 }
 
 export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { stats: CombatStats, synergies: SynergyEffect[], onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] } => {
@@ -40,12 +58,15 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         block: 0,
         heal: 0,
         speed: 0,
-        accuracy: 100, // Base accuracy
+        accuracy: 100,
         maxMana: 0,
-        manaRegen: 0
+        manaRegen: 0,
+        shieldRegen: 0,
+        healthRegen: 0,
+        maxEnergy: 20, // Base energy pool
+        energyRegen: 5  // Base regen per second
     };
 
-    // 1. Base Stats from Items
     items.forEach(instance => {
         const def = ITEMS[instance.itemId];
         if (def.combatStats) {
@@ -54,30 +75,20 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
             totalStats.block += def.combatStats.block || 0;
             totalStats.heal += def.combatStats.heal || 0;
             totalStats.speed += def.combatStats.speed || 0;
-            totalStats.maxMana += def.combatStats.manaCost ? 0 : def.combatStats.maxMana || 0; // Item might give max mana
-            // Accuracy is usually set by weapon, let's average it or take max? 
-            // For now, let's say base is 100, and we don't reduce it unless specified.
-            // If we have a weapon, we might want to use its specific accuracy for its attack.
-            // But this is "Total Stats". Let's treat accuracy as a Modifier here?
-            // Actually, individual attacks need accuracy.
+            totalStats.maxMana += def.combatStats.manaCost ? 0 : def.combatStats.maxMana || 0;
+            totalStats.shieldRegen! += def.combatStats.shieldRegen || 0;
+            totalStats.healthRegen! += def.combatStats.healthRegen || 0;
+            totalStats.maxEnergy += def.combatStats.maxEnergy || 0;
+            totalStats.energyRegen += def.combatStats.energyRegen || 0;
         }
     });
 
-    // 2. Adjacency Bonuses
     const bonusesMap = getAdjacencyBonuses(items);
-
-    // Multipliers collect factors (e.g. 1.5, 2.0)
     const totalMultipliers: Record<string, number> = {
-        damage: 1,
-        defense: 1,
-        block: 1,
-        heal: 1,
-        speed: 1,
-        accuracy: 1
+        damage: 1, defense: 1, block: 1, heal: 1, speed: 1, accuracy: 1
     };
 
     Object.values(bonusesMap).forEach(bonusResult => {
-        // Apply Additive Buffs
         if (bonusResult.buffs) {
             Object.entries(bonusResult.buffs).forEach(([stat, val]) => {
                 if (stat in totalStats) {
@@ -85,8 +96,6 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
                 }
             });
         }
-
-        // Apply Multiplicative Buffs (factors)
         if (bonusResult.multipliers) {
             Object.entries(bonusResult.multipliers).forEach(([stat, val]) => {
                 if (stat in totalMultipliers) {
@@ -96,7 +105,6 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         }
     });
 
-    // Finalize stats with multipliers
     totalStats.damage = Math.floor(totalStats.damage * totalMultipliers.damage);
     totalStats.defense = Math.floor(totalStats.defense * totalMultipliers.defense);
     totalStats.block = Math.floor(totalStats.block * totalMultipliers.block);
@@ -104,19 +112,7 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
     totalStats.speed = Math.floor(totalStats.speed * totalMultipliers.speed);
     totalStats.accuracy = Math.floor(totalStats.accuracy * totalMultipliers.accuracy);
 
-    // 3. Advanced Synergies
     const synergies = calculateSynergies(items);
-
-    // ... rest of the function remains similar ...
-
-    // Some synergies might modify stats immediately (e.g. Cooldown Reduction -> Speed?)
-    synergies.forEach(syn => {
-        if (syn.type === 'COOLDOWN_REDUCTION') {
-            totalStats.speed += 2; // Arbitrary buff for now
-        }
-    });
-
-    // 4. Collect On-Hit Effects from weapons
     const onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] = [];
     items.forEach(instance => {
         const def = ITEMS[instance.itemId];
@@ -135,191 +131,236 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
 };
 
 export interface CombatLogEntry {
-    round: number;
+    round: number; // Keep for legacy, though round is less relevant now
     message: string;
     type: 'DAMAGE' | 'HEAL' | 'BLOCK' | 'INFO' | 'MISS' | 'EFFECT';
 }
 
-export const resolveCombatTurn = (
+export const processCombatTick = (
     player: CombatEntity,
     enemy: CombatEntity,
-    round: number
-): { player: CombatEntity, enemy: CombatEntity, log: CombatLogEntry[] } => {
+    playerCooldowns: ItemCooldown[],
+    enemyCooldowns: ItemCooldown[],
+    deltaMs: number
+): {
+    player: CombatEntity,
+    enemy: CombatEntity,
+    playerCooldowns: ItemCooldown[],
+    enemyCooldowns: ItemCooldown[],
+    events: string[]
+} => {
+    const p = { ...player, statuses: [...player.statuses] };
+    const e = { ...enemy, statuses: [...enemy.statuses] };
+    const events: string[] = [];
 
-    // Deep copy to avoid mutating state directly
-    const p = JSON.parse(JSON.stringify(player));
-    const e = JSON.parse(JSON.stringify(enemy));
-    const log: CombatLogEntry[] = [];
+    // Shield Decay: Shields lose 2% of max or 2 points per sec (approx)
+    const decay = (deltaMs / 1000) * 5;
+    p.shield = Math.max(0, p.shield - decay);
+    e.shield = Math.max(0, e.shield - decay);
 
-    // --- PHASE 1: Status Effects (Start of Turn) ---
-    const applyStatus = (entity: CombatEntity, name: string) => {
-        const newStatuses: StatusEffect[] = [];
-        entity.statuses.forEach(s => {
-            if (s.type === 'POISON') {
-                const dmg = s.value;
-                entity.hp -= dmg;
-                log.push({ round, message: `${name} takes ${dmg} Poison damage.`, type: 'DAMAGE' });
-                newStatuses.push(s); // Poison doesn't decay, it stacks? Or assumes duration? Spec says "Stacking DoT".
-            } else if (s.type === 'FIRE') {
-                const dmg = 5; // Fixed high dmg
-                entity.hp -= dmg;
-                log.push({ round, message: `${name} burns for ${dmg} damage!`, type: 'DAMAGE' });
-                if (s.value > 1) newStatuses.push({ ...s, value: s.value - 1 });
-            } else if (s.type === 'STUN') {
-                // Handled in Action phase
-            } else {
-                newStatuses.push(s);
-            }
-        });
-        entity.statuses = newStatuses;
-    };
+    // Passive Regen
+    if (p.stats.healthRegen) p.hp = Math.min(p.maxHp, p.hp + (p.stats.healthRegen * deltaMs / 1000));
+    if (p.stats.shieldRegen) p.shield += (p.stats.shieldRegen * deltaMs / 1000);
 
-    applyStatus(p, "Player");
-    applyStatus(e, e.name);
+    // Energy Regen
+    p.energy = Math.min(p.maxEnergy, p.energy + (p.stats.energyRegen * deltaMs / 1000));
+    e.energy = Math.min(e.maxEnergy, e.energy + (e.stats.energyRegen * deltaMs / 1000));
 
-    if (p.hp <= 0 || e.hp <= 0) return { player: p, enemy: e, log };
+    // Process Player Cooldowns
+    const nextPlayerCooldowns = playerCooldowns.map(cd => {
+        let current = cd.current - deltaMs;
+        if (current <= 0) {
+            // Trigger Item!
+            const def = ITEMS[cd.itemId];
+            const energyCost = def.combatStats?.energyCost || 0;
 
-    // --- PHASE 2: Actions ---
-
-    // Check Stuns
-    const playerStunned = p.statuses.some((s: StatusEffect) => s.type === 'STUN');
-    const enemyStunned = e.statuses.some((s: StatusEffect) => s.type === 'STUN');
-
-    // Decrement Stun duration
-    p.statuses = p.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? { ...s, value: s.value - 1 } : s);
-    e.statuses = e.statuses.filter((s: StatusEffect) => s.type !== 'STUN' || s.value > 1).map((s: StatusEffect) => s.type === 'STUN' ? { ...s, value: s.value - 1 } : s);
-
-    // Player Turn
-    if (!playerStunned) {
-        // Accuracy Check (using average of items or base?)
-        // Let's assume player has Global Accuracy for now from Stats
-        const acc = p.stats.accuracy; // Base 100
-        const hit = Math.random() * 100 <= acc;
-
-        if (!hit) {
-            log.push({ round, message: `You missed!`, type: 'MISS' });
-        } else {
-            // Calculate Damage
-            const dmg = p.stats.damage;
-
-            // Check Mitigation
-            let actualDmg = Math.max(0, dmg - e.stats.defense);
-            // Helper: Block is temporary HP buffer? Or separate? 
-            // Spec: "Block provides temporary HP buffer". 
-            if (e.stats.block > 0) {
-                const blocked = Math.min(e.stats.block, actualDmg);
-                e.stats.block -= blocked;
-                actualDmg -= blocked;
-                log.push({ round, message: `${e.name} blocked ${blocked} damage.`, type: 'BLOCK' });
+            // Check energy
+            if (energyCost > 0 && p.energy < energyCost) {
+                events.push(`Not enough energy for ${def.name}! (${Math.floor(p.energy)}/${energyCost})`);
+                current = cd.max; // Reset cooldown, skip this fire
+                return { ...cd, current };
             }
 
-            e.hp -= actualDmg;
-            log.push({ round, message: `You hit ${e.name} for ${actualDmg} damage!`, type: 'DAMAGE' });
+            // Deduct energy
+            p.energy -= energyCost;
 
-            // Apply On-Hit Effects from equipped weapons
-            if (p.onHitEffects) {
-                p.onHitEffects.forEach((eff: { type: StatusEffect['type']; value: number; chance?: number }) => {
-                    const chance = eff.chance ?? 100; // Default 100% if no chance specified
-                    if (Math.random() * 100 <= chance) {
-                        const existing = e.statuses.find((s: StatusEffect) => s.type === eff.type);
-                        if (existing) {
-                            // Stack the effect
-                            existing.value += eff.value;
-                            log.push({ round, message: `${eff.type} stacks on ${e.name}! (${existing.value} total)`, type: 'EFFECT' });
-                        } else {
-                            e.statuses.push({ type: eff.type, value: eff.value });
-                            log.push({ round, message: `${e.name} is afflicted with ${eff.type}!`, type: 'EFFECT' });
-                        }
-                    }
+            const dmg = (def.combatStats?.damage || 0) + (p.stats.damage / 10); // base + scaled
+
+            // Resolve Damage against Enemy
+            let finalDmg = Math.max(1, dmg - e.baseDefense);
+            if (e.shield > 0) {
+                const absorbed = Math.min(e.shield, finalDmg);
+                e.shield -= absorbed;
+                finalDmg -= absorbed;
+            }
+            e.hp -= finalDmg;
+            if (finalDmg > 0) events.push(`Player's ${def.name} hits for ${Math.floor(finalDmg)}! (-${energyCost} ⚡)`);
+
+            // Apply specific effects (Heals) - ShieldRegen is passive only now to avoid double dipping
+            if (def.combatStats?.heal) p.hp = Math.min(p.maxHp, p.hp + def.combatStats.heal);
+
+            // Apply Status Effects from this specific item
+            if (def.effects) {
+                def.effects.forEach(eff => {
+                    // Check chance if applicable
+                    if (eff.chance && Math.random() * 100 > eff.chance) return;
+
+                    e.statuses.push({
+                        type: eff.type,
+                        value: eff.value,
+                        sourceId: def.id
+                    });
+                    events.push(`Applied ${eff.type} to Enemy!`);
                 });
             }
+
+            current = cd.max; // Reset
         }
-    } else {
-        log.push({ round, message: `You are Stunned!`, type: 'INFO' });
-    }
+        return { ...cd, current };
+    });
 
-    // Enemy Turn
-    if (!enemyStunned && e.hp > 0) { // If enemy survived and not stunned
-        const dmg = e.stats.damage;
-
-        let actualDmg = Math.max(0, dmg - p.stats.defense);
-        if (p.stats.block > 0) {
-            const blocked = Math.min(p.stats.block, actualDmg);
-            p.stats.block -= blocked; // Block degrades? Or is it per turn?
-            // Spec usually implies Block refreshes or is consumed. Let's consume it.
-            actualDmg -= blocked;
-            log.push({ round, message: `You blocked ${blocked} damage.`, type: 'BLOCK' });
+    // Process Enemy Cooldowns (Simple auto-attack for now)
+    const nextEnemyCooldowns = enemyCooldowns.map(cd => {
+        let current = cd.current - deltaMs;
+        if (current <= 0) {
+            const dmg = e.stats.damage;
+            let finalDmg = Math.max(1, dmg - p.baseDefense);
+            if (p.shield > 0) {
+                const absorbed = Math.min(p.shield, finalDmg);
+                p.shield -= absorbed;
+                finalDmg -= absorbed;
+            }
+            p.hp -= finalDmg;
+            events.push(`${e.name} attacks for ${Math.floor(finalDmg)}!`);
+            current = cd.max;
         }
+        return { ...cd, current };
+    });
 
-        p.hp -= actualDmg;
-        log.push({ round, message: `${e.name} attacks for ${actualDmg} damage!`, type: 'DAMAGE' });
-    } else if (enemyStunned) {
-        log.push({ round, message: `${e.name} is Stunned!`, type: 'INFO' });
-    }
+    // Process Status Effects (Poison, Regen, etc) on Ticks? 
+    // Status effects usually tick once per second.
+    // For now, let's keep it simple and ignoring DOTs until we have a better timing mechanism for them.
+    // Or we can apply DOTs here based on deltaMs?
+    // e.g. Poison = 5 dmg / sec.
+    e.statuses.forEach(s => {
+        if (s.type === 'POISON') {
+            e.hp -= (s.value * deltaMs / 1000);
+        }
+    });
 
-    return { player: p, enemy: e, log };
+    return { player: p, enemy: e, playerCooldowns: nextPlayerCooldowns, enemyCooldowns: nextEnemyCooldowns, events };
 };
 
 export type EnemyType = 'AGGRESSIVE' | 'DEFENSIVE' | 'SWARM' | 'EVASIVE' | 'BOSS';
 
+const ENEMY_TEMPLATES: Record<EnemyType, {
+    names: string[];
+    pool: string[];
+    baseHp: number;
+    hpPerDiff: number;
+    baseDef: number;
+    defPerDiff: number;
+    itemsCount: number; // Base items
+}> = {
+    AGGRESSIVE: {
+        names: ['Dire Wolf', 'Berserker', 'Wild Boar'],
+        pool: ['dagger', 'sword', 'hammer', 'battle_axe', 'oil_flask'],
+        baseHp: 40, hpPerDiff: 10,
+        baseDef: 0, defPerDiff: 0,
+        itemsCount: 1
+    },
+    DEFENSIVE: {
+        names: ['Iron Bear', 'Stone Golem', 'Turtle'],
+        pool: ['rock', 'shield', 'helmet', 'potion', 'hammer'], // helmet/shield if exist, else basic
+        baseHp: 80, hpPerDiff: 20,
+        baseDef: 2, defPerDiff: 1,
+        itemsCount: 1
+    },
+    SWARM: {
+        names: ['Rat Pack', 'Bee Swarm', 'Kobold'],
+        pool: ['dagger', 'slingshot', 'broken_radio', 'rusty_nails'],
+        baseHp: 30, hpPerDiff: 5,
+        baseDef: 0, defPerDiff: 0,
+        itemsCount: 2
+    },
+    EVASIVE: {
+        names: ['Wind Spirit', 'Ninja', 'Bat'],
+        pool: ['bow', 'slingshot', 'dagger', 'rope'],
+        baseHp: 35, hpPerDiff: 8,
+        baseDef: 0, defPerDiff: 0,
+        itemsCount: 1
+    },
+    BOSS: {
+        names: ['Dragon', 'Dark Knight', 'Beholder'],
+        pool: ['excalibur', 'obsidian_shield', 'dragon_scale', 'battle_axe'],
+        baseHp: 200, hpPerDiff: 50,
+        baseDef: 5, defPerDiff: 2,
+        itemsCount: 3
+    }
+};
+
 export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity => {
-    const baseStats = {
-        damage: 5 + difficulty,
-        defense: 0,
-        block: 0,
-        heal: 0,
-        speed: 5,
-        accuracy: 90,
-        maxMana: 0,
-        manaRegen: 0
-    };
+    const template = ENEMY_TEMPLATES[type];
+    const name = template.names[Math.floor(Math.random() * template.names.length)];
+    const enemyId = `enemy-${Math.random().toString(36).substr(2, 9)}`;
 
-    const entity: CombatEntity = {
-        name: "Unknown",
-        hp: 50 + (difficulty * 10),
-        maxHp: 50 + (difficulty * 10),
-        mana: 0,
-        stats: baseStats,
-        statuses: [],
-        synergies: []
-    };
+    // Generate Inventory
+    const inventory: InventoryItemInstance[] = [];
+    const count = Math.max(1, template.itemsCount + Math.floor(difficulty / 3)); // Ensure at least 1 item, more at higher diff
 
-    switch (type) {
-        case 'AGGRESSIVE':
-            entity.name = "Dire Wolf";
-            entity.stats.speed = 8;
-            entity.stats.damage = 10 + difficulty * 2;
-            entity.hp = 40 + difficulty * 5;
-            entity.maxHp = entity.hp;
-            break;
-        case 'DEFENSIVE':
-            entity.name = "Iron Bear";
-            entity.stats.defense = 5 + difficulty;
-            entity.hp = 80 + difficulty * 15;
-            entity.maxHp = entity.hp;
-            entity.stats.speed = 3;
-            break;
-        case 'SWARM':
-            entity.name = "Swarm of Rats";
-            entity.hp = 30 + difficulty * 5;
-            entity.maxHp = entity.hp;
-            entity.stats.speed = 7;
-            break;
-        case 'EVASIVE':
-            entity.name = "Mist Spirit";
-            entity.stats.defense = 0;
-            entity.stats.speed = 10;
-            break;
-        case 'BOSS':
-            entity.name = "The Dragon";
-            entity.hp = 500;
-            entity.maxHp = 500;
-            entity.stats.damage = 25;
-            entity.stats.defense = 5;
-            break;
+    for (let i = 0; i < count; i++) {
+        const itemId = template.pool[Math.floor(Math.random() * template.pool.length)];
+        const itemDef = ITEMS[itemId];
+        if (itemDef) {
+            inventory.push({
+                instanceId: `enemy-item-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                itemId: itemId,
+                x: 0,
+                y: i * 2, // Simple stacking, visual layout doesn't matter much for enemy yet
+                rotation: 0,
+                ownerId: enemyId
+            });
+        }
     }
 
-    return entity;
+    // Calculate Stats from Items
+    const { stats: itemStats, synergies, onHitEffects } = calculatePlayerCombatInfo(inventory);
+
+    // Base Stats
+    const maxHp = template.baseHp + (template.hpPerDiff * difficulty);
+    const baseDefense = template.baseDef + (template.defPerDiff * difficulty);
+
+    // Combine
+    const finalStats: CombatStats = {
+        ...itemStats,
+        damage: Math.max(1, itemStats.damage + Math.floor(difficulty)), // Ensure at least 1 dmg + diff scaling
+        speed: Math.max(1, itemStats.speed),
+        defense: itemStats.defense + baseDefense,
+        maxMana: itemStats.maxMana,
+        manaRegen: itemStats.manaRegen,
+        shieldRegen: itemStats.shieldRegen || 0,
+        healthRegen: itemStats.healthRegen || 0,
+        block: itemStats.block,
+        heal: itemStats.heal,
+        accuracy: itemStats.accuracy
+    };
+
+    return {
+        id: enemyId,
+        name,
+        hp: maxHp,
+        maxHp: maxHp,
+        mana: itemStats.maxMana,
+        shield: 0,
+        baseDefense,
+        energy: finalStats.maxEnergy,
+        maxEnergy: finalStats.maxEnergy,
+        stats: finalStats,
+        statuses: [],
+        synergies,
+        onHitEffects,
+        inventory
+    };
 };
 
 export const calculateCombatPower = (items: InventoryItemInstance[]): number => {

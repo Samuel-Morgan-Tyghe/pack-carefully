@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { $gameState, $itemsOnGrid, damageMorale, addRandomLoot, completeEncounter, $players } from '../../store/gameStore';
-import { calculateCombatPower, resolveCombatTurn, calculatePlayerCombatInfo, type CombatEntity } from '../../lib/combat';
+import { calculateCombatPower, calculatePlayerCombatInfo, type CombatEntity } from '../../lib/combat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playSound } from '../../lib/sounds';
 
@@ -48,22 +48,33 @@ const Encounter: React.FC = () => {
         // Create Mock Player Entity from Items
         const { stats, synergies, onHitEffects } = calculatePlayerCombatInfo(pathItems);
         const playerEntity: CombatEntity = {
+            id: 'player-entity',
             name: "Expedition",
-            hp: 100, // Shared HP?
+            hp: 100,
             maxHp: 100,
             mana: 0,
+            shield: 0,
+            baseDefense: 0,
+            energy: stats.maxEnergy,
+            maxEnergy: stats.maxEnergy,
             stats,
             statuses: [],
             synergies,
-            onHitEffects
+            onHitEffects,
+            inventory: []
         };
 
         // Create Enemy (Generic for now, based on threat)
         const enemyEntity: CombatEntity = {
+            id: 'enemy-entity',
             name: "Wild Beast",
             hp: difficulty * 2,
             maxHp: difficulty * 2,
             mana: 0,
+            shield: 0,
+            baseDefense: 0,
+            energy: 100,
+            maxEnergy: 100,
             stats: {
                 damage: 5 + Math.floor(difficulty / 5),
                 defense: 0,
@@ -72,57 +83,39 @@ const Encounter: React.FC = () => {
                 speed: 5,
                 accuracy: 90,
                 maxMana: 0,
-                manaRegen: 0
+                manaRegen: 0,
+                maxEnergy: 100,
+                energyRegen: 5
             },
             statuses: [],
-            synergies: []
+            synergies: [],
+            inventory: []
         };
 
         let p = playerEntity;
         let e = enemyEntity;
         setCombatState({ player: p, enemy: e });
 
-        // Simulating 5 turns
+        // Simple power-based resolution (real combat now in AutoBattler)
         let victory = false;
 
         for (let r = 1; r <= 5; r++) {
             await wait(800);
-            const res = resolveCombatTurn(p, e, r);
 
-            // Process Log for Effects
-            for (const entry of res.log) {
-                await wait(400); // Stagger events
+            // Simple damage exchange per round
+            const playerDmg = Math.max(1, p.stats.damage - e.stats.defense);
+            const enemyDmg = Math.max(1, e.stats.damage - p.stats.defense);
 
-                // Determine who was hit/acted based on message (Simple heuristic for now)
-                // Ideally log would have source/target IDs.
-                const isPlayerAction = entry.message.startsWith("You");
-                // const isEnemyAction = entry.message.includes(e.name); // Unused
+            e = { ...e, hp: e.hp - playerDmg };
+            p = { ...p, hp: p.hp - enemyDmg };
 
-                if (entry.type === 'DAMAGE') {
-                    playSound.combatHit();
-                    setShake(prev => prev + 1);
-                    // If player damaged enemy
-                    if (entry.message.includes(e.name) && entry.message.includes("hit")) {
-                        addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", 200, -50, '#ef4444');
-                    }
-                    // If enemy damaged player
-                    if (entry.message.includes("attacks for")) {
-                        addFloatingText(entry.message.match(/\d+/)?.[0] || "Hit", -200, -50, '#ef4444');
-                    }
-                    // Keep existing sound logic or move it here? 
-                    // Moving it here for sync.
-                } else if (entry.type === 'BLOCK') {
-                    playSound.combatBlock();
-                    addFloatingText("Blocked", isPlayerAction ? -200 : 200, -80, '#3b82f6');
-                } else if (entry.type === 'MISS') {
-                    playSound.combatMiss();
-                    addFloatingText("Miss", isPlayerAction ? 200 : -200, -80, '#9ca3af');
-                }
-            }
+            playSound.combatHit();
+            setShake(prev => prev + 1);
+            addFloatingText(`${playerDmg}`, 200, -50, '#ef4444');
+            await wait(400);
+            addFloatingText(`${enemyDmg}`, -200, -50, '#ef4444');
 
-            p = res.player;
-            e = res.enemy;
-            setCombatState({ player: p, enemy: e }); // Update UI
+            setCombatState({ player: p, enemy: e });
 
             if (e.hp <= 0) {
                 victory = true;

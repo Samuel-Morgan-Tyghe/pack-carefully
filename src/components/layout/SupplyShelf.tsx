@@ -1,47 +1,77 @@
+import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { $draftState, $localPlayerId } from '../../store/gameStore';
-import PlayerInfo from './PlayerInfo';
 import ShelfCategory from './ShelfCategory';
 import * as LucideIcons from 'lucide-react';
 import type { Item } from '../../types';
+import clsx from 'clsx';
+
+const CATEGORIES = ['WEAPON', 'TOOL', 'ESSENTIAL', 'SURVIVAL', 'COMFORT', 'CONTAINER', 'SABOTAGE'];
 
 const SupplyShelf: React.FC = () => {
     const { availableItems: draftPool } = useStore($draftState);
     const localPlayerId = useStore($localPlayerId);
+    const [activeTab, setActiveTab] = useState(CATEGORIES[0]);
 
     // Get personal items for this player, fallback to empty
     const items = (localPlayerId && draftPool[localPlayerId]) || [];
 
     return (
-        <section className="w-full 2xl:w-80 h-auto 2xl:h-full bg-wood-900/90 border-b-4 2xl:border-b-0 2xl:border-l-4 border-wood-700 shadow-2xl p-3 md:p-6 flex flex-col gap-3 md:gap-6 relative z-10 backdrop-blur-sm rounded-t-xl 2xl:rounded-l-xl 2xl:rounded-t-none shrink-0 overflow-hidden">
-            {/* Supply Header - Hidden/Compact on mobile */}
-            <div className="flex justify-between items-center border-b-2 border-wood-700 pb-2 shrink-0">
-                <h3 className="font-display font-bold text-lg md:text-2xl text-gold-500 drop-shadow-sm flex items-center gap-2">
-                    <LucideIcons.Package size={20} className="2xl:hidden" />
+        <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden">
+            {/* Supply Header - Compact */}
+            <div className="flex justify-between items-center border-b border-wood-700 pb-1 shrink-0">
+                <h3 className="font-display font-bold text-sm md:text-lg text-gold-500 drop-shadow-sm flex items-center gap-1.5">
+                    <LucideIcons.Package size={16} />
                     Supplies
                 </h3>
-                <span className="text-xs bg-wood-800 px-2 py-1 rounded text-wood-300 font-mono border border-wood-600">{items.length}</span>
+                <span className="text-[10px] bg-wood-800 px-1.5 py-0.5 rounded text-wood-300 font-mono border border-wood-600">{items.length}</span>
             </div>
 
-            <div className="flex-1 overflow-x-auto 2xl:overflow-y-auto pb-2 md:pr-2 flex flex-row 2xl:flex-col gap-4 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full">
-                {/* Categories */}
-                {['CONTAINER', 'ESSENTIAL', 'TOOL', 'SURVIVAL', 'COMFORT', 'SABOTAGE', 'WEAPON'].map(cat => {
-                    const categoryItems = items.filter((i: Item) => i.category === cat);
-                    if (categoryItems.length === 0) return null;
+            {/* Category Tabs */}
+            <div className="flex md:flex-wrap gap-1 overflow-x-auto pb-1 scrollbar-none shrink-0 border-b border-wood-700">
+                {CATEGORIES.map(cat => {
+                    const count = items.filter((i: any) => i.category === cat).length;
+                    if (count === 0 && cat !== activeTab) return null;
+
+                    const Icon = (LucideIcons as any)[
+                        cat === 'WEAPON' ? 'Swords' :
+                            cat === 'TOOL' ? 'Hammer' :
+                                cat === 'ESSENTIAL' ? 'Package' :
+                                    cat === 'SURVIVAL' ? 'Heart' :
+                                        cat === 'COMFORT' ? 'Bed' :
+                                            cat === 'CONTAINER' ? 'Square' : 'Skull'
+                    ] || LucideIcons.Package;
+
                     return (
-                        <div key={cat} className="flex-shrink-0 2xl:flex-shrink-1">
-                            <ShelfCategory
-                                category={cat}
-                                items={categoryItems}
-                            />
-                        </div>
+                        <button
+                            key={cat}
+                            onClick={() => setActiveTab(cat)}
+                            className={clsx(
+                                "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all border",
+                                activeTab === cat
+                                    ? "bg-gold-600 border-gold-400 text-wood-900 shadow-inner"
+                                    : "bg-wood-800 border-wood-600 text-wood-400 hover:bg-wood-700"
+                            )}
+                        >
+                            <Icon size={12} />
+                            <span className="hidden sm:inline">{cat.slice(0, 3)}</span>
+                            <span className="opacity-60">{count}</span>
+                        </button>
                     );
                 })}
             </div>
 
-            {/* Hide PlayerInfo on mobile shelf to save space */}
-            <div className="hidden 2xl:block">
-                <PlayerInfo />
+            {/* Shelf Content - Fixed Category */}
+            <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full animate-in fade-in slide-in-from-left-2">
+                {(() => {
+                    const categoryItems = items.filter((i: Item) => i.category === activeTab);
+                    return (
+                        <ShelfCategory
+                            category={activeTab}
+                            items={categoryItems}
+                        />
+                    );
+                })()}
             </div>
         </section>
     );

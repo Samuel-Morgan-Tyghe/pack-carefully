@@ -11,7 +11,7 @@ export interface AdjacencyRule {
   pattern: AdjacencyPattern;
   targetCategories?: ItemCategory[];
   targetIds?: string[];
-  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown';
+  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown' | 'healthRegen' | 'manaRegen' | 'maxMana' | 'energyRegen' | 'maxEnergy';
   effect: string;
   value: number; // For BUFF/DEBUFF: added value. For MULTIPLIER: factor (e.g. 1.5). For BOOST_SQUARE: level?
   stacking?: boolean; // If true, applies for EACH item matching the pattern
@@ -39,6 +39,11 @@ export interface Item {
     manaCost?: number;
     maxMana?: number;
     manaRegen?: number;
+    shieldRegen?: number;
+    healthRegen?: number;
+    energyCost?: number; // Energy consumed when this weapon fires
+    maxEnergy?: number; // Adds to max energy pool
+    energyRegen?: number; // Energy regenerated per second
   };
   effects?: {
     type: 'POISON' | 'FIRE' | 'STUN' | 'SLOW' | 'BLEED';

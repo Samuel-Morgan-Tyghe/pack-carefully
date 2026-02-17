@@ -15,7 +15,7 @@ const GameHUD: React.FC = () => {
    return (
       <>
          {/* Top Left: Title/Logo (Compact) - Hidden on mobile */}
-         <div className="absolute top-2 left-2 md:top-4 md:left-6 z-50 pointer-events-none select-none hidden sm:block">
+         <div className="fixed top-2 left-2 md:top-4 md:left-6 z-50 pointer-events-none select-none hidden sm:block">
             <div className="flex items-center gap-2 md:gap-3">
                <div className="p-1.5 md:p-2 bg-wood-900/90 rounded-lg border-2 border-gold-600 shadow-lg backdrop-blur-sm">
                   <LucideIcons.Map size={20} className="text-gold-500 md:w-6 md:h-6" />
@@ -27,7 +27,7 @@ const GameHUD: React.FC = () => {
          </div>
 
          {/* Top Center: Player Navigation & Observer Switcher */}
-         <div className="absolute top-2 left-2 sm:left-1/2 sm:-translate-x-1/2 md:top-4 z-[60] flex flex-col items-center gap-2">
+         <div className="fixed top-2 left-2 sm:left-1/2 sm:-translate-x-1/2 md:top-4 z-[60] flex flex-col items-center gap-2">
             {/* Phase Bar */}
             <div className="bg-wood-900/95 border-2 border-wood-600 rounded-full px-4 py-1 shadow-xl backdrop-blur-sm flex items-center gap-3">
                {['LOBBY', 'BAG_BUILDING', 'DRAFT', 'JOURNEY', 'CAMPFIRE'].map(p => (
@@ -86,7 +86,7 @@ const GameHUD: React.FC = () => {
          </div>
 
          {/* Top Right: Actions & Stats - Compact on mobile */}
-         <div className="absolute top-2 right-2 md:top-4 md:right-6 z-50 flex items-center gap-2 md:gap-6 flex-col sm:flex-row">
+         <div className="fixed top-2 right-2 md:top-4 md:right-6 z-50 flex items-center gap-2 md:gap-6 flex-col sm:flex-row">
             {/* Stats */}
             <div className="flex items-center gap-2 md:gap-4 bg-wood-900/90 px-2 md:px-4 py-1 md:py-2 rounded-lg border border-wood-600 shadow-lg backdrop-blur-sm">
                <div className="flex flex-col items-end">

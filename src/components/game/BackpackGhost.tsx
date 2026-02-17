@@ -11,6 +11,7 @@ interface BackpackGhostProps {
     itemsOnGrid: InventoryItemInstance[];
     CELL_SIZE: number;
     GAP: number;
+    rotation?: number;
 }
 
 const BackpackGhost: React.FC<BackpackGhostProps> = ({
@@ -20,13 +21,14 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
     externalDraggedItem,
     itemsOnGrid,
     CELL_SIZE,
-    GAP
+    GAP,
+    rotation = 0
 }) => {
     if (!ghostPosition || (!draggedInstanceId && !externalDraggedItem)) return null;
 
     // Determine which item is ghosting
     let itemId = externalDraggedItem;
-    let rot = 0;
+    let rot = rotation;
 
     if (draggedInstanceId) {
         const item = itemsOnGrid.find(i => i.instanceId === draggedInstanceId);
