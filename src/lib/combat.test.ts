@@ -61,13 +61,16 @@ async function runTests() {
         const eCooldowns: ItemCooldown[] = [];
 
         // Tick 20ms
-        const result = processCombatTick(p, e, pCooldowns, eCooldowns, 20);
+        let time = 0;
+        const result = processCombatTick(p, e, pCooldowns, eCooldowns, 20, time + 20);
+        time += 20;
 
         if (result.playerCooldowns[0].current > 0) console.log('✅ Cooldown reduced correctly');
         else console.error('❌ Cooldown should be positive');
 
         // Tick to trigger
-        const result2 = processCombatTick(p, e, pCooldowns, eCooldowns, 20); // current - 20 = -10 -> Trigger
+        const result2 = processCombatTick(p, e, pCooldowns, eCooldowns, 20, time + 20); // current - 20 = -10 -> Trigger
+        time += 20;
 
         if (result2.enemy.hp < 100) console.log(`✅ Enemy took damage: ${100 - result2.enemy.hp}`);
         else console.error('❌ Enemy did not take damage');
@@ -89,7 +92,7 @@ async function runTests() {
             baseMax: 1000
         }];
 
-        const result = processCombatTick(p, e, pCooldowns, [], 10);
+        const result = processCombatTick(p, e, pCooldowns, [], 10, 10);
 
         if (result.enemy.hp === 100) console.log('✅ Shield absorbed damage');
         else console.error(`❌ Enemy took HP damage: ${100 - result.enemy.hp}`);
@@ -104,7 +107,7 @@ async function runTests() {
         p.hp = 50;
         p.stats.healthRegen = 10; // 10 hp/sec
 
-        const result = processCombatTick(p, createEnemy(), [], [], 1000); // 1 sec
+        const result = processCombatTick(p, createEnemy(), [], [], 1000, 1000); // 1 sec
 
         if (Math.abs(result.player.hp - 60) < 0.1) console.log('✅ Health Regen working');
         else console.error(`❌ Health Regen failed: ${result.player.hp}`);

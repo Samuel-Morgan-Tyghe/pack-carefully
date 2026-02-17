@@ -30,17 +30,18 @@ const SupplyShelf: React.FC = () => {
             {/* Category Tabs */}
             <div className="flex md:flex-wrap gap-1 overflow-x-auto pb-1 scrollbar-none shrink-0 border-b border-wood-700">
                 {CATEGORIES.map(cat => {
-                    const count = items.filter((i: any) => i.category === cat).length;
+                    const count = items.filter((i: Item) => i.category === cat).length;
                     if (count === 0 && cat !== activeTab) return null;
 
-                    const Icon = (LucideIcons as any)[
+                    const iconName =
                         cat === 'WEAPON' ? 'Swords' :
                             cat === 'TOOL' ? 'Hammer' :
                                 cat === 'ESSENTIAL' ? 'Package' :
                                     cat === 'SURVIVAL' ? 'Heart' :
                                         cat === 'COMFORT' ? 'Bed' :
-                                            cat === 'CONTAINER' ? 'Square' : 'Skull'
-                    ] || LucideIcons.Package;
+                                            cat === 'CONTAINER' ? 'Square' : 'Skull';
+
+                    const Icon = (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[iconName] || LucideIcons.Package;
 
                     return (
                         <button

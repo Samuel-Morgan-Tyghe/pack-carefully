@@ -49,6 +49,10 @@ export interface ItemCooldown {
     current: number; // ms remaining
     max: number;     // ms total
     baseMax: number; // Original max cooldown before modifiers
+    lastTrigger?: {
+        type: 'SUCCESS' | 'FAIL_ENERGY';
+        timestamp: number; // Combat elapsed time
+    } | null;
 }
 
 export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { stats: CombatStats, synergies: SynergyEffect[], onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] } => {
@@ -141,7 +145,8 @@ export const processCombatTick = (
     enemy: CombatEntity,
     playerCooldowns: ItemCooldown[],
     enemyCooldowns: ItemCooldown[],
-    deltaMs: number
+    deltaMs: number,
+    elapsedTime: number
 ): {
     player: CombatEntity,
     enemy: CombatEntity,
@@ -178,8 +183,11 @@ export const processCombatTick = (
             if (energyCost > 0 && p.energy < energyCost) {
                 events.push(`Not enough energy for ${def.name}! (${Math.floor(p.energy)}/${energyCost})`);
                 current = cd.max; // Reset cooldown, skip this fire
-                return { ...cd, current };
+                const failTrigger: { type: 'SUCCESS' | 'FAIL_ENERGY', timestamp: number } = { type: 'FAIL_ENERGY', timestamp: elapsedTime };
+                return { ...cd, current, lastTrigger: failTrigger };
             }
+
+            const successTrigger: { type: 'SUCCESS' | 'FAIL_ENERGY', timestamp: number } = { type: 'SUCCESS', timestamp: elapsedTime };
 
             // Deduct energy
             p.energy -= energyCost;
@@ -215,6 +223,7 @@ export const processCombatTick = (
             }
 
             current = cd.max; // Reset
+            return { ...cd, current, lastTrigger: successTrigger };
         }
         return { ...cd, current };
     });

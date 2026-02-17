@@ -170,7 +170,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Syringe',
     scoreValue: 7,
-    combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 5 },
+    combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 15 },
     effects: [{ type: 'POISON', value: 2 }],
     rarity: 'UNCOMMON',
     adjacency: [
@@ -186,7 +186,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Hammer',
     scoreValue: 12,
-    combatStats: { damage: 8, speed: 2, accuracy: 70, energyCost: 15 },
+    combatStats: { damage: 8, speed: 2, accuracy: 70, energyCost: 50 },
     effects: [{ type: 'STUN', value: 1, chance: 30 }],
     rarity: 'UNCOMMON',
     adjacency: [
@@ -202,7 +202,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Wand2',
     scoreValue: 15,
-    combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5, energyCost: 12 },
+    combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5, energyCost: 15 },
     effects: [{ type: 'FIRE', value: 3 }],
     rarity: 'UNCOMMON',
     adjacency: [
@@ -218,7 +218,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Target',
     scoreValue: 12,
-    combatStats: { damage: 6, speed: 7, accuracy: 95, energyCost: 10 },
+    combatStats: { damage: 6, speed: 7, accuracy: 95, energyCost: 30 },
     rarity: 'UNCOMMON',
     adjacency: [
       { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['scope', 'spyglass'], stat: 'accuracy', effect: '+10 Accuracy (Aimed Shot)', value: 10 }
@@ -248,7 +248,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Sword',
     scoreValue: 10,
-    combatStats: { damage: 5, speed: 5, energyCost: 8 },
+    combatStats: { damage: 5, speed: 5, energyCost: 20 },
     rarity: 'COMMON',
     adjacency: [
       { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['obsidian_shield', 'knights_crest'], stat: 'defense', effect: '+8 DEF (Sword & Board)', value: 8 }
@@ -293,7 +293,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Axe',
     scoreValue: 15,
-    combatStats: { damage: 12, speed: 3, accuracy: 80, energyCost: 18 },
+    combatStats: { damage: 12, speed: 3, accuracy: 80, energyCost: 60 },
     rarity: 'UNCOMMON',
     adjacency: [
       { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['hammer'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5 }
@@ -308,7 +308,7 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'MoveVertical',
     scoreValue: 12,
-    combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 12 },
+    combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 35 },
     rarity: 'UNCOMMON',
     adjacency: [
       { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['obsidian_shield', 'knights_crest'], stat: 'defense', effect: '+5 DEF (Phalanx)', value: 5, targetSelf: true }
@@ -323,7 +323,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'ArrowUpCircle',
     scoreValue: 20,
-    combatStats: { damage: 15, speed: 2, accuracy: 95, energyCost: 20 },
+    combatStats: { damage: 15, speed: 2, accuracy: 95, energyCost: 75 },
     rarity: 'RARE',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['scope'], stat: 'accuracy', effect: '1.5x Accuracy (Scoped Xbow)', value: 1.5 }
@@ -338,7 +338,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'CircleDot',
     scoreValue: 3,
-    combatStats: { damage: 2, speed: 9, accuracy: 80, energyCost: 3 },
+    combatStats: { damage: 2, speed: 9, accuracy: 80, energyCost: 8 },
     rarity: 'COMMON',
     adjacency: [
       { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rock'], stat: 'damage', effect: '+8 DMG (Ammo!)', value: 8 }
@@ -353,7 +353,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Zap',
     scoreValue: 25,
-    combatStats: { damage: 6, speed: 10, accuracy: 90, energyCost: 10 },
+    combatStats: { damage: 6, speed: 10, accuracy: 90, energyCost: 30 },
     rarity: 'RARE',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['dagger'], stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
@@ -678,7 +678,7 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'Sword',
     scoreValue: 100,
-    combatStats: { damage: 25, speed: 5, accuracy: 100, energyCost: 30 },
+    combatStats: { damage: 25, speed: 5, accuracy: 100, energyCost: 120 },
     rarity: 'LEGENDARY',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'damage', effect: '2x DMG', value: 2.0 }
