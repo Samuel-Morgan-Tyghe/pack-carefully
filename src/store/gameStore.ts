@@ -161,22 +161,8 @@ export const checkCollision = (
         }
     }
 
-    // 2. Base Container Check (For Container Items only)
-    // Prevent placing a Pouch ON TOP of a Backpack (Nesting)
-    if (isContainer) {
-        const containers = $containers.get();
-        for (const container of containers) {
-            // Containers are defined by a list of cells, not a rect
-            // Quick check: does the new item's rect overlap any of the container's cells?
-            for (let cx = x; cx < x + width; cx++) {
-                for (let cy = y; cy < y + height; cy++) {
-                    if (container.cells.some(cell => cell.x === cx && cell.y === cy)) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
+    // 2. Base Container Check - Containers can now overlap base backpack for extension
+    // We removed the nesting block to allow easier placement.
 
     return false;
 };

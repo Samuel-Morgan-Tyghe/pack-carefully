@@ -97,12 +97,6 @@ const Inventory: React.FC<InventoryProps> = ({ playerId, className }) => {
     });
 
   const myContainers = allContainers.filter(c => c.ownerId === ownerId);
-  const myCells = myContainers.flatMap(c => c.cells).filter(cell => {
-    const container = myContainers.find(cnt => cnt.cells.includes(cell));
-    const isDisabled = container?.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y);
-    return !isDisabled;
-  });
-
   // Calculate cells provided by Container Items
   const containerItems = itemsOnGrid.filter(i => {
     const def = ITEMS[i.itemId];
@@ -122,16 +116,12 @@ const Inventory: React.FC<InventoryProps> = ({ playerId, className }) => {
     return cells;
   });
 
-  const allActiveCells = [...myCells, ...containerItemCells];
+  // Fixed Grid Bounds: Use full 8x8 canvas to allow placing containers anywhere
+  const minX = 0;
+  const minY = 0;
 
-  const hasCells = allActiveCells.length > 0;
-  const minX = hasCells ? Math.min(...allActiveCells.map(c => c.x)) : 0;
-  const minY = hasCells ? Math.min(...allActiveCells.map(c => c.y)) : 0;
-  const maxX = hasCells ? Math.max(...allActiveCells.map(c => c.x)) : GRID_SIZE - 1;
-  const maxY = hasCells ? Math.max(...allActiveCells.map(c => c.y)) : GRID_SIZE - 1;
-
-  const bagWidthCells = (maxX - minX + 1);
-  const bagHeightCells = (maxY - minY + 1);
+  const bagWidthCells = GRID_SIZE;
+  const bagHeightCells = GRID_SIZE;
 
   const adjacencyResults = getAdjacencyBonuses(itemsOnGrid);
   const allStarredSquares = Object.values(adjacencyResults).flatMap((res: AdjacencyResult) => res.boostedSquares || []);
@@ -442,6 +432,26 @@ const Inventory: React.FC<InventoryProps> = ({ playerId, className }) => {
             }
           }}
         >
+          {/* Base Grid Background (Full 8x8) */}
+          {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
+            const x = i % GRID_SIZE;
+            const y = Math.floor(i / GRID_SIZE);
+            return (
+              <div
+                key={`grid-bg-${i}`}
+                className="absolute border border-wood-600/10 pointer-events-none"
+                style={{
+                  left: x * (CELL_SIZE + GAP),
+                  top: y * (CELL_SIZE + GAP),
+                  width: CELL_SIZE,
+                  height: CELL_SIZE,
+                }}
+              >
+                <div className="absolute inset-0 border border-wood-600/5 bg-wood-900/5" />
+              </div>
+            );
+          })}
+
           {/* Surface Cells */}
           {myContainers.map(container =>
             container.cells.map((cell, idx) => {
