@@ -55,7 +55,12 @@ export interface ItemCooldown {
     } | null;
 }
 
-export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { stats: CombatStats, synergies: SynergyEffect[], onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] } => {
+export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): {
+    stats: CombatStats,
+    synergies: SynergyEffect[],
+    onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[],
+    itemsWithLiveStats: InventoryItemInstance[]
+} => {
     const totalStats: CombatStats = {
         damage: 0,
         defense: 0,
@@ -71,50 +76,54 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         energyRegen: 2  // Base regen per second
     };
 
-    items.forEach(instance => {
-        const def = ITEMS[instance.itemId];
-        if (def.combatStats) {
-            totalStats.damage += def.combatStats.damage || 0;
-            totalStats.defense += def.combatStats.defense || 0;
-            totalStats.block += def.combatStats.block || 0;
-            totalStats.heal += def.combatStats.heal || 0;
-            totalStats.speed += def.combatStats.speed || 0;
-            totalStats.maxMana += def.combatStats.manaCost ? 0 : def.combatStats.maxMana || 0;
-            totalStats.shieldRegen! += def.combatStats.shieldRegen || 0;
-            totalStats.healthRegen! += def.combatStats.healthRegen || 0;
-            totalStats.maxEnergy += def.combatStats.maxEnergy || 0;
-            totalStats.energyRegen += def.combatStats.energyRegen || 0;
-        }
-    });
-
     const bonusesMap = getAdjacencyBonuses(items);
-    const totalMultipliers: Record<string, number> = {
-        damage: 1, defense: 1, block: 1, heal: 1, speed: 1, accuracy: 1
-    };
 
-    Object.values(bonusesMap).forEach(bonusResult => {
-        if (bonusResult.buffs) {
-            Object.entries(bonusResult.buffs).forEach(([stat, val]) => {
-                if (stat in totalStats) {
-                    (totalStats as unknown as Record<string, number>)[stat] += val;
-                }
-            });
+    const itemsWithLiveStats = items.map(instance => {
+        const def = ITEMS[instance.itemId];
+        const bonus = bonusesMap[instance.instanceId];
+
+        // Base stats from item definition
+        const liveStats = {
+            damage: def.combatStats?.damage || 0,
+            speed: def.combatStats?.speed || 0,
+            accuracy: def.combatStats?.accuracy || 100,
+            energyCost: def.combatStats?.energyCost || 0,
+            heal: def.combatStats?.heal || 0,
+            block: def.combatStats?.block || 0
+        };
+
+        // Apply additive buffs
+        if (bonus?.buffs) {
+            liveStats.damage += bonus.buffs.damage || 0;
+            liveStats.speed += bonus.buffs.speed || 0;
+            liveStats.accuracy += bonus.buffs.accuracy || 0;
+            liveStats.heal += bonus.buffs.heal || 0;
+            liveStats.block += bonus.buffs.block || 0;
         }
-        if (bonusResult.multipliers) {
-            Object.entries(bonusResult.multipliers).forEach(([stat, val]) => {
-                if (stat in totalMultipliers) {
-                    totalMultipliers[stat] *= val;
-                }
-            });
+
+        // Apply multipliers
+        if (bonus?.multipliers) {
+            if (bonus.multipliers.damage) liveStats.damage = Math.floor(liveStats.damage * bonus.multipliers.damage);
+            if (bonus.multipliers.speed) liveStats.speed = Math.floor(liveStats.speed * bonus.multipliers.speed);
+            if (bonus.multipliers.accuracy) liveStats.accuracy = Math.floor(liveStats.accuracy * bonus.multipliers.accuracy);
+            if (bonus.multipliers.heal) liveStats.heal = Math.floor(liveStats.heal * bonus.multipliers.heal);
+            if (bonus.multipliers.block) liveStats.block = Math.floor(liveStats.block * bonus.multipliers.block);
         }
+
+        // Accumulate global passive stats
+        if (def.triggerType === 'PASSIVE' || !def.triggerType) {
+            totalStats.maxEnergy += def.combatStats?.maxEnergy || 0;
+            totalStats.energyRegen += def.combatStats?.energyRegen || 0;
+            totalStats.defense += def.combatStats?.defense || 0;
+            totalStats.healthRegen! += def.combatStats?.healthRegen || 0;
+            totalStats.shieldRegen! += def.combatStats?.shieldRegen || 0;
+
+            // Apply global buffs from passive items if they exist (though usually they target specific items)
+            if (bonus?.buffs?.defense) totalStats.defense += bonus.buffs.defense;
+        }
+
+        return { ...instance, liveStats };
     });
-
-    totalStats.damage = Math.floor(totalStats.damage * totalMultipliers.damage);
-    totalStats.defense = Math.floor(totalStats.defense * totalMultipliers.defense);
-    totalStats.block = Math.floor(totalStats.block * totalMultipliers.block);
-    totalStats.heal = Math.floor(totalStats.heal * totalMultipliers.heal);
-    totalStats.speed = Math.floor(totalStats.speed * totalMultipliers.speed);
-    totalStats.accuracy = Math.floor(totalStats.accuracy * totalMultipliers.accuracy);
 
     const synergies = calculateSynergies(items);
     const onHitEffects: { type: StatusEffect['type']; value: number; chance?: number }[] = [];
@@ -131,7 +140,7 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): { sta
         }
     });
 
-    return { stats: totalStats, synergies, onHitEffects };
+    return { stats: totalStats, synergies, onHitEffects, itemsWithLiveStats };
 };
 
 export interface CombatLogEntry {
@@ -176,84 +185,115 @@ export const processCombatTick = (
         let current = cd.current - deltaMs;
         if (current <= 0) {
             // Trigger Item!
+            const instance = p.inventory.find(i => i.instanceId === cd.instanceId);
             const def = ITEMS[cd.itemId];
-            const energyCost = def.combatStats?.energyCost || 0;
+            const liveStats = instance?.liveStats;
+
+            if (!liveStats) return { ...cd, current: cd.max }; // Fail-safe
+
+            // Only pick up items that have a trigger role (Attack, Heal, Shield)
+            if (def.triggerType === 'PASSIVE') return { ...cd, current: cd.max };
+
+            const energyCost = liveStats.energyCost || 0;
 
             // Check energy
             if (energyCost > 0 && p.energy < energyCost) {
-                events.push(`Not enough energy for ${def.name}! (${Math.floor(p.energy)}/${energyCost})`);
-                current = cd.max; // Reset cooldown, skip this fire
-                const failTrigger: { type: 'SUCCESS' | 'FAIL_ENERGY', timestamp: number } = { type: 'FAIL_ENERGY', timestamp: elapsedTime };
+                const failTrigger = { type: 'FAIL_ENERGY' as const, timestamp: elapsedTime };
                 return { ...cd, current, lastTrigger: failTrigger };
             }
 
-            const successTrigger: { type: 'SUCCESS' | 'FAIL_ENERGY', timestamp: number } = { type: 'SUCCESS', timestamp: elapsedTime };
-
             // Deduct energy
             p.energy -= energyCost;
+            const successTrigger = { type: 'SUCCESS' as const, timestamp: elapsedTime };
 
-            const dmg = (def.combatStats?.damage || 0) + (p.stats.damage / 10); // base + scaled
-
-            // Resolve Damage against Enemy
-            let finalDmg = Math.max(1, dmg - e.baseDefense);
-            if (e.shield > 0) {
-                const absorbed = Math.min(e.shield, finalDmg);
-                e.shield -= absorbed;
-                finalDmg -= absorbed;
+            if (def.triggerType === 'ATTACK') {
+                const baseDmg = liveStats.damage || 0;
+                // Resolve Accuracy
+                const miss = Math.random() * 100 > (liveStats.accuracy || 100);
+                if (miss) {
+                    events.push(`Player's ${def.name} missed!`);
+                } else {
+                    let finalDmg = Math.max(1, baseDmg - e.baseDefense);
+                    if (e.shield > 0) {
+                        const absorbed = Math.min(e.shield, finalDmg);
+                        e.shield -= absorbed;
+                        finalDmg -= absorbed;
+                    }
+                    e.hp -= finalDmg;
+                    if (finalDmg > 0) events.push(`Player's ${def.name} hits for ${Math.floor(finalDmg)}!`);
+                }
+            } else if (def.triggerType === 'HEAL') {
+                const healVal = liveStats.heal || 0;
+                p.hp = Math.min(p.maxHp, p.hp + healVal);
+                events.push(`Player's ${def.name} heals for ${healVal}!`);
+            } else if (def.triggerType === 'SHIELD') {
+                const blockVal = liveStats.block || 0;
+                p.shield += blockVal;
+                events.push(`Player's ${def.name} adds ${blockVal} shield!`);
             }
-            e.hp -= finalDmg;
-            if (finalDmg > 0) events.push(`Player's ${def.name} hits for ${Math.floor(finalDmg)}! (-${energyCost} ⚡)`);
-
-            // Apply specific effects (Heals) - ShieldRegen is passive only now to avoid double dipping
-            if (def.combatStats?.heal) p.hp = Math.min(p.maxHp, p.hp + def.combatStats.heal);
 
             // Apply Status Effects from this specific item
             if (def.effects) {
                 def.effects.forEach(eff => {
-                    // Check chance if applicable
                     if (eff.chance && Math.random() * 100 > eff.chance) return;
-
-                    e.statuses.push({
-                        type: eff.type,
-                        value: eff.value,
-                        sourceId: def.id
-                    });
-                    events.push(`Applied ${eff.type} to Enemy!`);
+                    e.statuses.push({ type: eff.type, value: eff.value, sourceId: def.id });
                 });
             }
 
-            current = cd.max; // Reset
+            current = cd.max;
             return { ...cd, current, lastTrigger: successTrigger };
         }
         return { ...cd, current };
     });
 
-    // Process Enemy Cooldowns (Simple auto-attack for now)
+    // Process Enemy Cooldowns
     const nextEnemyCooldowns = enemyCooldowns.map(cd => {
         let current = cd.current - deltaMs;
         if (current <= 0) {
-            const dmg = e.stats.damage;
-            let finalDmg = Math.max(1, dmg - p.baseDefense);
-            if (p.shield > 0) {
-                const absorbed = Math.min(p.shield, finalDmg);
-                p.shield -= absorbed;
-                finalDmg -= absorbed;
+            const instance = e.inventory.find(i => i.instanceId === cd.instanceId);
+            const def = ITEMS[cd.itemId];
+            const liveStats = instance?.liveStats;
+
+            if (!liveStats || def.triggerType === 'PASSIVE') return { ...cd, current: cd.max };
+
+            // Enemy has infinite energy for now (simpler logic)
+            const successTrigger = { type: 'SUCCESS' as const, timestamp: elapsedTime };
+
+            if (def.triggerType === 'ATTACK') {
+                const baseDmg = liveStats.damage || 0;
+                let finalDmg = Math.max(1, baseDmg - p.baseDefense);
+                if (p.shield > 0) {
+                    const absorbed = Math.min(p.shield, finalDmg);
+                    p.shield -= absorbed;
+                    finalDmg -= absorbed;
+                }
+                p.hp -= finalDmg;
+                if (finalDmg > 0) events.push(`${e.name}'s ${def.name} hits for ${Math.floor(finalDmg)}!`);
+            } else if (def.triggerType === 'HEAL') {
+                const healVal = liveStats.heal || 0;
+                e.hp = Math.min(e.maxHp, e.hp + healVal);
+                events.push(`${e.name} heals for ${healVal}!`);
+            } else if (def.triggerType === 'SHIELD') {
+                const blockVal = liveStats.block || 0;
+                e.shield += blockVal;
+                events.push(`${e.name} adds ${blockVal} shield!`);
             }
-            p.hp -= finalDmg;
-            events.push(`${e.name} attacks for ${Math.floor(finalDmg)}!`);
+
             current = cd.max;
+            return { ...cd, current, lastTrigger: successTrigger };
         }
         return { ...cd, current };
     });
 
-    // Process Status Effects (Poison, Regen, etc) on Ticks? 
-    // Status effects usually tick once per second.
-    // For now, let's keep it simple and ignoring DOTs until we have a better timing mechanism for them.
-    // Or we can apply DOTs here based on deltaMs?
-    // e.g. Poison = 5 dmg / sec.
+    // Process Status Effects (Poison, etc)
     e.statuses.forEach(s => {
         if (s.type === 'POISON') {
             e.hp -= (s.value * deltaMs / 1000);
+        }
+    });
+    p.statuses.forEach(s => {
+        if (s.type === 'POISON') {
+            p.hp -= (s.value * deltaMs / 1000);
         }
     });
 
@@ -333,7 +373,7 @@ export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity
     }
 
     // Calculate Stats from Items
-    const { stats: itemStats, synergies, onHitEffects } = calculatePlayerCombatInfo(inventory);
+    const { stats: itemStats, synergies, onHitEffects, itemsWithLiveStats } = calculatePlayerCombatInfo(inventory);
 
     // Base Stats
     const maxHp = template.baseHp + (template.hpPerDiff * difficulty);
@@ -368,7 +408,7 @@ export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity
         statuses: [],
         synergies,
         onHitEffects,
-        inventory
+        inventory: itemsWithLiveStats // Use the ones with baked liveStats
     };
 };
 

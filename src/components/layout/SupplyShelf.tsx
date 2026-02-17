@@ -17,7 +17,7 @@ const SupplyShelf: React.FC = () => {
     const items = (localPlayerId && draftPool[localPlayerId]) || [];
 
     return (
-        <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden">
+        <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden select-none">
             {/* Supply Header - Compact */}
             <div className="flex justify-between items-center border-b border-wood-700 pb-1 shrink-0">
                 <h3 className="font-display font-bold text-sm md:text-lg text-gold-500 drop-shadow-sm flex items-center gap-1.5">

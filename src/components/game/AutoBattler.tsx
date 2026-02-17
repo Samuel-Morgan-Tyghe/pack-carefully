@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $containers } from '../../store/gameStore';
+import { $itemsOnGrid } from '../../store/gameStore';
 import type { CombatEntity, CombatLogEntry, EnemyType, ItemCooldown } from '../../lib/combat';
 import { calculatePlayerCombatInfo, processCombatTick, generateEnemy } from '../../lib/combat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sword, Shield, Zap, Activity, Battery, Trophy, Skull } from 'lucide-react';
-import CombatBackpack from './CombatBackpack';
+import Inventory from '../Inventory';
 import clsx from 'clsx';
 import { ITEMS } from '../../lib/items';
 
 const AutoBattler: React.FC = () => {
     const items = useStore($itemsOnGrid);
-    const containers = useStore($containers);
 
     // Initial State Setup
     const [player, setPlayer] = useState<CombatEntity | null>(null);
@@ -37,43 +36,41 @@ const AutoBattler: React.FC = () => {
 
     // Initialize Combat on Mount
     useEffect(() => {
-        const info = calculatePlayerCombatInfo(items);
+        const { stats, synergies, itemsWithLiveStats } = calculatePlayerCombatInfo(items);
         const newPlayer: CombatEntity = {
             hp: 100,
             maxHp: 100,
-            mana: info.stats.maxMana || 20,
+            mana: stats.maxMana || 20,
             shield: 0,
-            baseDefense: info.stats.defense,
-            energy: info.stats.maxEnergy,
-            maxEnergy: info.stats.maxEnergy,
-            stats: info.stats,
-            synergies: info.synergies,
+            baseDefense: stats.defense,
+            energy: stats.maxEnergy,
+            maxEnergy: stats.maxEnergy,
+            stats: stats,
+            synergies: synergies,
             statuses: [],
             name: "Hero",
             id: "hero",
-            inventory: items
+            inventory: itemsWithLiveStats
         };
         setPlayer(newPlayer);
 
-        // Initialize Player Cooldowns
-        const pCooldowns: ItemCooldown[] = items.map(inst => {
-            const def = ITEMS[inst.itemId];
-            const speed = (def.combatStats?.speed || 0) + (info.stats.speed / 5); // Global speed boost
-            // Base cooldown 50s (50000ms), reduced by speed. 
-            // Speed 7 => 50000 / 7 = ~7142ms (7.1s)
-            // Speed 10 => 5000ms (5s)
-            // Speed 5 => 10000ms (10s)
-            const baseCd = def.combatStats?.speed ? (50000 / Math.max(1, speed)) : 10000;
-            // Add randomness to start so they don't all fire at once
-            const startOffset = Math.random() * baseCd;
-            return {
-                instanceId: inst.instanceId,
-                itemId: inst.itemId,
-                current: startOffset,
-                max: baseCd,
-                baseMax: baseCd
-            };
-        });
+        // Initialize Player Cooldowns using baked liveStats
+        const pCooldowns: ItemCooldown[] = itemsWithLiveStats
+            .filter(inst => ITEMS[inst.itemId].triggerType !== 'PASSIVE')
+            .map(inst => {
+                const speed = inst.liveStats?.speed || 1;
+
+                // Base cooldown 50s (50000ms), reduced by speed. 
+                const baseCd = 50000 / Math.max(1, speed);
+                const startOffset = Math.random() * baseCd;
+                return {
+                    instanceId: inst.instanceId,
+                    itemId: inst.itemId,
+                    current: startOffset,
+                    max: baseCd,
+                    baseMax: baseCd
+                };
+            });
         setPlayerCooldowns(pCooldowns);
 
         // Initialize Enemy
@@ -201,13 +198,13 @@ const AutoBattler: React.FC = () => {
                     </div>
 
                     {/* PLAYER GRID */}
-                    <div className="flex-1 flex items-center justify-center p-2 min-h-0">
+                    <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
                         <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
-                            <CombatBackpack
-                                items={items}
-                                containers={containers}
-                                cooldowns={playerCooldowns}
-                                cellSize={32}
+                            <Inventory
+                                items={player.inventory}
+                                viewOnly={true}
+                                cooldowns={Object.fromEntries(playerCooldowns.map(cd => [cd.instanceId, (1 - cd.current / cd.max) * 100]))}
+                                className="!p-4"
                             />
                         </div>
                     </div>
@@ -351,12 +348,12 @@ const AutoBattler: React.FC = () => {
                     {/* ENEMY EQUIPMENT / GRID */}
                     <div className="flex-1 flex items-center justify-center p-2 min-h-0">
                         {enemy.inventory.length > 0 ? (
-                            <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-80">
-                                <CombatBackpack
+                            <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-90 overflow-visible">
+                                <Inventory
                                     items={enemy.inventory}
-                                    containers={[]} // Enemies don't have containers conventionally yet, just items
-                                    cooldowns={enemyCooldowns}
-                                    cellSize={32}
+                                    viewOnly={true}
+                                    cooldowns={Object.fromEntries(enemyCooldowns.map(cd => [cd.instanceId, (1 - cd.current / cd.max) * 100]))}
+                                    className="!p-4"
                                 />
                             </div>
                         ) : (

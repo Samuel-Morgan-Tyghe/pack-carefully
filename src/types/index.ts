@@ -45,6 +45,7 @@ export interface Item {
     maxEnergy?: number; // Adds to max energy pool
     energyRegen?: number; // Energy regenerated per second
   };
+  triggerType?: 'ATTACK' | 'HEAL' | 'SHIELD' | 'PASSIVE';
   effects?: {
     type: 'POISON' | 'FIRE' | 'STUN' | 'SLOW' | 'BLEED';
     value: number; // Stacks or Duration
@@ -113,6 +114,14 @@ export interface InventoryItemInstance {
   locked?: boolean; // If true, cannot be moved
   ownerId: string; // The player who owns this item
   disguiseItemId?: string; // If set, this item looks like this ItemId
+  liveStats?: {
+    damage?: number;
+    speed?: number;
+    accuracy?: number;
+    energyCost?: number;
+    heal?: number;
+    block?: number;
+  };
 }
 
 export interface DraftState {

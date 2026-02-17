@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import { toggleLock } from '../../store/gameStore';
@@ -6,7 +7,6 @@ import { ITEMS } from '../../lib/items';
 import type { InventoryItemInstance } from '../../types';
 import clsx from 'clsx';
 import { playSound } from '../../lib/sounds';
-
 import type { AdjacencyResult } from '../../lib/adjacency';
 
 interface BackpackItemProps {
@@ -27,6 +27,7 @@ interface BackpackItemProps {
     minX: number;
     minY: number;
     adjacencyResult?: AdjacencyResult;
+    viewOnly?: boolean;
 }
 
 const BackpackItem: React.FC<BackpackItemProps> = ({
@@ -46,30 +47,17 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     onSelect,
     minX,
     minY,
-    adjacencyResult
+    adjacencyResult,
+    viewOnly = false
 }) => {
-    // If disguised, use the disguise item definition for visuals (Icon, Size?) 
-    // Spec says "Alter appearance". Usually this means Icon. 
-    // Size changes might break grid unless we swap the item entirely.
-    // Spec: "make a Rock look like Rations". If Rock is 2x2 and Rations is 2x2, easy.
-    // If sizes differ, it's tricky. "The effect persists".
-    // For MVP, let's just swap the Icon and Name, but keep dimensions?
-    // Or just swap Icon.
-
     const realItemDef = ITEMS[item.itemId];
     const disguiseDef = item.disguiseItemId ? ITEMS[item.disguiseItemId] : null;
 
-    // VISUAL definition (Icon, Name) - Disguise takes precedence
-    // FUNCTIONAL definition (Dimensions, Stats) - Real item takes precedence
-    // Actually, "Disguise" usually implies it looks EXACTLY like the other thing.
-    // But if dimensions differ, the illusion breaks on the grid.
-    // Let's assume for now we only disguise Icon/Name/Color. 
-
     const displayDef = disguiseDef || realItemDef;
     const itemDef = realItemDef; // Used for dimensions/logic
-
     const isDragging = draggedInstanceId === item.instanceId;
     const myBonus = adjacencyResult;
+    const canInteract = !viewOnly;
 
     // Dimensions
     const w = (item.rotation === 90 || item.rotation === 270) ? itemDef.height : itemDef.width;
@@ -84,7 +72,7 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     return (
         <motion.div
             layout // Use layout animation for smooth sorting/shifts if we implement auto-sort
-            drag={!item.locked}
+            drag={canInteract && !item.locked}
             dragMomentum={false}
             dragElastic={0.1}
             whileDrag={{
@@ -100,37 +88,40 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                 height: heightPx,
                 left: (item.x - minX) * (CELL_SIZE + GAP),
                 top: (item.y - minY) * (CELL_SIZE + GAP),
+                pointerEvents: viewOnly ? 'none' : 'auto'
             }}
+            data-tooltip-id="item-tooltip"
+            data-item-id={item.itemId}
+            data-instance-id={item.instanceId}
 
             onDragStart={() => {
-                if (!item.locked) {
+                if (canInteract && !item.locked) {
                     playSound.pop();
                     onDragStart(item.instanceId);
                 }
             }}
-            onDrag={(_, info) => !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)}
-            onDragEnd={(_, info) => !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)}
+            onDrag={(_, info) => canInteract && !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)}
+            onDragEnd={(_, info) => canInteract && !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)}
 
             onTouchStart={(e) => {
-                if (!item.locked) {
-                    console.log('📱 BackpackItem touchStart:', item.instanceId);
+                if (canInteract && !item.locked) {
                     playSound.pop();
                     onTouchStart?.(e, item.instanceId, item.itemId, item.rotation);
                 }
             }}
             onTouchMove={(e) => {
-                if (!item.locked) {
+                if (canInteract && !item.locked) {
                     onTouchMove?.(e);
                 }
             }}
             onTouchEnd={(e) => {
-                if (!item.locked) {
-                    console.log('📱 BackpackItem touchEnd:', item.instanceId);
+                if (canInteract && !item.locked) {
                     onTouchEnd?.(e, item.instanceId);
                 }
             }}
 
             onClick={(e) => {
+                if (!canInteract) return;
                 if (e.shiftKey) {
                     toggleLock(item.instanceId);
                 } else if (!isDragging) {
@@ -140,8 +131,9 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             }}
 
             className={clsx(
-                "absolute cursor-grab active:cursor-grabbing hover:z-20 transition-all duration-200",
-                isDragging ? "z-50 opacity-90" : "z-10",
+                "absolute transition-all duration-200",
+                !viewOnly ? "cursor-grab active:cursor-grabbing hover:z-30" : "cursor-default",
+                isDragging ? "z-50 opacity-90" : (displayDef.category === 'CONTAINER' ? "z-10" : "z-20"),
                 isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50 bg-green-900/20",
                 isSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50 shadow-[0_0_25px_rgba(59,130,246,0.8)] scale-[1.02]",
                 "rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touch-none",
@@ -215,18 +207,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
                     {Object.entries(myBonus.multipliers).map(([stat, val]) => `x${val} ${stat.slice(0, 3)}`).join(', ')}
                 </div>
             )}
-
-            {/* Hover info for debugging/gameplay */}
-            <div className="absolute inset-0 opacity-0 hover:opacity-100 bg-black/80 flex flex-col items-center justify-center text-[10px] p-1 text-center pointer-events-none transition-opacity z-10">
-                <div className="font-bold text-gold-500">{itemDef.name}</div>
-                <div>{itemDef.description}</div>
-                {(myBonus?.activeRules?.length || 0) > 0 && (
-                    <div className="text-green-400 mt-1 border-t border-white/20 pt-1">
-                        {myBonus!.activeRules.map((r, i) => <div key={i}>{r}</div>)}
-                    </div>
-                )}
-            </div>
-
         </motion.div>
     );
 };

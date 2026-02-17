@@ -1,4 +1,6 @@
 import React from 'react';
+import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 import { useStore } from '@nanostores/react';
 import { $phase, $gameState, $viewingPlayerId } from '../store/gameStore';
 import Inventory from './Inventory';
@@ -14,6 +16,7 @@ import Finale from './game/Finale';
 import DebugVerification from './DebugVerification';
 import Tutorial from './layout/Tutorial';
 import Settings from './layout/Settings';
+import ItemTooltip from './layout/ItemTooltip';
 
 const GameLayout: React.FC = () => {
     const phase = useStore($phase);
@@ -21,7 +24,7 @@ const GameLayout: React.FC = () => {
     const viewingPlayerId = useStore($viewingPlayerId);
 
     return (
-        <div className="h-screen w-full bg-wood-900 text-parchment-100 font-sans selection:bg-gold-500 selection:text-wood-900 relative flex flex-col overflow-hidden">
+        <div className="h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-hidden">
             {/* Background overlay for vignette */}
             <div className="fixed inset-0 pointer-events-none shadow-vignette z-0 mix-blend-multiply" />
 
@@ -62,6 +65,15 @@ const GameLayout: React.FC = () => {
             <DebugVerification />
             <Tutorial />
             <Settings />
+            <Tooltip
+                id="item-tooltip"
+                className="!bg-slate-900/95 !border !border-slate-600 !rounded-lg !p-3 !text-xs !shadow-2xl !backdrop-blur-sm !opacity-100 !z-[9999999]"
+                render={({ activeAnchor }) => {
+                    const itemId = activeAnchor?.getAttribute('data-item-id');
+                    if (!itemId) return null;
+                    return <ItemTooltip itemId={itemId} />;
+                }}
+            />
         </div>
     );
 };

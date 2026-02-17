@@ -14,7 +14,7 @@ interface ShelfItemProps {
     };
 }
 
-import ItemTooltip from './ItemTooltip';
+
 
 interface ShelfItemProps {
     item: {
@@ -27,8 +27,6 @@ interface ShelfItemProps {
 }
 
 const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
-    const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
-    const [showTooltip, setShowTooltip] = React.useState(false);
     const itemRef = React.useRef<HTMLDivElement>(null);
 
     const handleDragStart = (e: React.DragEvent) => {
@@ -82,11 +80,12 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
                 draggable={isMe}
                 onDragStart={(e) => isMe && handleDragStart(e)}
                 onDragEnd={handleDragEnd}
-                onMouseEnter={(e) => {
-                    setAnchorRect(e.currentTarget.getBoundingClientRect());
-                    setShowTooltip(true);
+                onMouseEnter={() => {
+                    // react-tooltip handles this via data-tooltip-id
                 }}
-                onMouseLeave={() => setShowTooltip(false)}
+                onMouseLeave={() => {
+                    // react-tooltip handles this via data-tooltip-id
+                }}
                 onClick={() => {
                     if (isMe) {
                         if (isSelected) {
@@ -106,6 +105,8 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
                     width: '100%',
                     height: '100%'
                 }}
+                data-tooltip-id="item-tooltip"
+                data-item-id={item.id}
             >
                 {/* Texture noise */}
                 <div className="absolute inset-0 bg-paper-texture opacity-5 pointer-events-none rounded-lg" />
@@ -152,17 +153,7 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
                 )}
             </div>
 
-            {/* Tooltip */}
-            {(showTooltip || isDetailSelected) && anchorRect && (
-                <ItemTooltip
-                    itemId={item.id}
-                    anchorRect={anchorRect}
-                    onClose={() => {
-                        setShowTooltip(false);
-                        if (isDetailSelected) $activePreview.set(null);
-                    }}
-                />
-            )}
+            {/* Tooltip is managed globally by react-tooltip */}
         </div>
     );
 };

@@ -11,9 +11,10 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Compass',
     scoreValue: 10,
     rarity: 'COMMON',
+    triggerType: 'PASSIVE',
     combatStats: { maxEnergy: 10 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['map', 'spyglass'], stat: 'speed', effect: '+10 Speed (Navigation Duo)', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['map', 'spyglass'], stat: 'speed', effect: '+10 Speed (Navigation Duo)', value: 10, targetSelf: true }
     ]
   },
   water_bottle: {
@@ -97,7 +98,8 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'BriefcaseMedical',
     scoreValue: 20,
-    combatStats: { heal: 15 },
+    triggerType: 'HEAL',
+    combatStats: { heal: 15, energyCost: 20 },
     rarity: 'UNCOMMON',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['potion', 'canteen', 'water_bottle'], stat: 'heal', effect: '1.5x Heal (Clean Wounds)', value: 1.5 }
@@ -114,7 +116,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 5,
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'PARALLEL', stat: 'damage', effect: 'Boosts Damage (+5)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: 'Fire-Coating (+5 DMG)', value: 5 }
     ]
   },
   sleeping_bag: {
@@ -170,6 +172,7 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Syringe',
     scoreValue: 7,
+    triggerType: 'ATTACK',
     combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 15 },
     effects: [{ type: 'POISON', value: 2 }],
     rarity: 'UNCOMMON',
@@ -186,11 +189,12 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Hammer',
     scoreValue: 12,
+    triggerType: 'ATTACK',
     combatStats: { damage: 8, speed: 2, accuracy: 70, energyCost: 50 },
     effects: [{ type: 'STUN', value: 1, chance: 30 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['battle_axe'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5, targetSelf: true }
     ]
   },
   wand: {
@@ -202,11 +206,12 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Wand2',
     scoreValue: 15,
+    triggerType: 'ATTACK',
     combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5, energyCost: 15 },
     effects: [{ type: 'FIRE', value: 3 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['mana_crystal'], stat: 'manaRegen', effect: '+5 Mana Regen (Arcane Link)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'manaRegen', effect: '+5 Mana Regen (Arcane Link)', value: 5, targetSelf: true }
     ]
   },
   bow: {
@@ -218,10 +223,11 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Target',
     scoreValue: 12,
+    triggerType: 'ATTACK',
     combatStats: { damage: 6, speed: 7, accuracy: 95, energyCost: 30 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['scope', 'spyglass'], stat: 'accuracy', effect: '+10 Accuracy (Aimed Shot)', value: 10 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'accuracy', effect: '+10 Accuracy (Aimed Shot)', value: 10, targetSelf: true }
     ]
   },
   knife: {
@@ -233,10 +239,11 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'Scissors',
     scoreValue: 5,
+    triggerType: 'ATTACK',
     combatStats: { damage: 3, speed: 7, energyCost: 5 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rope', 'first_aid'], stat: 'speed', effect: '+5 Speed (Multitool)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', stat: 'speed', effect: '+5 Speed (Multitool)', value: 5 }
     ]
   },
   sword: {
@@ -248,6 +255,7 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Sword',
     scoreValue: 10,
+    triggerType: 'ATTACK',
     combatStats: { damage: 5, speed: 5, energyCost: 20 },
     rarity: 'COMMON',
     adjacency: [
@@ -279,8 +287,9 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Skull',
     scoreValue: -20,
     rarity: 'UNCOMMON',
+    triggerType: 'PASSIVE',
     adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: '-5 DMG (Cursed)', value: -5 }
+      { type: 'DEBUFF', pattern: 'ADJACENT', stat: 'damage', effect: '-5 DMG (Cursed)', value: -5 }
     ]
   },
   // NEW WEAPONS (Battle Axe, Spear, Crossbow, Slingshot, Katana)
@@ -293,10 +302,11 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Axe',
     scoreValue: 15,
+    triggerType: 'ATTACK',
     combatStats: { damage: 12, speed: 3, accuracy: 80, energyCost: 60 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['hammer'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: '+5 DMG (Heavy Combo)', value: 5, targetSelf: true }
     ]
   },
   spear: {
@@ -308,10 +318,11 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'MoveVertical',
     scoreValue: 12,
+    triggerType: 'ATTACK',
     combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 35 },
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['obsidian_shield', 'knights_crest'], stat: 'defense', effect: '+5 DEF (Phalanx)', value: 5, targetSelf: true }
+      { type: 'BUFF', pattern: 'ADJACENT', stat: 'defense', effect: '+5 DEF (Phalanx)', value: 5, targetSelf: true }
     ]
   },
   crossbow: {
@@ -323,10 +334,11 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'ArrowUpCircle',
     scoreValue: 20,
+    triggerType: 'ATTACK',
     combatStats: { damage: 15, speed: 2, accuracy: 95, energyCost: 75 },
     rarity: 'RARE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['scope'], stat: 'accuracy', effect: '1.5x Accuracy (Scoped Xbow)', value: 1.5 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'accuracy', effect: '1.5x Accuracy (Scoped Xbow)', value: 1.5 }
     ]
   },
   slingshot: {
@@ -338,10 +350,11 @@ export const ITEMS: Record<string, Item> = {
     height: 1,
     icon: 'CircleDot',
     scoreValue: 3,
+    triggerType: 'ATTACK',
     combatStats: { damage: 2, speed: 9, accuracy: 80, energyCost: 8 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rock'], stat: 'damage', effect: '+8 DMG (Ammo!)', value: 8 }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['matches'], stat: 'damage', effect: '+8 DMG (Ammo!)', value: 8, targetSelf: true }
     ]
   },
   katana: {
@@ -353,10 +366,11 @@ export const ITEMS: Record<string, Item> = {
     height: 3,
     icon: 'Zap',
     scoreValue: 25,
+    triggerType: 'ATTACK',
     combatStats: { damage: 6, speed: 10, accuracy: 90, energyCost: 30 },
     rarity: 'RARE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['dagger'], stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
+      { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
     ]
   },
   // NEW TOOLS (Lantern, Pickaxe, Spyglass, Bear Trap)
@@ -412,10 +426,11 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'HandMetal',
     scoreValue: 10,
+    triggerType: 'PASSIVE',
     effects: [{ type: 'STUN', value: 2, chance: 40 }],
     rarity: 'UNCOMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rope'], stat: 'defense', effect: '+8 DEF (Rigged Trap)', value: 8 }
+      { type: 'BUFF', pattern: 'ADJACENT', stat: 'defense', effect: '+8 DEF (Rigged Trap)', value: 8 }
     ]
   },
 
@@ -608,9 +623,10 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Sparkles',
     scoreValue: 5,
     rarity: 'UNCOMMON',
+    triggerType: 'PASSIVE',
     combatStats: { energyRegen: 5, maxEnergy: 30 },
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['wand', 'crystal_ball'], stat: 'energyRegen', effect: '+5 ⚡Regen (Magic Synergy)', value: 5 }
+      { type: 'BUFF', pattern: 'ADJACENT', stat: 'energyRegen', effect: '+5 ⚡Regen (Magic Synergy)', value: 5 }
     ]
   },
   pocket: {
@@ -678,6 +694,7 @@ export const ITEMS: Record<string, Item> = {
     height: 4,
     icon: 'Sword',
     scoreValue: 100,
+    triggerType: 'ATTACK',
     combatStats: { damage: 25, speed: 5, accuracy: 100, energyCost: 120 },
     rarity: 'LEGENDARY',
     adjacency: [
@@ -693,7 +710,8 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Shield',
     scoreValue: 50,
-    combatStats: { defense: 20 },
+    triggerType: 'SHIELD',
+    combatStats: { defense: 20, block: 30, energyCost: 25 },
     rarity: 'RARE',
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'defense', effect: '1.5x Defense', value: 1.5 }
@@ -722,8 +740,9 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'ShieldCheck',
     scoreValue: 80,
-    combatStats: { defense: 30 },
     rarity: 'LEGENDARY',
+    triggerType: 'SHIELD',
+    combatStats: { defense: 30, block: 50, energyCost: 40 },
     adjacency: [
       { type: 'MULTIPLIER', pattern: 'ADJACENT', stat: 'defense', effect: '2x Defense', value: 2.0 }
     ]
@@ -738,8 +757,9 @@ export const ITEMS: Record<string, Item> = {
     icon: 'CircleDot',
     scoreValue: 50,
     rarity: 'LEGENDARY',
+    triggerType: 'PASSIVE',
     adjacency: [
-      { type: 'MULTIPLIER', pattern: 'TWO_ACROSS', targetCategories: ['ESSENTIAL'], stat: 'manaRegen', effect: '2x Mana Regen', value: 2 }
+      { type: 'MULTIPLIER', pattern: 'TWO_ACROSS', stat: 'manaRegen', effect: '2x Mana Regen', value: 2 }
     ]
   },
   prism_light: {
