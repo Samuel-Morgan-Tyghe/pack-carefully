@@ -155,7 +155,7 @@ const AutoBattler: React.FC = () => {
                             message: msg,
                             type: msg.includes('Player') ? 'DAMAGE' as const : 'INFO' as const
                         }))
-                    ].slice(-5)); // Limit to latest 5 entries
+                    ]);
                 }
 
             }, 50); // 20 ticks per second
