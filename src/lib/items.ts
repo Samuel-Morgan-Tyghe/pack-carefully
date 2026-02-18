@@ -12,10 +12,7 @@ export const ITEMS: Record<string, Item> = {
     scoreValue: 10,
     rarity: 'COMMON',
     triggerType: 'PASSIVE',
-    combatStats: { maxEnergy: 10 },
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['map', 'spyglass'], stat: 'speed', effect: '+10 Speed (Navigation Duo)', value: 10, targetSelf: true }
-    ]
+    combatStats: { maxEnergy: 10, speed: 10 },
   },
   water_bottle: {
     id: 'water_bottle',
@@ -27,10 +24,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Droplets',
     scoreValue: 10,
     rarity: 'COMMON',
-    combatStats: { energyRegen: 2 },
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rations', 'dried_meat'], stat: 'energyRegen', effect: '+3 ⚡Regen (Meal+Drink)', value: 3 }
-    ]
+    combatStats: { energyRegen: 5 },
   },
   rations: {
     id: 'rations',
@@ -42,10 +36,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Package',
     scoreValue: 10,
     rarity: 'COMMON',
-    combatStats: { energyRegen: 3 },
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['water_bottle', 'canteen'], stat: 'energyRegen', effect: '+3 ⚡Regen (Meal+Drink)', value: 3 }
-    ]
+    combatStats: { energyRegen: 6 },
   },
   map: {
     id: 'map',
@@ -71,9 +62,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Flashlight',
     scoreValue: 5,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['bow', 'crossbow'], stat: 'accuracy', effect: '+15 Accuracy (Spot Targets)', value: 15 }
-    ]
+    combatStats: { accuracy: 15 },
   },
   rope: {
     id: 'rope',
@@ -85,9 +74,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Ratchet',
     scoreValue: 15,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['spear', 'bear_trap'], stat: 'defense', effect: '+5 DEF (Perimeter Setup)', value: 5 }
-    ]
+    combatStats: { defense: 10 },
   },
   first_aid: {
     id: 'first_aid',
@@ -129,10 +116,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Bed',
     scoreValue: 5,
     rarity: 'COMMON',
-    combatStats: { energyRegen: 2, maxEnergy: 20 },
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['lux_pillow', 'large_tent'], stat: 'healthRegen', effect: '+3 Regen (Good Sleep)', value: 3 }
-    ]
+    combatStats: { energyRegen: 2, maxEnergy: 20, healthRegen: 3 },
   },
   rock: {
     id: 'rock',
@@ -240,11 +224,8 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Scissors',
     scoreValue: 5,
     triggerType: 'ATTACK',
-    combatStats: { damage: 3, speed: 7, energyCost: 5 },
+    combatStats: { damage: 3, speed: 10, energyCost: 5 },
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', stat: 'speed', effect: '+5 Speed (Multitool)', value: 5 }
-    ]
   },
   sword: {
     id: 'sword',
@@ -319,11 +300,8 @@ export const ITEMS: Record<string, Item> = {
     icon: 'MoveVertical',
     scoreValue: 12,
     triggerType: 'ATTACK',
-    combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 35 },
+    combatStats: { damage: 7, speed: 5, accuracy: 85, energyCost: 35, defense: 8 },
     rarity: 'UNCOMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', stat: 'defense', effect: '+5 DEF (Phalanx)', value: 5, targetSelf: true }
-    ]
   },
   crossbow: {
     id: 'crossbow',
@@ -384,9 +362,7 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Lamp',
     scoreValue: 12,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BOOST_SQUARE', pattern: 'ADJACENT', stat: 'accuracy', effect: 'Boosts Accuracy (+15)', value: 15 }
-    ]
+    combatStats: { accuracy: 20 },
   },
   pickaxe: {
     id: 'pickaxe',
@@ -397,10 +373,7 @@ export const ITEMS: Record<string, Item> = {
     height: 2,
     icon: 'Pickaxe',
     scoreValue: 8,
-    rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['rock'], stat: 'damage', effect: '+15 DMG (Break Rock)', value: 15, targetSelf: true }
-    ]
+    rarity: 'COMMON'
   },
   spyglass: {
     id: 'spyglass',

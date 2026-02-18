@@ -14,6 +14,7 @@ const AutoBattler: React.FC = () => {
 
     // Initial State Setup
     const [player, setPlayer] = useState<CombatEntity | null>(null);
+    console.log("🚀 ~ AutoBattler ~ player:", player)
     const [enemy, setEnemy] = useState<CombatEntity | null>(null);
     const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
     const [isFighting, setIsFighting] = useState(false);
@@ -24,6 +25,7 @@ const AutoBattler: React.FC = () => {
     const [enemyCooldowns, setEnemyCooldowns] = useState<ItemCooldown[]>([]);
     const [cooldownMultiplier] = useState(1);
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [tickSpeed, setTickSpeed] = useState(1); // 0.5x to 4x
 
     // Tick Loop Ref
     const stateRef = useRef({ player, enemy, playerCooldowns, enemyCooldowns, isFighting, gameResult });
@@ -133,11 +135,11 @@ const AutoBattler: React.FC = () => {
                     current.enemy,
                     current.playerCooldowns,
                     current.enemyCooldowns,
-                    delta,
-                    elapsedTime + delta
+                    delta * tickSpeed, // Scale delta by tickSpeed
+                    elapsedTime + (delta * tickSpeed)
                 );
 
-                setElapsedTime(prev => prev + delta);
+                setElapsedTime(prev => prev + (delta * tickSpeed));
 
                 setPlayer(result.player);
                 setEnemy(result.enemy);
@@ -264,6 +266,33 @@ const AutoBattler: React.FC = () => {
                                 </motion.div>
                             )}
                         </AnimatePresence>
+                    </div>
+
+                    {/* TICK SPEED CONTROL */}
+                    <div className="px-4 mt-2">
+                        <div className="bg-wood-950/60 border border-wood-700/50 p-3 rounded-xl shadow-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-black text-wood-500 uppercase tracking-widest flex items-center gap-1">
+                                    <Activity size={12} className="text-orange-500" /> Battle Speed
+                                </span>
+                                <span className="text-xs font-mono font-bold text-orange-400 bg-orange-950/30 px-2 rounded tracking-tighter shadow-inner">
+                                    {tickSpeed.toFixed(1)}x
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.5"
+                                max="4"
+                                step="0.1"
+                                value={tickSpeed}
+                                onChange={(e) => setTickSpeed(parseFloat(e.target.value))}
+                                className="w-full accent-orange-500 h-1.5 bg-wood-800 rounded-lg cursor-pointer appearance-none border border-wood-700/30 shadow-inner"
+                            />
+                            <div className="flex justify-between mt-1 px-1">
+                                <span className="text-[8px] text-wood-600 font-bold">0.5x</span>
+                                <span className="text-[8px] text-wood-600 font-bold">4.0x</span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* COMBAT LOG */}
@@ -396,10 +425,11 @@ const HealthBar = ({ current, max, shield, color }: { current: number, max: numb
 const EnergyBar = ({ current, max }: { current: number, max: number }) => (
     <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner">
         <motion.div
-            className="h-full bg-gradient-to-r from-amber-500 to-yellow-400"
+            className="h-full"
             initial={{ width: '100%' }}
             animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
             transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            style={{ background: 'darkslateblue' }}
         />
         <div className="absolute inset-0 flex items-center justify-between px-3 text-[9px] font-bold text-white shadow-black drop-shadow-md">
             <span>⚡ {Math.round(current)}</span>

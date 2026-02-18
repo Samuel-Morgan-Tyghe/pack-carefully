@@ -8,7 +8,8 @@ interface ShelfCategoryProps {
     items: Item[];
 }
 
-const ShelfCategory: React.FC<ShelfCategoryProps> = ({ items }) => {
+export const ShelfCategory: React.FC<ShelfCategoryProps> = ({ items }) => {
+    console.log("🚀 ~ ShelfCategory ~ items:", items)
     if (items.length === 0) return null;
 
     return (
@@ -22,4 +23,3 @@ const ShelfCategory: React.FC<ShelfCategoryProps> = ({ items }) => {
     );
 };
 
-export default React.memo(ShelfCategory);

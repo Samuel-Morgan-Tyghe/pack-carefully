@@ -40,18 +40,6 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const [ghostPosition, setGhostPosition] = useState<{ x: number; y: number; gridX: number; gridY: number; valid: boolean } | null>(null);
   const [isGhostValid, setIsGhostValid] = useState(true);
   const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(null);
-  const [touchState, setTouchState] = useState<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-    itemId: string | null;
-    instanceId: string | null;
-    initialX: number;
-    initialY: number;
-    rotation: number;
-  } | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -332,78 +320,6 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent, instanceId: string, itemId: string, rotation: number) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    setTouchState({ active: true, startX: touch.clientX, startY: touch.clientY, currentX: touch.clientX, currentY: touch.clientY, itemId, instanceId, initialX: touch.clientX, initialY: touch.clientY, rotation });
-    setDraggedInstanceId(instanceId);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchState?.active || !touchState.itemId) {
-      if (externalDraggedItem) {
-        const touch = e.touches[0];
-        const itemDef = ITEMS[externalDraggedItem];
-        if (touch && itemDef) {
-          const { x, y, gridX, gridY } = snapToGrid({ x: touch.clientX, y: touch.clientY }, itemDef.width, itemDef.height);
-          setGhostPosition({ x, y, gridX, gridY, valid: calculateGhostValidity(gridX, gridY, externalDraggedItem) });
-        }
-      }
-      return;
-    }
-    const touch = e.touches[0];
-    if (!touch) return;
-    setTouchState(prev => prev ? { ...prev, currentX: touch.clientX, currentY: touch.clientY } : null);
-    const itemDef = ITEMS[touchState.itemId];
-    const w = (touchState.rotation === 90 || touchState.rotation === 270) ? itemDef.height : itemDef.width;
-    const h = (touchState.rotation === 90 || touchState.rotation === 270) ? itemDef.width : itemDef.height;
-    const { x, y, gridX, gridY } = snapToGrid({ x: touch.clientX, y: touch.clientY }, w, h);
-    const valid = calculateGhostValidity(gridX, gridY, touchState.itemId, draggedInstanceId || undefined, touchState.rotation);
-    setIsGhostValid(valid);
-    setGhostPosition({ x, y, gridX, gridY, valid });
-  };
-
-  const handleTouchEnd = (_e: React.TouchEvent, instanceId: string) => {
-    if (!touchState?.active || !touchState.itemId) {
-      if (externalDraggedItem && ghostPosition) {
-        const itemDef = ITEMS[externalDraggedItem];
-        const w = (pendingRotation === 90 || pendingRotation === 270) ? itemDef.height : itemDef.width;
-        const h = (pendingRotation === 90 || pendingRotation === 270) ? itemDef.width : itemDef.height;
-        const { gridX, gridY } = snapToGrid({ x: touchState?.currentX || 0, y: touchState?.currentY || 0 }, w, h);
-        if (calculateGhostValidity(gridX, gridY, externalDraggedItem, undefined, pendingRotation)) {
-          placeItem(externalDraggedItem, gridX, gridY, pendingRotation, ownerId);
-          $draggedItem.set(null);
-          $activePreview.set(null);
-        } else {
-          setErrorMessage(`${itemDef.name} returned to shelf!`);
-          setTimeout(() => setErrorMessage(null), 2000);
-        }
-      }
-      setTouchState(null);
-      setDraggedInstanceId(null);
-      setGhostPosition(null);
-      return;
-    }
-    const itemDef = ITEMS[touchState.itemId];
-    const w = (touchState.rotation === 90 || touchState.rotation === 270) ? itemDef.height : itemDef.width;
-    const h = (touchState.rotation === 90 || touchState.rotation === 270) ? itemDef.width : itemDef.height;
-    const { gridX, gridY } = snapToGrid({ x: touchState.currentX, y: touchState.currentY }, w, h);
-    if (calculateGhostValidity(gridX, gridY, touchState.itemId, instanceId, touchState.rotation)) {
-      moveItem(instanceId, gridX, gridY, touchState.rotation as 0 | 90 | 180 | 270);
-    } else {
-      removeItem(instanceId);
-      returnItemToPool(ownerId, touchState.itemId);
-      $draggedItem.set(touchState.itemId);
-      $activePreview.set({ type: 'definition', id: touchState.itemId });
-      setPendingRotation(touchState.rotation as 0 | 90 | 180 | 270);
-      setErrorMessage(`${itemDef.name} returned to shelf!`);
-      setTimeout(() => setErrorMessage(null), 3000);
-    }
-    setTouchState(null);
-    setDraggedInstanceId(null);
-    setGhostPosition(null);
-  };
-
   return (
     <div className="flex flex-col items-center w-full px-2 md:px-0">
       {errorMessage && (
@@ -566,9 +482,6 @@ const Inventory: React.FC<InventoryProps> = (props) => {
               onDragStart={handleDragStart}
               onDrag={handleDrag}
               onDragEnd={handleDragEnd}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
               CELL_SIZE={CELL_SIZE}
               GAP={GAP}
               isSelected={selectedItemId === item.instanceId}

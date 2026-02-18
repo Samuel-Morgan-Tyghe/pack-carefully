@@ -15,9 +15,6 @@ interface BackpackItemProps {
     onDragStart: (id: string) => void;
     onDrag: (id: string, itemId: string, rotation: number, info: PanInfo) => void;
     onDragEnd: (instanceId: string, itemId: string, rotation: number, info: PanInfo) => void;
-    onTouchStart?: (e: React.TouchEvent, instanceId: string, itemId: string, rotation: number) => void;
-    onTouchMove?: (e: React.TouchEvent) => void;
-    onTouchEnd?: (e: React.TouchEvent, instanceId: string) => void;
     CELL_SIZE: number;
     GAP: number;
     isHighlighted?: boolean;
@@ -36,9 +33,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
     onDragStart,
     onDrag,
     onDragEnd,
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
     CELL_SIZE,
     GAP,
     isHighlighted,
@@ -102,23 +96,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             }}
             onDrag={(_, info) => canInteract && !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)}
             onDragEnd={(_, info) => canInteract && !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)}
-
-            onTouchStart={(e) => {
-                if (canInteract && !item.locked) {
-                    playSound.pop();
-                    onTouchStart?.(e, item.instanceId, item.itemId, item.rotation);
-                }
-            }}
-            onTouchMove={(e) => {
-                if (canInteract && !item.locked) {
-                    onTouchMove?.(e);
-                }
-            }}
-            onTouchEnd={(e) => {
-                if (canInteract && !item.locked) {
-                    onTouchEnd?.(e, item.instanceId);
-                }
-            }}
 
             onClick={(e) => {
                 if (!canInteract) return;

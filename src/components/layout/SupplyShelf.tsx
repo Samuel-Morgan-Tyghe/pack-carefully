@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { $draftState, $localPlayerId } from '../../store/gameStore';
-import ShelfCategory from './ShelfCategory';
+import { ShelfCategory } from './ShelfCategory';
 import * as LucideIcons from 'lucide-react';
 import type { Item } from '../../types';
 import clsx from 'clsx';
@@ -15,6 +15,11 @@ const SupplyShelf: React.FC = () => {
 
     // Get personal items for this player, fallback to empty
     const items = (localPlayerId && draftPool[localPlayerId]) || [];
+
+    const activeItems = items.filter((i: Item) => i.category === activeTab);
+    console.log("🚀 ~ SupplyShelf ~ activeItems:", activeItems)
+
+    console.log('draftPool', draftPool)
 
     return (
         <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden select-none">
@@ -64,15 +69,7 @@ const SupplyShelf: React.FC = () => {
 
             {/* Shelf Content - Fixed Category */}
             <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full animate-in fade-in slide-in-from-left-2">
-                {(() => {
-                    const categoryItems = items.filter((i: Item) => i.category === activeTab);
-                    return (
-                        <ShelfCategory
-                            category={activeTab}
-                            items={categoryItems}
-                        />
-                    );
-                })()}
+                <ShelfCategory category={activeTab} items={activeItems} />
             </div>
         </section>
     );
