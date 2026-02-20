@@ -58,7 +58,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 2,
     icon: 'Flashlight',
-    scoreValue: 5,
     rarity: 'COMMON',
     combatStats: { accuracy: 15 },
   },
@@ -70,7 +69,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 2,
     icon: 'BriefcaseMedical',
-    scoreValue: 20,
     triggerType: 'HEAL',
     combatStats: { heal: 15, energyCost: 20 },
     rarity: 'UNCOMMON',
@@ -94,7 +92,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 2,
     icon: 'Shield',
-    scoreValue: 15,
     rarity: 'COMMON',
     combatStats: { defense: 5, block: 10, staminaCost: 1.0 },
     synergies: [
@@ -120,7 +117,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 3,
     icon: 'Bed',
-    scoreValue: 5,
     rarity: 'COMMON',
     combatStats: { energyRegen: 2, maxEnergy: 20, healthRegen: 3 },
   },
@@ -132,7 +128,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 2,
     icon: 'Gem',
-    scoreValue: -10,
     rarity: 'COMMON',
   },
   wooden_sword: {
@@ -143,7 +138,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 3,
     icon: 'Sword',
-    scoreValue: 5,
     triggerType: 'ATTACK',
     combatStats: { damage: 4, speed: 5, accuracy: 90, energyCost: 10, staminaCost: 0.7 },
     rarity: 'COMMON',
@@ -160,7 +154,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 3,
     icon: 'Sword',
-    scoreValue: 25,
     triggerType: 'ATTACK',
     combatStats: { damage: 10, speed: 6, accuracy: 95, energyCost: 15, staminaCost: 1.0 },
     rarity: 'RARE',
@@ -184,7 +177,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 1,
     icon: 'Syringe',
-    scoreValue: 7,
     triggerType: 'ATTACK',
     combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 15, staminaCost: 0.5 },
     effects: [{ type: 'POISON', value: 2 }],
@@ -209,7 +201,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 3,
     icon: 'Backpack',
-    scoreValue: 0,
     rarity: 'UNCOMMON',
     synergies: [
       {
@@ -230,7 +221,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 1,
     icon: 'Square',
-    scoreValue: 5,
     rarity: 'COMMON',
     combatStats: { triggerSpeed: 1.1 } // +10% speed
   },
@@ -242,7 +232,6 @@ export const ITEMS: Record<string, Item> = {
     width: 2,
     height: 1,
     icon: 'Package',
-    scoreValue: 5,
     rarity: 'COMMON',
     combatStats: { staminaRegen: 1.0 } // +1.0 stamina/sec
   },
@@ -254,7 +243,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 1,
     icon: 'Anchor',
-    scoreValue: -15,
     rarity: 'UNCOMMON',
     combatStats: { staminaRegen: -0.5 } // Drains stamina
   },
@@ -266,7 +254,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 1,
     icon: 'Hash',
-    scoreValue: -10,
     rarity: 'COMMON',
     synergies: [
       {
@@ -285,7 +272,6 @@ export const ITEMS: Record<string, Item> = {
     width: 1,
     height: 1,
     icon: 'ShieldAlert',
-    scoreValue: 25,
     rarity: 'RARE',
     combatStats: { defense: 10 },
     synergies: [

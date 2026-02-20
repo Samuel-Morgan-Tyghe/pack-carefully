@@ -6,18 +6,6 @@ export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABO
 
 export type AdjacencyPattern = 'ADJACENT' | 'PARALLEL' | 'TWO_ACROSS' | 'DIAMOND' | { dx: number, dy: number }[];
 
-export interface AdjacencyRule {
-  type: 'BUFF' | 'DEBUFF' | 'MULTIPLIER' | 'BOOST_SQUARE';
-  pattern: AdjacencyPattern;
-  targetCategories?: ItemCategory[];
-  targetIds?: string[];
-  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown' | 'healthRegen' | 'manaRegen' | 'maxMana' | 'energyRegen' | 'maxEnergy' | 'staminaRegen';
-  effect: string;
-  value: number; // For BUFF/DEBUFF: added value. For MULTIPLIER: factor (e.g. 1.5). For BOOST_SQUARE: level?
-  stacking?: boolean; // If true, applies for EACH item matching the pattern
-  targetSelf?: boolean; // If true, the buff applies to the source item, not the target
-}
-
 export interface SynergyResult {
   buffs?: Partial<{
     damage: number;
@@ -57,7 +45,6 @@ export interface Item {
   width: number;
   height: number;
   icon: string; // Lucide icon name or image path
-  scoreValue: number; // Positive for good items, negative for sabotage
   rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
   synergies?: FunctionalSynergy[];
   combatStats?: {
@@ -116,7 +103,6 @@ export interface GameState {
   };
   lastEncounterResult: {
     success: boolean;
-    score: number;
     difficulty: number;
     message: string;
   } | null;
