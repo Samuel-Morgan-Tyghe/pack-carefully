@@ -163,9 +163,8 @@ export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<
 
         const cellsA = getItemCells(sourceItem);
 
-        // Process both legacy and functional synergies
+// Process functional synergies
         const allRules: CombinedRule[] = [
-            ...((sourceDef.adjacency || []).map(r => ({ ...r, isLegacy: true as const }))),
             ...((sourceDef.synergies || []).map(s => ({ ...s, isFunctional: true as const })))
         ];
 
@@ -272,30 +271,6 @@ export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<
         for (let j = 0; j < gridItems.length; j++) {
             if (i === j) continue;
             const targetItem = gridItems[j];
-            const targetDef = ITEMS[targetItem.itemId];
-
-            // Legacy
-            sourceDef.adjacency?.forEach(rule => {
-                if (rule.type === 'BOOST_SQUARE') return;
-                if (checkPattern(sourceItem, targetItem, rule.pattern)) {
-                    let apply = false;
-                    if (rule.targetIds?.includes(targetItem.itemId)) apply = true;
-                    if (rule.targetCategories?.includes(targetDef.category)) apply = true;
-                    if (!rule.targetIds && !rule.targetCategories) apply = true;
-
-                    if (apply) {
-                        const effectTargetId = rule.targetSelf ? sourceItem.instanceId : targetItem.instanceId;
-                        const stat = rule.stat || 'damage';
-                        if (rule.type === 'MULTIPLIER') {
-                            results[effectTargetId].multipliers[stat] = (results[effectTargetId].multipliers[stat] || 1) * rule.value;
-                        } else {
-                            results[effectTargetId].buffs[stat] = (results[effectTargetId].buffs[stat] || 0) + rule.value;
-                            results[effectTargetId].totalBuff += rule.value;
-                        }
-                        results[effectTargetId].activeRules.push(`From ${sourceDef.name}: ${rule.effect}`);
-                    }
-                }
-            });
 
             // Functional
             sourceDef.synergies?.forEach(syn => {

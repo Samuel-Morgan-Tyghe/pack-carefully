@@ -59,8 +59,6 @@ export interface Item {
   icon: string; // Lucide icon name or image path
   scoreValue: number; // Positive for good items, negative for sabotage
   rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
-  /** @deprecated use synergies instead */
-  adjacency?: AdjacencyRule[];
   synergies?: FunctionalSynergy[];
   combatStats?: {
     damage?: number;
