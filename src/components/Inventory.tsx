@@ -464,7 +464,6 @@ const Inventory: React.FC<InventoryProps> = (props) => {
           ref={gridRef}
           className="relative transition-all duration-500 touch-manipulation overflow-visible select-none"
           id="inventory-grid"
-          // biome-ignore lint/a11y/useSemanticElements: <explanation>
           role="button"
           tabIndex={0}
           style={{

@@ -11,7 +11,20 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "warn",
+        "noAssignInExpressions": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "warn",
+        "useSingleVarDeclarator": "off"
+      },
+      "complexity": {
+        "noForEach": "off"
+      },
+      "a11y": {
+        "useButtonType": "warn",
+        "useSemanticElements": "off"
       }
     }
   },

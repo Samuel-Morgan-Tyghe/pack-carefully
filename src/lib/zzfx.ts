@@ -36,12 +36,9 @@ export const zzfx = (...parameters: (number | undefined)[]) => {
   ] = parameters
 
   // init parameters
-  // biome-ignore lint/style/useSingleVarDeclarator: <explanation>
-    let PI2 = Math.PI * 2,
+  let PI2 = Math.PI * 2,
     sign = (v: number) => (v > 0 ? 1 : -1),
-    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
     startSlide = (slide *= (500 * PI2) / zzfxR / zzfxR),
-    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
     startFrequency = (frequency *=
       ((1 + randomness * 2 * Math.random() - randomness) * PI2) / zzfxR),
     b: any[] = [],
@@ -52,7 +49,6 @@ export const zzfx = (...parameters: (number | undefined)[]) => {
     r = 0,
     c = 0,
     s = 0,
-    // biome-ignore lint/suspicious/noImplicitAnyLet: <explanation>
     f,
     length
 
@@ -151,8 +147,7 @@ export const zzfx = (...parameters: (number | undefined)[]) => {
   }
 
   // copy to audio buffer
-  // biome-ignore lint/style/useSingleVarDeclarator: <explanation>
-    const buffer = zzfxX.createBuffer(1, length, zzfxR),
+  const buffer = zzfxX.createBuffer(1, length, zzfxR),
     data = buffer.getChannelData(0)
   for (i = 0; i < length; i++) data[i] = b[i]
 
