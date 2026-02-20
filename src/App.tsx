@@ -1,5 +1,5 @@
-import GameLayout from './components/GameLayout';
-import AppInitializer from './components/AppInitializer';
+import AppInitializer from "./components/AppInitializer"
+import GameLayout from "./components/GameLayout"
 
 function App() {
   return (
@@ -8,7 +8,7 @@ function App() {
       <GameLayout />
       {/* <IdentityManager /> */}
     </>
-  );
+  )
 }
 
-export default App;
+export default App

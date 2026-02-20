@@ -1,159 +1,205 @@
-export type Role = 'Hiker' | 'Traitor';
+export type Role = "Hiker" | "Traitor"
 
-export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER' | 'SANDBOX';
+export type GamePhase =
+  | "LOBBY"
+  | "BAG_BUILDING"
+  | "DRAFT"
+  | "JOURNEY"
+  | "CAMPFIRE"
+  | "FINALE"
+  | "GAME_OVER"
+  | "SANDBOX"
 
-export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABOTAGE' | 'CONTAINER' | 'WEAPON' | 'CLOTHING';
+export type ItemCategory =
+  | "ESSENTIAL"
+  | "TOOL"
+  | "SURVIVAL"
+  | "COMFORT"
+  | "SABOTAGE"
+  | "CONTAINER"
+  | "WEAPON"
+  | "CLOTHING"
 
-export type AdjacencyPattern = 'ADJACENT' | 'PARALLEL' | 'TWO_ACROSS' | 'DIAMOND' | { dx: number, dy: number }[];
+export type AdjacencyPattern =
+  | "ADJACENT"
+  | "PARALLEL"
+  | "TWO_ACROSS"
+  | "DIAMOND"
+  | { dx: number; dy: number }[]
 
 export interface SynergyResult {
   buffs?: Partial<{
-    damage: number;
-    defense: number;
-    block: number;
-    heal: number;
-    speed: number;
-    accuracy: number;
-    manaCost: number;
-    maxMana: number;
-    manaRegen: number;
-    shieldRegen: number;
-    healthRegen: number;
-    energyCost: number;
-    maxEnergy: number;
-    energyRegen: number;
-    staminaCost: number;
-    staminaRegen: number;
-  }>;
-  multipliers?: Partial<Record<'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'manaCost' | 'maxMana' | 'manaRegen' | 'shieldRegen' | 'healthRegen' | 'energyCost' | 'maxEnergy' | 'energyRegen' | 'staminaCost' | 'staminaRegen' | 'triggerSpeed', number>>;
+    damage: number
+    defense: number
+    block: number
+    heal: number
+    speed: number
+    accuracy: number
+    manaCost: number
+    maxMana: number
+    manaRegen: number
+    shieldRegen: number
+    healthRegen: number
+    energyCost: number
+    maxEnergy: number
+    energyRegen: number
+    staminaCost: number
+    staminaRegen: number
+  }>
+  multipliers?: Partial<
+    Record<
+      | "damage"
+      | "defense"
+      | "block"
+      | "heal"
+      | "speed"
+      | "accuracy"
+      | "manaCost"
+      | "maxMana"
+      | "manaRegen"
+      | "shieldRegen"
+      | "healthRegen"
+      | "energyCost"
+      | "maxEnergy"
+      | "energyRegen"
+      | "staminaCost"
+      | "staminaRegen"
+      | "triggerSpeed",
+      number
+    >
+  >
 }
 
 export interface FunctionalSynergy {
-  pattern: AdjacencyPattern;
-  description: string;
-  apply: (source: InventoryItemInstance, target: InventoryItemInstance, allItems: InventoryItemInstance[]) => SynergyResult;
-  targetIsSelf?: boolean; // If true, source gets the bonus. Otherwise target gets it.
-  isBoostSquare?: boolean; // Special handling for star-based global boosts
-  isDiamond?: boolean; // Secondary synergy type
+  pattern: AdjacencyPattern
+  description: string
+  apply: (
+    source: InventoryItemInstance,
+    target: InventoryItemInstance,
+    allItems: InventoryItemInstance[],
+  ) => SynergyResult
+  targetIsSelf?: boolean // If true, source gets the bonus. Otherwise target gets it.
+  isBoostSquare?: boolean // Special handling for star-based global boosts
+  isDiamond?: boolean // Secondary synergy type
 }
 
 export interface Item {
-  id: string;
-  name: string;
-  description: string;
-  category: ItemCategory;
-  width: number;
-  height: number;
-  icon: string; // Lucide icon name or image path
-  rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
-  synergies?: FunctionalSynergy[];
+  id: string
+  name: string
+  description: string
+  category: ItemCategory
+  width: number
+  height: number
+  icon: string // Lucide icon name or image path
+  rarity: "COMMON" | "UNCOMMON" | "RARE" | "LEGENDARY"
+  synergies?: FunctionalSynergy[]
   combatStats?: {
-    damage?: number;
-    defense?: number; // Passive mitigation (Armor)
-    block?: number; // Active mitigation (Shield HP)
-    heal?: number;
-    speed?: number; // Initiative
-    accuracy?: number; // 0-100%
-    manaCost?: number;
-    maxMana?: number;
-    manaRegen?: number;
-    shieldRegen?: number;
-    healthRegen?: number;
-    energyCost?: number; // Energy consumed when this weapon fires
-    maxEnergy?: number; // Adds to max energy pool
-    energyRegen?: number; // Energy regenerated per second
-    staminaCost?: number; // Stamina consumed per trigger
-    staminaRegen?: number; // Stamina regenerated per second
-    maxStamina?: number; // Adds to max stamina pool
-    triggerSpeed?: number; // Multiplier for how fast it triggers
-  };
-  triggerType?: 'ATTACK' | 'HEAL' | 'SHIELD' | 'PASSIVE';
+    damage?: number
+    defense?: number // Passive mitigation (Armor)
+    block?: number // Active mitigation (Shield HP)
+    heal?: number
+    speed?: number // Initiative
+    accuracy?: number // 0-100%
+    manaCost?: number
+    maxMana?: number
+    manaRegen?: number
+    shieldRegen?: number
+    healthRegen?: number
+    energyCost?: number // Energy consumed when this weapon fires
+    maxEnergy?: number // Adds to max energy pool
+    energyRegen?: number // Energy regenerated per second
+    staminaCost?: number // Stamina consumed per trigger
+    staminaRegen?: number // Stamina regenerated per second
+    maxStamina?: number // Adds to max stamina pool
+    triggerSpeed?: number // Multiplier for how fast it triggers
+  }
+  triggerType?: "ATTACK" | "HEAL" | "SHIELD" | "PASSIVE"
   effects?: {
-    type: 'POISON' | 'FIRE' | 'STUN' | 'SLOW' | 'BLEED';
-    value: number; // Stacks or Duration
-    chance?: number; // % chance to apply
-  }[];
+    type: "POISON" | "FIRE" | "STUN" | "SLOW" | "BLEED"
+    value: number // Stacks or Duration
+    chance?: number // % chance to apply
+  }[]
   recipe?: {
-    ingredients: string[]; // item IDs
-    result: string; // item ID
-  };
+    ingredients: string[] // item IDs
+    result: string // item ID
+  }
 }
 
 export interface Player {
-  id: string;
-  name: string;
-  role: Role;
-  isReady: boolean;
-  isTraitor: boolean; // redundancy for easy access
-  avatarColor: string;
-  currentPath: 'LEFT' | 'RIGHT' | null;
+  id: string
+  name: string
+  role: Role
+  isReady: boolean
+  isTraitor: boolean // redundancy for easy access
+  avatarColor: string
+  currentPath: "LEFT" | "RIGHT" | null
 }
 
 export interface GameState {
-  day: number;
-  round: number; // 1-5 (Same as day, but for clarity)
-  morale: number; // 0-100
-  isGameOver: boolean;
-  gameResult: 'WIN' | 'LOSS' | null;
-  journeyStage: 'SELECTION' | 'ENCOUNTER' | 'RESULTS' | 'SCAVENGE';
-  selectedPath: 'LEFT' | 'RIGHT' | null;
+  day: number
+  round: number // 1-5 (Same as day, but for clarity)
+  morale: number // 0-100
+  isGameOver: boolean
+  gameResult: "WIN" | "LOSS" | null
+  journeyStage: "SELECTION" | "ENCOUNTER" | "RESULTS" | "SCAVENGE"
+  selectedPath: "LEFT" | "RIGHT" | null
   pathStatus: {
-    LEFT: 'PENDING' | 'RESOLVED';
-    RIGHT: 'PENDING' | 'RESOLVED';
-  };
+    LEFT: "PENDING" | "RESOLVED"
+    RIGHT: "PENDING" | "RESOLVED"
+  }
   lastEncounterResult: {
-    success: boolean;
-    difficulty: number;
-    message: string;
-  } | null;
+    success: boolean
+    difficulty: number
+    message: string
+  } | null
 }
 
 export interface Coordinate {
-  x: number;
-  y: number;
+  x: number
+  y: number
 }
 
 export interface Container {
-  id: string;
-  ownerId: string;
-  type: 'POUCH' | 'BACKPACK' | 'POCKET';
-  cells: Coordinate[]; // Absolute grid coordinates map to specific grid slots
-  capacity: number; // Number of cells
-  disabledCells?: Coordinate[]; // Cells that have been "Cut" (Sabotage)
+  id: string
+  ownerId: string
+  type: "POUCH" | "BACKPACK" | "POCKET"
+  cells: Coordinate[] // Absolute grid coordinates map to specific grid slots
+  capacity: number // Number of cells
+  disabledCells?: Coordinate[] // Cells that have been "Cut" (Sabotage)
 }
 
 export interface GridCell {
-  x: number;
-  y: number;
-  itemId: string | null;
-  occupied: boolean;
-  ownerId?: string | null;
+  x: number
+  y: number
+  itemId: string | null
+  occupied: boolean
+  ownerId?: string | null
 }
 
 export interface InventoryItemInstance {
-  instanceId: string;
-  itemId: string;
-  x: number;
-  y: number;
-  rotation: 0 | 90 | 180 | 270;
-  locked?: boolean; // If true, cannot be moved
-  ownerId: string; // The player who owns this item
-  disguiseItemId?: string; // If set, this item looks like this ItemId
+  instanceId: string
+  itemId: string
+  x: number
+  y: number
+  rotation: 0 | 90 | 180 | 270
+  locked?: boolean // If true, cannot be moved
+  ownerId: string // The player who owns this item
+  disguiseItemId?: string // If set, this item looks like this ItemId
   liveStats?: {
-    damage?: number;
-    speed?: number;
-    accuracy?: number;
-    energyCost?: number;
-    heal?: number;
-    block?: number;
-    staminaCost?: number;
-    triggerSpeed?: number;
-  };
+    damage?: number
+    speed?: number
+    accuracy?: number
+    energyCost?: number
+    heal?: number
+    block?: number
+    staminaCost?: number
+    triggerSpeed?: number
+  }
 }
 
 export interface DraftState {
-  availableItems: Record<string, Item[]>; // PlayerID -> Personal Pool
-  selections: Record<string, string>; // PlayerID -> ItemID (Secret)
-  confirmed: string[]; // PlayerIDs who have locked in their choice
-  roundNumber: number; // 1, 2, 3...
+  availableItems: Record<string, Item[]> // PlayerID -> Personal Pool
+  selections: Record<string, string> // PlayerID -> ItemID (Secret)
+  confirmed: string[] // PlayerIDs who have locked in their choice
+  roundNumber: number // 1, 2, 3...
 }

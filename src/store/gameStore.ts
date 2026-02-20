@@ -1,1048 +1,1227 @@
-import { atom } from 'nanostores';
-import type { GamePhase, InventoryItemInstance, Item, Player, Role, DraftState, GameState, ItemCategory } from '../types';
-import { ITEMS, GRID_SIZE } from '../lib/items';
-import { generateId } from '../lib/utils';
-import { generateRandomContainers } from '../lib/generators';
-import type { Coordinate, Container } from '../types';
+import { atom } from "nanostores"
+import { generateRandomContainers } from "../lib/generators"
+import { GRID_SIZE, ITEMS } from "../lib/items"
+import { generateId } from "../lib/utils"
+import type {
+  DraftState,
+  GamePhase,
+  GameState,
+  InventoryItemInstance,
+  Item,
+  ItemCategory,
+  Player,
+  Role,
+} from "../types"
+import type { Container, Coordinate } from "../types"
 
-import { getAdjacencyBonuses } from '../lib/adjacency';
-import { computed } from 'nanostores';
+import { computed } from "nanostores"
+import { getAdjacencyBonuses } from "../lib/adjacency"
 
 // State Atoms
-export const $phase = atom<GamePhase>('LOBBY');
-export const $players = atom<Player[]>([]);
-export const $containers = atom<Container[]>([]);
-export const $currentPlayerId = atom<string | null>(null);
-export const $itemsOnGrid = atom<InventoryItemInstance[]>([]);
-export const $availableItems = atom<Item[]>(Object.values(ITEMS));
-export const $draggedItem = atom<string | null>(null);
-export const $activePreview = atom<{ type: 'instance' | 'definition', id: string } | null>(null);
+export const $phase = atom<GamePhase>("LOBBY")
+export const $players = atom<Player[]>([])
+export const $containers = atom<Container[]>([])
+export const $currentPlayerId = atom<string | null>(null)
+export const $itemsOnGrid = atom<InventoryItemInstance[]>([])
+export const $availableItems = atom<Item[]>(Object.values(ITEMS))
+export const $draggedItem = atom<string | null>(null)
+export const $activePreview = atom<{
+  type: "instance" | "definition"
+  id: string
+} | null>(null)
 
 // Multiplayer Identity & Sync
-export const $localPlayerId = atom<string | (typeof localStorage extends undefined ? null : string | null)>(
-    typeof localStorage !== 'undefined' ? localStorage.getItem('pack_carefully_player_id') : null
-);
+export const $localPlayerId = atom<
+  string | (typeof localStorage extends undefined ? null : string | null)
+>(
+  typeof localStorage !== "undefined"
+    ? localStorage.getItem("pack_carefully_player_id")
+    : null,
+)
 
 // Local View State (not synced)
-export const $viewingPlayerId = atom<string | null>(null);
+export const $viewingPlayerId = atom<string | null>(null)
 
 // BroadcastChannel for cross-tab sync
-const syncChannel = typeof window !== 'undefined' ? new BroadcastChannel('pack_carefully_sync') : null;
+const syncChannel =
+  typeof window !== "undefined"
+    ? new BroadcastChannel("pack_carefully_sync")
+    : null
 
 export const setLocalPlayer = (id: string | null) => {
-    $localPlayerId.set(id);
-    if (id !== 'OBSERVER') {
-        $viewingPlayerId.set(id);
-    }
-    if (id && typeof localStorage !== 'undefined') {
-        localStorage.setItem('pack_carefully_player_id', id);
-    } else if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('pack_carefully_player_id');
-    }
-};
+  $localPlayerId.set(id)
+  if (id !== "OBSERVER") {
+    $viewingPlayerId.set(id)
+  }
+  if (id && typeof localStorage !== "undefined") {
+    localStorage.setItem("pack_carefully_player_id", id)
+  } else if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("pack_carefully_player_id")
+  }
+}
 
 // Flag to prevent broadcast cycles
-let isSyncing = false;
+let isSyncing = false
 
 export const setViewingPlayer = (id: string | null) => {
-    $viewingPlayerId.set(id);
-};
+  $viewingPlayerId.set(id)
+}
 
 // Syncing state changes
 if (syncChannel) {
-    syncChannel.onmessage = (event) => {
-        const { type, payload } = event.data;
+  syncChannel.onmessage = (event) => {
+    const { type, payload } = event.data
 
-        isSyncing = true;
-        try {
-            switch (type) {
-                case 'PHASE_UPDATE': $phase.set(payload); break;
-                case 'PLAYERS_UPDATE': $players.set(payload); break;
-                case 'CONTAINERS_UPDATE': $containers.set(payload); break;
-                case 'ITEMS_UPDATE': $itemsOnGrid.set(payload); break;
-                case 'GAME_STATE_UPDATE': $gameState.set(payload); break;
-                case 'DRAFT_STATE_UPDATE': $draftState.set(payload); break;
-                case 'DRAGGED_ITEM_UPDATE': $draggedItem.set(payload); break;
-            }
-        } finally {
-            isSyncing = false;
-        }
-    };
+    isSyncing = true
+    try {
+      switch (type) {
+        case "PHASE_UPDATE":
+          $phase.set(payload)
+          break
+        case "PLAYERS_UPDATE":
+          $players.set(payload)
+          break
+        case "CONTAINERS_UPDATE":
+          $containers.set(payload)
+          break
+        case "ITEMS_UPDATE":
+          $itemsOnGrid.set(payload)
+          break
+        case "GAME_STATE_UPDATE":
+          $gameState.set(payload)
+          break
+        case "DRAFT_STATE_UPDATE":
+          $draftState.set(payload)
+          break
+        case "DRAGGED_ITEM_UPDATE":
+          $draggedItem.set(payload)
+          break
+      }
+    } finally {
+      isSyncing = false
+    }
+  }
 }
 
 // Helper to broadcast changes
 const broadcast = (type: string, payload: unknown) => {
-    if (isSyncing) return; // Prevent echoing sync messages
-    if (syncChannel) {
-        syncChannel.postMessage({ type, payload });
-    }
-};
-
-
+  if (isSyncing) return // Prevent echoing sync messages
+  if (syncChannel) {
+    syncChannel.postMessage({ type, payload })
+  }
+}
 
 // Derived State
-export const $adjacencyBonuses = computed($itemsOnGrid, items => getAdjacencyBonuses(items));
+export const $adjacencyBonuses = computed($itemsOnGrid, (items) =>
+  getAdjacencyBonuses(items),
+)
 
 // Gamification State
 
-
 export const $gameState = atom<GameState>({
+  day: 1,
+  round: 1,
+  morale: 100,
+  isGameOver: false,
+  gameResult: null,
+  journeyStage: "SELECTION",
+  selectedPath: null,
+  pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
+  lastEncounterResult: null,
+})
+
+// Draft State moved to types
+
+export const $draftState = atom<DraftState>({
+  availableItems: {},
+  selections: {},
+  confirmed: [],
+  roundNumber: 1,
+})
+
+// Sync listeners (moved after all atoms declared)
+$phase.listen((val) => broadcast("PHASE_UPDATE", val))
+$players.listen((val) => broadcast("PLAYERS_UPDATE", val))
+$containers.listen((val) => broadcast("CONTAINERS_UPDATE", val))
+$itemsOnGrid.listen((val) => broadcast("ITEMS_UPDATE", val))
+$gameState.listen((val) => broadcast("GAME_STATE_UPDATE", val))
+$draftState.listen((val) => broadcast("DRAFT_STATE_UPDATE", val))
+$draggedItem.listen((val) => broadcast("DRAGGED_ITEM_UPDATE", val))
+
+// Derived state example (if needed) or Actions
+// Helper for collision
+export const checkCollision = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  items: InventoryItemInstance[],
+  ownerId: string,
+  excludeInstanceId?: string,
+  category?: ItemCategory,
+): boolean => {
+  if (x < 0 || y < 0 || x + width > GRID_SIZE || y + height > GRID_SIZE)
+    return true
+
+  const isContainer = category === "CONTAINER"
+
+  for (const item of items) {
+    if (item.instanceId === excludeInstanceId) continue
+
+    // In FINALE, all items collide regardless of owner
+    const isFinale = $phase.get() === "FINALE"
+    if (!isFinale && item.ownerId !== ownerId) continue
+
+    const existingItemDef = ITEMS[item.itemId]
+    const isExistingContainer = existingItemDef.category === "CONTAINER"
+
+    // Layer Check:
+    // Containers only collide with Containers
+    // Gear only collides with Gear
+    if (isContainer !== isExistingContainer) continue
+
+    const existingW =
+      item.rotation === 90 || item.rotation === 270
+        ? existingItemDef.height
+        : existingItemDef.width
+    const existingH =
+      item.rotation === 90 || item.rotation === 270
+        ? existingItemDef.width
+        : existingItemDef.height
+
+    if (
+      x < item.x + existingW &&
+      x + width > item.x &&
+      y < item.y + existingH &&
+      y + height > item.y
+    ) {
+      return true
+    }
+  }
+
+  // 2. Base Container Check - Containers can now overlap base backpack for extension
+  // We removed the nesting block to allow easier placement.
+
+  return false
+}
+
+// Support Check: Must be inside valid Container cells
+export const checkSupport = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  items: InventoryItemInstance[],
+  ownerId: string,
+): boolean => {
+  // In FINALE, everything floats
+  if ($phase.get() === "FINALE") return true
+
+  const containers = $containers.get().filter((c) => c.ownerId === ownerId)
+
+  // Get all valid cells for this player
+  const validCells = new Set<string>()
+
+  // 1. Base Containers (Backpacks)
+  for (const c of containers) {
+    for (const cell of c.cells) {
+      // Check if cell is disabled
+      const isDisabled = c.disabledCells?.some(
+        (dc) => dc.x === cell.x && dc.y === cell.y,
+      )
+      if (!isDisabled) {
+        validCells.add(`${cell.x},${cell.y}`)
+      }
+    }
+  }
+
+  // 2. Container Items (Pouches, Fanny Packs, etc)
+  // They act as valid ground for other items!
+  for (const item of items) {
+    if (item.ownerId === ownerId) {
+      const def = ITEMS[item.itemId]
+      if (def && def.category === "CONTAINER") {
+        const w =
+          item.rotation === 90 || item.rotation === 270 ? def.height : def.width
+        const h =
+          item.rotation === 90 || item.rotation === 270 ? def.width : def.height
+
+        for (let dx = 0; dx < w; dx++) {
+          for (let dy = 0; dy < h; dy++) {
+            validCells.add(`${item.x + dx},${item.y + dy}`)
+          }
+        }
+      }
+    }
+  }
+
+  // Check if every cell of the item matches a valid container cell
+  for (let cx = x; cx < x + width; cx++) {
+    for (let cy = y; cy < y + height; cy++) {
+      if (!validCells.has(`${cx},${cy}`)) return false
+    }
+  }
+  return true
+}
+
+// Actions
+export const addPlayer = (name: string): string => {
+  const currentPlayers = $players.get()
+  const id = generateId()
+  const colors = [
+    "bg-red-500",
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-yellow-500",
+    "bg-purple-500",
+  ]
+  const avatarColor = colors[currentPlayers.length % colors.length]
+
+  // Generate Containers for the new player
+  const newContainers = generateRandomContainers(id)
+  $containers.set([...$containers.get(), ...newContainers])
+
+  $players.set([
+    ...currentPlayers,
+    {
+      id,
+      name,
+      role: "Hiker",
+      isReady: false,
+      isTraitor: false,
+      avatarColor,
+      currentPath: null,
+    },
+  ])
+
+  return id
+}
+
+export const removePlayer = (playerId: string) => {
+  const currentPlayers = $players.get()
+  $players.set(currentPlayers.filter((p) => p.id !== playerId))
+
+  // Also remove their containers and items
+  const currentContainers = $containers.get()
+  $containers.set(currentContainers.filter((c) => c.ownerId !== playerId))
+
+  const currentItems = $itemsOnGrid.get()
+  $itemsOnGrid.set(currentItems.filter((i) => i.ownerId !== playerId))
+}
+
+export const startGame = () => {
+  const currentPlayers = $players.get()
+  const numPlayers = currentPlayers.length
+
+  // Schrödinger's Traitor: 25% chance of NO traitor at all.
+  // This creates genuine paranoia — nobody can ever be 100% sure.
+  const hasTraitor = Math.random() > 0.25
+  const traitorIndex = hasTraitor ? Math.floor(Math.random() * numPlayers) : -1
+
+  const newPlayers = currentPlayers.map((p, idx) => ({
+    ...p,
+    role: (idx === traitorIndex ? "Traitor" : "Hiker") as Role,
+    isTraitor: idx === traitorIndex,
+  }))
+
+  $players.set(newPlayers)
+  $currentPlayerId.set(currentPlayers[0]?.id || null)
+
+  // Reset Containers/Items (Players start fresh)
+  $containers.set([])
+  $itemsOnGrid.set([])
+
+  // Start with Bag Building
+  $phase.set("BAG_BUILDING")
+}
+
+export const createCustomContainer = (
+  playerId: string,
+  cells: Coordinate[],
+) => {
+  const newContainer: Container = {
+    id: generateId(),
+    ownerId: playerId,
+    type: "BACKPACK", // Custom
+    cells: cells,
+    capacity: cells.length,
+  }
+
+  const currentContainers = $containers.get()
+  const updatedContainers = [...currentContainers, newContainer]
+  $containers.set(updatedContainers)
+
+  // Check if all players have a container
+  const players = $players.get()
+  const playersWithContainers = new Set(updatedContainers.map((c) => c.ownerId))
+
+  if (players.every((p) => playersWithContainers.has(p.id))) {
+    // All players ready -> Start Draft
+    setTimeout(() => {
+      nextPhase()
+    }, 1000) // Small delay for UX
+  }
+}
+
+export const isAdjacent = (
+  a: InventoryItemInstance,
+  b: InventoryItemInstance,
+): boolean => {
+  const aDef = ITEMS[a.itemId]
+  const bDef = ITEMS[b.itemId]
+  if (!aDef || !bDef) return false
+
+  const aW = a.rotation === 90 || a.rotation === 270 ? aDef.height : aDef.width
+  const aH = a.rotation === 90 || a.rotation === 270 ? aDef.width : aDef.height
+  const bW = b.rotation === 90 || b.rotation === 270 ? bDef.height : bDef.width
+  const bH = b.rotation === 90 || b.rotation === 270 ? bDef.width : bDef.height
+
+  const aLeft = a.x
+  const aRight = a.x + aW
+  const aTop = a.y
+  const aBottom = a.y + aH
+  const bLeft = b.x
+  const bRight = b.x + bW
+  const bTop = b.y
+  const bBottom = b.y + bH
+
+  const horizontalOverlap = aLeft < bRight && aRight > bLeft
+  const verticalOverlap = aTop < bBottom && aBottom > bTop
+
+  const touchingHorizontal =
+    (aRight === bLeft || aLeft === bRight) && verticalOverlap
+  const touchingVertical =
+    (aBottom === bTop || aTop === bBottom) && horizontalOverlap
+
+  return touchingHorizontal || touchingVertical
+}
+
+export const checkForCrafting = (ownerId: string) => {
+  const items = $itemsOnGrid.get()
+  const playerItems = items.filter((i) => i.ownerId === ownerId)
+
+  for (const item of playerItems) {
+    const def = ITEMS[item.itemId]
+    if (def?.recipe) {
+      const ingredients = [...def.recipe.ingredients]
+      // The item itself is usually the first ingredient
+
+      // For each ingredient required, find an adjacent item that matches
+      // This is a simple greedy matcher for the prototype
+      const itemsToCheck = [...playerItems]
+
+      const matchedInstances: InventoryItemInstance[] = []
+
+      // To simplify: check if ALL ingredients exist and are connected in a cluster
+      // For now: check if they all exist in the bag
+      let allFound = true
+      for (const ingId of ingredients) {
+        const idx = itemsToCheck.findIndex((i) => i.itemId === ingId)
+        if (idx >= 0) {
+          matchedInstances.push(itemsToCheck[idx])
+          itemsToCheck.splice(idx, 1)
+        } else {
+          allFound = false
+          break
+        }
+      }
+
+      if (allFound) {
+        // Check if they are all adjacent to at least one other in the set (cluster)
+        // For 2 items, just check if they are adjacent
+        if (matchedInstances.length === 2) {
+          if (isAdjacent(matchedInstances[0], matchedInstances[1])) {
+            // CRAFT!
+            const resultItemId = def.recipe.result
+            const first = matchedInstances[0]
+
+            const newItems = items.filter(
+              (i) =>
+                !matchedInstances.some((m) => m.instanceId === i.instanceId),
+            )
+            const newItem: InventoryItemInstance = {
+              instanceId: generateId(),
+              itemId: resultItemId,
+              x: first.x,
+              y: first.y,
+              rotation: first.rotation,
+              ownerId: ownerId,
+            }
+
+            $itemsOnGrid.set([...newItems, newItem])
+            // Only craft one per check to avoid recursion issues
+            return
+          }
+        }
+      }
+    }
+  }
+}
+
+export const nextPhase = () => {
+  const current = $phase.get()
+
+  if (current === "LOBBY") {
+    startGame() // triggers BAG_BUILDING
+  } else if (current === "BAG_BUILDING") {
+    startDraft() // Go to Draft after building
+  } else if (current === "DRAFT") {
+    $phase.set("JOURNEY")
+  } else if (current === "JOURNEY") {
+    $phase.set("CAMPFIRE")
+  } else if (current === "CAMPFIRE") {
+    advanceDay() // Advance day when leaving campfire
+    if ($gameState.get().isGameOver) {
+      $phase.set("LOBBY")
+    } else {
+      startDraft() // Start new day with Draft
+    }
+  }
+}
+
+export const placeItem = (
+  itemId: string,
+  x: number,
+  y: number,
+  rotation: 0 | 90 | 180 | 270,
+  ownerId: string,
+): boolean => {
+  const items = $itemsOnGrid.get()
+  const itemDef = ITEMS[itemId]
+  if (!itemDef) return false
+
+  const w = rotation === 90 || rotation === 270 ? itemDef.height : itemDef.width
+  const h = rotation === 90 || rotation === 270 ? itemDef.width : itemDef.height
+
+  // Check Collision (Blocking)
+  if (checkCollision(x, y, w, h, items, ownerId, undefined, itemDef.category))
+    return false
+
+  // Check Support (If not a container, must be inside containers)
+  if (itemDef.category !== "CONTAINER") {
+    if (!checkSupport(x, y, w, h, items, ownerId)) return false
+  }
+
+  // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
+  const currentItems = items
+  if ($phase.get() === "DRAFT") {
+    const draft = $draftState.get()
+    const personalPool = draft.availableItems[ownerId] || []
+    const draftItemIndex = personalPool.findIndex((i) => i.id === itemId)
+
+    if (draftItemIndex >= 0) {
+      // Remove from pool
+      const newPool = [...personalPool]
+      newPool.splice(draftItemIndex, 1)
+      $draftState.set({
+        ...draft,
+        availableItems: {
+          ...draft.availableItems,
+          [ownerId]: newPool,
+        },
+      })
+    }
+  }
+
+  const newItem: InventoryItemInstance = {
+    instanceId: generateId(),
+    itemId,
+    x,
+    y,
+    rotation,
+    ownerId,
+  }
+
+  $itemsOnGrid.set([...currentItems, newItem])
+  checkForCrafting(ownerId)
+  return true
+}
+
+export const addRandomLoot = (
+  itemId: string,
+  targetPlayerId?: string,
+): boolean => {
+  const items = $itemsOnGrid.get()
+  const players = $players.get()
+  if (players.length === 0) return false
+
+  // Default to first player if not specified
+  const targetOwnerId = targetPlayerId || players[0].id
+
+  const itemDef = ITEMS[itemId]
+  if (!itemDef) return false
+
+  // Try to find a valid spot
+  // Simple brute force for now: try random positions 20 times?
+  // Or scan grid. Grid is small (8x8).
+
+  // Let's just try 50 random spots
+  for (let i = 0; i < 50; i++) {
+    const x = Math.floor(Math.random() * (GRID_SIZE - itemDef.width + 1))
+    const y = Math.floor(Math.random() * (GRID_SIZE - itemDef.height + 1))
+    const rot = 0 // Simplified rotation for random loot
+
+    // For random loot, if it's gear, it needs support.
+    // This makes random loot placement harder.
+    // It might be better to "Force" place loot or ensure we only spawn loot if there's space.
+    // Or if it's Cursed Scrap, maybe it "Breaks" the bag?
+    // Let's stick to standard rules: Logic tries to find valid spot.
+
+    // Check Collision
+    if (
+      !checkCollision(
+        x,
+        y,
+        itemDef.width,
+        itemDef.height,
+        items,
+        targetOwnerId,
+        undefined,
+        itemDef.category,
+      )
+    ) {
+      // Check Support
+      if (
+        itemDef.category === "CONTAINER" ||
+        checkSupport(x, y, itemDef.width, itemDef.height, items, targetOwnerId)
+      ) {
+        return placeItem(itemId, x, y, rot, targetOwnerId)
+      }
+    }
+  }
+  return false // No space found
+}
+
+export const moveItem = (
+  instanceId: string,
+  x: number,
+  y: number,
+  rotation?: 0 | 90 | 180 | 270,
+): boolean => {
+  const items = $itemsOnGrid.get()
+  const item = items.find((i) => i.instanceId === instanceId)
+  if (!item) return false
+
+  const finalRot = rotation ?? item.rotation
+
+  const itemDef = ITEMS[item.itemId]
+  const w = finalRot === 90 || finalRot === 270 ? itemDef.height : itemDef.width
+  const h = finalRot === 90 || finalRot === 270 ? itemDef.width : itemDef.height
+
+  if (item.locked) return false // Cannot move locked items
+
+  if (checkCollision(x, y, w, h, items, item.ownerId, instanceId)) return false
+
+  $itemsOnGrid.set(
+    items.map((i) =>
+      i.instanceId === instanceId ? { ...i, x, y, rotation: finalRot } : i,
+    ),
+  )
+  checkForCrafting(item.ownerId)
+  return true
+}
+
+export const rotateItem = (instanceId: string) => {
+  const items = $itemsOnGrid.get()
+  const item = items.find((i) => i.instanceId === instanceId)
+  if (!item || item.locked) return // Cannot rotate locked items
+
+  const newRot = ((item.rotation + 90) % 360) as 0 | 90 | 180 | 270
+  moveItem(instanceId, item.x, item.y, newRot)
+}
+
+export const toggleLock = (instanceId: string) => {
+  const items = $itemsOnGrid.get()
+  $itemsOnGrid.set(
+    items.map((i) =>
+      i.instanceId === instanceId ? { ...i, locked: !i.locked } : i,
+    ),
+  )
+}
+
+export const removeItem = (instanceId: string) => {
+  const items = $itemsOnGrid.get()
+  const item = items.find((i) => i.instanceId === instanceId)
+  if (!item || item.locked) return // Cannot remove locked items
+
+  $itemsOnGrid.set(items.filter((i) => i.instanceId !== instanceId))
+}
+
+export const rotateItemCounterClockwise = (instanceId: string) => {
+  const items = $itemsOnGrid.get()
+  const item = items.find((i) => i.instanceId === instanceId)
+  if (!item || item.locked) return
+
+  const newRot = ((item.rotation - 90 + 360) % 360) as 0 | 90 | 180 | 270
+  moveItem(instanceId, item.x, item.y, newRot)
+}
+
+export const resetGame = () => {
+  $phase.set("LOBBY")
+  $itemsOnGrid.set([])
+  $players.set([])
+  $containers.set([]) // Reset containers
+  $currentPlayerId.set(null)
+  $gameState.set({
     day: 1,
     round: 1,
     morale: 100,
     isGameOver: false,
     gameResult: null,
-    journeyStage: 'SELECTION',
+    journeyStage: "SELECTION",
     selectedPath: null,
-    pathStatus: { LEFT: 'PENDING', RIGHT: 'PENDING' },
-    lastEncounterResult: null
-});
-
-// Draft State moved to types
-
-export const $draftState = atom<DraftState>({
-    availableItems: {},
-    selections: {},
-    confirmed: [],
-    roundNumber: 1
-});
-
-// Sync listeners (moved after all atoms declared)
-$phase.listen(val => broadcast('PHASE_UPDATE', val));
-$players.listen(val => broadcast('PLAYERS_UPDATE', val));
-$containers.listen(val => broadcast('CONTAINERS_UPDATE', val));
-$itemsOnGrid.listen(val => broadcast('ITEMS_UPDATE', val));
-$gameState.listen(val => broadcast('GAME_STATE_UPDATE', val));
-$draftState.listen(val => broadcast('DRAFT_STATE_UPDATE', val));
-$draggedItem.listen(val => broadcast('DRAGGED_ITEM_UPDATE', val));
-
-
-// Derived state example (if needed) or Actions
-// Helper for collision
-export const checkCollision = (
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    items: InventoryItemInstance[],
-    ownerId: string,
-    excludeInstanceId?: string,
-    category?: ItemCategory
-): boolean => {
-    if (x < 0 || y < 0 || x + width > GRID_SIZE || y + height > GRID_SIZE) return true;
-
-    const isContainer = category === 'CONTAINER';
-
-    for (const item of items) {
-        if (item.instanceId === excludeInstanceId) continue;
-
-        // In FINALE, all items collide regardless of owner
-        const isFinale = $phase.get() === 'FINALE';
-        if (!isFinale && item.ownerId !== ownerId) continue;
-
-        const existingItemDef = ITEMS[item.itemId];
-        const isExistingContainer = existingItemDef.category === 'CONTAINER';
-
-        // Layer Check: 
-        // Containers only collide with Containers
-        // Gear only collides with Gear
-        if (isContainer !== isExistingContainer) continue;
-
-        const existingW = (item.rotation === 90 || item.rotation === 270) ? existingItemDef.height : existingItemDef.width;
-        const existingH = (item.rotation === 90 || item.rotation === 270) ? existingItemDef.width : existingItemDef.height;
-
-        if (
-            x < item.x + existingW &&
-            x + width > item.x &&
-            y < item.y + existingH &&
-            y + height > item.y
-        ) {
-            return true;
-        }
-    }
-
-    // 2. Base Container Check - Containers can now overlap base backpack for extension
-    // We removed the nesting block to allow easier placement.
-
-    return false;
-};
-
-// Support Check: Must be inside valid Container cells
-export const checkSupport = (
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    items: InventoryItemInstance[],
-    ownerId: string
-): boolean => {
-    // In FINALE, everything floats
-    if ($phase.get() === 'FINALE') return true;
-
-    const containers = $containers.get().filter(c => c.ownerId === ownerId);
-
-    // Get all valid cells for this player
-    const validCells = new Set<string>();
-
-    // 1. Base Containers (Backpacks)
-    containers.forEach(c => {
-        c.cells.forEach(cell => {
-            // Check if cell is disabled
-            const isDisabled = c.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y);
-            if (!isDisabled) {
-                validCells.add(`${cell.x},${cell.y}`);
-            }
-        });
-    });
-
-    // 2. Container Items (Pouches, Fanny Packs, etc)
-    // They act as valid ground for other items!
-    items.forEach(item => {
-        if (item.ownerId === ownerId) {
-            const def = ITEMS[item.itemId];
-            if (def && def.category === 'CONTAINER') {
-                const w = (item.rotation === 90 || item.rotation === 270) ? def.height : def.width;
-                const h = (item.rotation === 90 || item.rotation === 270) ? def.width : def.height;
-
-                for (let dx = 0; dx < w; dx++) {
-                    for (let dy = 0; dy < h; dy++) {
-                        validCells.add(`${item.x + dx},${item.y + dy}`);
-                    }
-                }
-            }
-        }
-    });
-
-    // Check if every cell of the item matches a valid container cell
-    for (let cx = x; cx < x + width; cx++) {
-        for (let cy = y; cy < y + height; cy++) {
-            if (!validCells.has(`${cx},${cy}`)) return false;
-        }
-    }
-    return true;
-};
-
-// Actions
-export const addPlayer = (name: string): string => {
-    const currentPlayers = $players.get();
-    const id = generateId();
-    const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500'];
-    const avatarColor = colors[currentPlayers.length % colors.length];
-
-    // Generate Containers for the new player
-    const newContainers = generateRandomContainers(id);
-    $containers.set([...$containers.get(), ...newContainers]);
-
-    $players.set([
-        ...currentPlayers,
-        {
-            id,
-            name,
-            role: 'Hiker',
-            isReady: false,
-            isTraitor: false,
-            avatarColor,
-            currentPath: null
-        }
-    ]);
-
-    return id;
-};
-
-export const removePlayer = (playerId: string) => {
-    const currentPlayers = $players.get();
-    $players.set(currentPlayers.filter(p => p.id !== playerId));
-
-    // Also remove their containers and items
-    const currentContainers = $containers.get();
-    $containers.set(currentContainers.filter(c => c.ownerId !== playerId));
-
-    const currentItems = $itemsOnGrid.get();
-    $itemsOnGrid.set(currentItems.filter(i => i.ownerId !== playerId));
-};
-
-export const startGame = () => {
-    const currentPlayers = $players.get();
-    const numPlayers = currentPlayers.length;
-
-    // Schrödinger's Traitor: 25% chance of NO traitor at all.
-    // This creates genuine paranoia — nobody can ever be 100% sure.
-    const hasTraitor = Math.random() > 0.25;
-    const traitorIndex = hasTraitor ? Math.floor(Math.random() * numPlayers) : -1;
-
-    const newPlayers = currentPlayers.map((p, idx) => ({
-        ...p,
-        role: (idx === traitorIndex ? 'Traitor' : 'Hiker') as Role,
-        isTraitor: idx === traitorIndex
-    }));
-
-    $players.set(newPlayers);
-    $currentPlayerId.set(currentPlayers[0]?.id || null);
-
-    // Reset Containers/Items (Players start fresh)
-    $containers.set([]);
-    $itemsOnGrid.set([]);
-
-    // Start with Bag Building
-    $phase.set('BAG_BUILDING');
-};
-
-export const createCustomContainer = (playerId: string, cells: Coordinate[]) => {
-    const newContainer: Container = {
-        id: generateId(),
-        ownerId: playerId,
-        type: 'BACKPACK', // Custom
-        cells: cells,
-        capacity: cells.length
-    };
-
-    const currentContainers = $containers.get();
-    const updatedContainers = [...currentContainers, newContainer];
-    $containers.set(updatedContainers);
-
-    // Check if all players have a container
-    const players = $players.get();
-    const playersWithContainers = new Set(updatedContainers.map(c => c.ownerId));
-
-    if (players.every(p => playersWithContainers.has(p.id))) {
-        // All players ready -> Start Draft
-        setTimeout(() => {
-            nextPhase();
-        }, 1000); // Small delay for UX
-    }
-};
-
-export const isAdjacent = (a: InventoryItemInstance, b: InventoryItemInstance): boolean => {
-    const aDef = ITEMS[a.itemId];
-    const bDef = ITEMS[b.itemId];
-    if (!aDef || !bDef) return false;
-    
-    const aW = (a.rotation === 90 || a.rotation === 270) ? aDef.height : aDef.width;
-    const aH = (a.rotation === 90 || a.rotation === 270) ? aDef.width : aDef.height;
-    const bW = (b.rotation === 90 || b.rotation === 270) ? bDef.height : bDef.width;
-    const bH = (b.rotation === 90 || b.rotation === 270) ? bDef.width : bDef.height;
-
-    const aLeft = a.x; const aRight = a.x + aW;
-    const aTop = a.y; const aBottom = a.y + aH;
-    const bLeft = b.x; const bRight = b.x + bW;
-    const bTop = b.y; const bBottom = b.y + bH;
-
-    const horizontalOverlap = aLeft < bRight && aRight > bLeft;
-    const verticalOverlap = aTop < bBottom && aBottom > bTop;
-    
-    const touchingHorizontal = (aRight === bLeft || aLeft === bRight) && verticalOverlap;
-    const touchingVertical = (aBottom === bTop || aTop === bBottom) && horizontalOverlap;
-
-    return touchingHorizontal || touchingVertical;
-};
-
-export const checkForCrafting = (ownerId: string) => {
-    const items = $itemsOnGrid.get();
-    const playerItems = items.filter(i => i.ownerId === ownerId);
-    
-    for (const item of playerItems) {
-        const def = ITEMS[item.itemId];
-        if (def?.recipe) {
-            const ingredients = [...def.recipe.ingredients];
-            // The item itself is usually the first ingredient
-            
-            // For each ingredient required, find an adjacent item that matches
-            // This is a simple greedy matcher for the prototype
-            const itemsToCheck = [...playerItems];
-            
-            const matchedInstances: InventoryItemInstance[] = [];
-            
-            // To simplify: check if ALL ingredients exist and are connected in a cluster
-            // For now: check if they all exist in the bag
-            let allFound = true;
-            for (const ingId of ingredients) {
-                const idx = itemsToCheck.findIndex(i => i.itemId === ingId);
-                if (idx >= 0) {
-                    matchedInstances.push(itemsToCheck[idx]);
-                    itemsToCheck.splice(idx, 1);
-                } else {
-                    allFound = false;
-                    break;
-                }
-            }
-            
-            if (allFound) {
-                // Check if they are all adjacent to at least one other in the set (cluster)
-                // For 2 items, just check if they are adjacent
-                if (matchedInstances.length === 2) {
-                    if (isAdjacent(matchedInstances[0], matchedInstances[1])) {
-                        // CRAFT!
-                        const resultItemId = def.recipe.result;
-                        const first = matchedInstances[0];
-                        
-                        const newItems = items.filter(i => !matchedInstances.some(m => m.instanceId === i.instanceId));
-                        const newItem: InventoryItemInstance = {
-                            instanceId: generateId(),
-                            itemId: resultItemId,
-                            x: first.x,
-                            y: first.y,
-                            rotation: first.rotation,
-                            ownerId: ownerId
-                        };
-                        
-                        $itemsOnGrid.set([...newItems, newItem]);
-                        // Only craft one per check to avoid recursion issues
-                        return;
-                    }
-                }
-            }
-        }
-    }
-};
-
-export const nextPhase = () => {
-    const current = $phase.get();
-
-    if (current === 'LOBBY') {
-        startGame(); // triggers BAG_BUILDING
-    } else if (current === 'BAG_BUILDING') {
-        startDraft(); // Go to Draft after building
-    } else if (current === 'DRAFT') {
-        $phase.set('JOURNEY');
-    } else if (current === 'JOURNEY') {
-        $phase.set('CAMPFIRE');
-    } else if (current === 'CAMPFIRE') {
-        advanceDay(); // Advance day when leaving campfire
-        if ($gameState.get().isGameOver) {
-            $phase.set('LOBBY');
-        } else {
-            startDraft(); // Start new day with Draft
-        }
-    }
-};
-
-export const placeItem = (itemId: string, x: number, y: number, rotation: 0 | 90 | 180 | 270, ownerId: string): boolean => {
-    const items = $itemsOnGrid.get();
-    const itemDef = ITEMS[itemId];
-    if (!itemDef) return false;
-
-    const w = (rotation === 90 || rotation === 270) ? itemDef.height : itemDef.width;
-    const h = (rotation === 90 || rotation === 270) ? itemDef.width : itemDef.height;
-
-    // Check Collision (Blocking)
-    if (checkCollision(x, y, w, h, items, ownerId, undefined, itemDef.category)) return false;
-
-    // Check Support (If not a container, must be inside containers)
-    if (itemDef.category !== 'CONTAINER') {
-        if (!checkSupport(x, y, w, h, items, ownerId)) return false;
-    }
-
-    // DRAFT PHASE LOGIC: Enforce 1 item from draft pool
-    const currentItems = items;
-    if ($phase.get() === 'DRAFT') {
-        const draft = $draftState.get();
-        const personalPool = draft.availableItems[ownerId] || [];
-        const draftItemIndex = personalPool.findIndex(i => i.id === itemId);
-
-        if (draftItemIndex >= 0) {
-            // Remove from pool
-            const newPool = [...personalPool];
-            newPool.splice(draftItemIndex, 1);
-            $draftState.set({
-                ...draft,
-                availableItems: {
-                    ...draft.availableItems,
-                    [ownerId]: newPool
-                }
-            });
-        }
-    }
-
-    const newItem: InventoryItemInstance = {
-        instanceId: generateId(),
-        itemId,
-        x,
-        y,
-        rotation,
-        ownerId
-    };
-
-    $itemsOnGrid.set([...currentItems, newItem]);
-    checkForCrafting(ownerId);
-    return true;
-};
-
-export const addRandomLoot = (itemId: string, targetPlayerId?: string): boolean => {
-    const items = $itemsOnGrid.get();
-    const players = $players.get();
-    if (players.length === 0) return false;
-
-    // Default to first player if not specified
-    const targetOwnerId = targetPlayerId || players[0].id;
-
-    const itemDef = ITEMS[itemId];
-    if (!itemDef) return false;
-
-    // Try to find a valid spot
-    // Simple brute force for now: try random positions 20 times?
-    // Or scan grid. Grid is small (8x8).
-
-    // Let's just try 50 random spots
-    for (let i = 0; i < 50; i++) {
-        const x = Math.floor(Math.random() * (GRID_SIZE - itemDef.width + 1));
-        const y = Math.floor(Math.random() * (GRID_SIZE - itemDef.height + 1));
-        const rot = 0; // Simplified rotation for random loot
-
-        // For random loot, if it's gear, it needs support.
-        // This makes random loot placement harder.
-        // It might be better to "Force" place loot or ensure we only spawn loot if there's space.
-        // Or if it's Cursed Scrap, maybe it "Breaks" the bag?
-        // Let's stick to standard rules: Logic tries to find valid spot.
-
-        // Check Collision
-        if (!checkCollision(x, y, itemDef.width, itemDef.height, items, targetOwnerId, undefined, itemDef.category)) {
-            // Check Support
-            if (itemDef.category === 'CONTAINER' || checkSupport(x, y, itemDef.width, itemDef.height, items, targetOwnerId)) {
-                return placeItem(itemId, x, y, rot, targetOwnerId);
-            }
-        }
-    }
-    return false; // No space found
-};
-
-export const moveItem = (instanceId: string, x: number, y: number, rotation?: 0 | 90 | 180 | 270): boolean => {
-    const items = $itemsOnGrid.get();
-    const item = items.find(i => i.instanceId === instanceId);
-    if (!item) return false;
-
-    const finalRot = rotation ?? item.rotation;
-
-    const itemDef = ITEMS[item.itemId];
-    const w = (finalRot === 90 || finalRot === 270) ? itemDef.height : itemDef.width;
-    const h = (finalRot === 90 || finalRot === 270) ? itemDef.width : itemDef.height;
-
-    if (item.locked) return false; // Cannot move locked items
-
-    if (checkCollision(x, y, w, h, items, item.ownerId, instanceId)) return false;
-
-    $itemsOnGrid.set(items.map(i =>
-        i.instanceId === instanceId ? { ...i, x, y, rotation: finalRot } : i
-    ));
-    checkForCrafting(item.ownerId);
-    return true;
-};
-
-export const rotateItem = (instanceId: string) => {
-    const items = $itemsOnGrid.get();
-    const item = items.find(i => i.instanceId === instanceId);
-    if (!item || item.locked) return; // Cannot rotate locked items
-
-    const newRot = (item.rotation + 90) % 360 as 0 | 90 | 180 | 270;
-    moveItem(instanceId, item.x, item.y, newRot);
-};
-
-export const toggleLock = (instanceId: string) => {
-    const items = $itemsOnGrid.get();
-    $itemsOnGrid.set(items.map(i =>
-        i.instanceId === instanceId ? { ...i, locked: !i.locked } : i
-    ));
-};
-
-export const removeItem = (instanceId: string) => {
-    const items = $itemsOnGrid.get();
-    const item = items.find(i => i.instanceId === instanceId);
-    if (!item || item.locked) return; // Cannot remove locked items
-
-    $itemsOnGrid.set(items.filter(i => i.instanceId !== instanceId));
-};
-
-export const rotateItemCounterClockwise = (instanceId: string) => {
-    const items = $itemsOnGrid.get();
-    const item = items.find(i => i.instanceId === instanceId);
-    if (!item || item.locked) return;
-
-    const newRot = (item.rotation - 90 + 360) % 360 as 0 | 90 | 180 | 270;
-    moveItem(instanceId, item.x, item.y, newRot);
-};
-
-export const resetGame = () => {
-    $phase.set('LOBBY');
-    $itemsOnGrid.set([]);
-    $players.set([]);
-    $containers.set([]); // Reset containers
-    $currentPlayerId.set(null);
-    $gameState.set({
-        day: 1,
-        round: 1,
-        morale: 100,
-        isGameOver: false,
-        gameResult: null,
-        journeyStage: 'SELECTION',
-        selectedPath: null,
-        pathStatus: { LEFT: 'PENDING', RIGHT: 'PENDING' },
-        lastEncounterResult: null
-    });
-};
+    pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
+    lastEncounterResult: null,
+  })
+}
 
 export const damageMorale = (amount: number) => {
-    const current = $gameState.get();
-    const newMorale = Math.max(0, current.morale - amount);
+  const current = $gameState.get()
+  const newMorale = Math.max(0, current.morale - amount)
 
-    if (newMorale === 0) {
-        $gameState.set({ ...current, morale: 0, isGameOver: true, gameResult: 'LOSS' });
-    } else {
-        $gameState.set({ ...current, morale: newMorale });
-    }
-};
+  if (newMorale === 0) {
+    $gameState.set({
+      ...current,
+      morale: 0,
+      isGameOver: true,
+      gameResult: "LOSS",
+    })
+  } else {
+    $gameState.set({ ...current, morale: newMorale })
+  }
+}
 
 export const advanceDay = () => {
-    const current = $gameState.get();
-    const newDay = current.day + 1;
+  const current = $gameState.get()
+  const newDay = current.day + 1
 
-    if (newDay > 5) {
-        $gameState.set({ ...current, day: 5 }); // Stuck on day 5 or move to 6?
-        $phase.set('FINALE');
-    } else {
-        $gameState.set({
-            ...current,
-            day: newDay,
-            round: newDay,
-            journeyStage: 'SELECTION',
-            selectedPath: null,
-            pathStatus: { LEFT: 'PENDING', RIGHT: 'PENDING' }, // Reset path status for new day
-            lastEncounterResult: null
-        });
-    }
-};
-
-
-export const choosePath = (path: 'LEFT' | 'RIGHT') => {
-    const current = $gameState.get();
-
-    // Safety check: Are there players on this path?
-    const players = $players.get();
-    const hasPlayers = players.some(p => p.currentPath === path);
-    if (!hasPlayers) return; // Cannot start empty path? Or maybe allow it but it auto-fails?
-
-    let stage: 'ENCOUNTER' | 'SCAVENGE' = 'ENCOUNTER';
-    if (path === 'RIGHT') {
-        stage = 'SCAVENGE';
-    }
-
+  if (newDay > 5) {
+    $gameState.set({ ...current, day: 5 }) // Stuck on day 5 or move to 6?
+    $phase.set("FINALE")
+  } else {
     $gameState.set({
-        ...current,
-        selectedPath: path,
-        journeyStage: stage
-    });
-};
+      ...current,
+      day: newDay,
+      round: newDay,
+      journeyStage: "SELECTION",
+      selectedPath: null,
+      pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" }, // Reset path status for new day
+      lastEncounterResult: null,
+    })
+  }
+}
 
-export const assignPlayerToPath = (playerId: string, path: 'LEFT' | 'RIGHT' | null) => {
-    const players = $players.get();
-    $players.set(players.map(p =>
-        p.id === playerId ? { ...p, currentPath: path } : p
-    ));
-};
+export const choosePath = (path: "LEFT" | "RIGHT") => {
+  const current = $gameState.get()
+
+  // Safety check: Are there players on this path?
+  const players = $players.get()
+  const hasPlayers = players.some((p) => p.currentPath === path)
+  if (!hasPlayers) return // Cannot start empty path? Or maybe allow it but it auto-fails?
+
+  let stage: "ENCOUNTER" | "SCAVENGE" = "ENCOUNTER"
+  if (path === "RIGHT") {
+    stage = "SCAVENGE"
+  }
+
+  $gameState.set({
+    ...current,
+    selectedPath: path,
+    journeyStage: stage,
+  })
+}
+
+export const assignPlayerToPath = (
+  playerId: string,
+  path: "LEFT" | "RIGHT" | null,
+) => {
+  const players = $players.get()
+  $players.set(
+    players.map((p) => (p.id === playerId ? { ...p, currentPath: path } : p)),
+  )
+}
 
 export const completeEncounter = (success: boolean) => {
-    const current = $gameState.get();
-    const path = current.selectedPath;
-    console.log('Encounter completed. Success:', success);
-    if (!path) return;
+  const current = $gameState.get()
+  const path = current.selectedPath
+  console.log("Encounter completed. Success:", success)
+  if (!path) return
 
-    // Use current.pathStatus directly to update the specific path
-    const newStatus = { ...current.pathStatus, [path]: 'RESOLVED' as const };
+  // Use current.pathStatus directly to update the specific path
+  const newStatus = { ...current.pathStatus, [path]: "RESOLVED" as const }
 
-    $gameState.set({
-        ...current,
-        pathStatus: newStatus,
-        journeyStage: 'RESULTS'
-    });
-};
+  $gameState.set({
+    ...current,
+    pathStatus: newStatus,
+    journeyStage: "RESULTS",
+  })
+}
 
 export const completeScavenge = () => {
-    const current = $gameState.get();
-    const path = current.selectedPath;
-    if (!path) return;
+  const current = $gameState.get()
+  const path = current.selectedPath
+  if (!path) return
 
-    // Use current.pathStatus directly to update the specific path
-    const newStatus = { ...current.pathStatus, [path]: 'RESOLVED' as const };
+  // Use current.pathStatus directly to update the specific path
+  const newStatus = { ...current.pathStatus, [path]: "RESOLVED" as const }
 
-    // Scavenge doesn't really have "Results" screen, so maybe go back to split screen?
-    // Or go to RESULTS with a simple "Looted" message?
-    // Let's go to RESULTS for consistency if we have a component for it.
-    // If not, we might want to call returnToSplitScreen directly?
-    // Let's stick to the flow: SELECTION -> ACTION -> RESULTS -> SELECTION
+  // Scavenge doesn't really have "Results" screen, so maybe go back to split screen?
+  // Or go to RESULTS with a simple "Looted" message?
+  // Let's go to RESULTS for consistency if we have a component for it.
+  // If not, we might want to call returnToSplitScreen directly?
+  // Let's stick to the flow: SELECTION -> ACTION -> RESULTS -> SELECTION
 
-    $gameState.set({
-        ...current,
-        pathStatus: newStatus,
-        journeyStage: 'RESULTS'
-    });
-};
+  $gameState.set({
+    ...current,
+    pathStatus: newStatus,
+    journeyStage: "RESULTS",
+  })
+}
 
 export const returnToSplitScreen = () => {
-    const current = $gameState.get();
-    const status = current.pathStatus;
+  const current = $gameState.get()
+  const status = current.pathStatus
 
-    // Check if all active paths are resolved
-    // Active path = path with players
-    const players = $players.get();
-    const leftActive = players.some(p => p.currentPath === 'LEFT');
-    const rightActive = players.some(p => p.currentPath === 'RIGHT');
+  // Check if all active paths are resolved
+  // Active path = path with players
+  const players = $players.get()
+  const leftActive = players.some((p) => p.currentPath === "LEFT")
+  const rightActive = players.some((p) => p.currentPath === "RIGHT")
 
-    const leftDone = !leftActive || status.LEFT === 'RESOLVED';
-    const rightDone = !rightActive || status.RIGHT === 'RESOLVED';
+  const leftDone = !leftActive || status.LEFT === "RESOLVED"
+  const rightDone = !rightActive || status.RIGHT === "RESOLVED"
 
-    if (leftDone && rightDone) {
-        nextPhase(); // Go to CAMPFIRE
-    } else {
-        $gameState.set({
-            ...current,
-            journeyStage: 'SELECTION',
-            selectedPath: null
-        });
-    }
-};
+  if (leftDone && rightDone) {
+    nextPhase() // Go to CAMPFIRE
+  } else {
+    $gameState.set({
+      ...current,
+      journeyStage: "SELECTION",
+      selectedPath: null,
+    })
+  }
+}
 
 export const startDraft = () => {
-    const players = $players.get();
-    const day = $gameState.get().day;
+  const players = $players.get()
+  const day = $gameState.get().day
 
-    // Generate Personal Pools based on Rarity Scaling
-    const availableItems: Record<string, Item[]> = {};
-    const allItems = Object.values(ITEMS);
+  // Generate Personal Pools based on Rarity Scaling
+  const availableItems: Record<string, Item[]> = {}
+  const allItems = Object.values(ITEMS)
 
-    players.forEach(p => {
-        const pool: Item[] = [];
+  for (const p of players) {
+    const pool: Item[] = []
 
-        // Helper to roll rarity
-        const rollRarity = (): 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY' => {
-            const roll = Math.random();
-            const uncommonWeight = Math.min(0.5, 0.1 + (day * 0.08));
-            const rareWeight = Math.min(0.3, day * 0.06);
-            const legendaryWeight = day >= 4 ? 0.05 + (day - 4) * 0.05 : 0;
+    // Helper to roll rarity
+    const rollRarity = (): "COMMON" | "UNCOMMON" | "RARE" | "LEGENDARY" => {
+      const roll = Math.random()
+      const uncommonWeight = Math.min(0.5, 0.1 + day * 0.08)
+      const rareWeight = Math.min(0.3, day * 0.06)
+      const legendaryWeight = day >= 4 ? 0.05 + (day - 4) * 0.05 : 0
 
-            if (roll < legendaryWeight) return 'LEGENDARY';
-            if (roll < legendaryWeight + rareWeight) return 'RARE';
-            if (roll < legendaryWeight + rareWeight + uncommonWeight) return 'UNCOMMON';
-            return 'COMMON';
-        };
+      if (roll < legendaryWeight) return "LEGENDARY"
+      if (roll < legendaryWeight + rareWeight) return "RARE"
+      if (roll < legendaryWeight + rareWeight + uncommonWeight)
+        return "UNCOMMON"
+      return "COMMON"
+    }
 
-        // 1. Guaranteed Offensive (Weapon)
-        const weaponRarity = rollRarity();
-        const weapons = allItems.filter(i => i.category === 'WEAPON' && i.rarity === weaponRarity);
-        const guaranteedWeapon = (weapons.length > 0 ? weapons : allItems.filter(i => i.category === 'WEAPON'))[Math.floor(Math.random() * (weapons.length || allItems.filter(i => i.category === 'WEAPON').length))];
-        pool.push(guaranteedWeapon);
+    // 1. Guaranteed Offensive (Weapon)
+    const weaponRarity = rollRarity()
+    const weapons = allItems.filter(
+      (i) => i.category === "WEAPON" && i.rarity === weaponRarity,
+    )
+    const guaranteedWeapon = (
+      weapons.length > 0
+        ? weapons
+        : allItems.filter((i) => i.category === "WEAPON")
+    )[
+      Math.floor(
+        Math.random() *
+          (weapons.length ||
+            allItems.filter((i) => i.category === "WEAPON").length),
+      )
+    ]
+    pool.push(guaranteedWeapon)
 
-        // 2. Guaranteed Defensive (Clothing/Survival/Shield)
-        const defRarity = rollRarity();
-        const defensiveItems = allItems.filter(i => (i.category === 'CLOTHING' || i.category === 'SURVIVAL' || i.combatStats?.defense || i.combatStats?.block) && i.rarity === defRarity);
-        const guaranteedDefensive = (defensiveItems.length > 0 ? defensiveItems : allItems.filter(i => i.category === 'CLOTHING'))[Math.floor(Math.random() * (defensiveItems.length || allItems.filter(i => i.category === 'CLOTHING').length))];
-        pool.push(guaranteedDefensive);
+    // 2. Guaranteed Defensive (Clothing/Survival/Shield)
+    const defRarity = rollRarity()
+    const defensiveItems = allItems.filter(
+      (i) =>
+        (i.category === "CLOTHING" ||
+          i.category === "SURVIVAL" ||
+          i.combatStats?.defense ||
+          i.combatStats?.block) &&
+        i.rarity === defRarity,
+    )
+    const guaranteedDefensive = (
+      defensiveItems.length > 0
+        ? defensiveItems
+        : allItems.filter((i) => i.category === "CLOTHING")
+    )[
+      Math.floor(
+        Math.random() *
+          (defensiveItems.length ||
+            allItems.filter((i) => i.category === "CLOTHING").length),
+      )
+    ]
+    pool.push(guaranteedDefensive)
 
-        // 3. 6 Random Items
-        for (let i = 0; i < 6; i++) {
-            const selectedRarity = rollRarity();
-            const filters = allItems.filter(item => item.rarity === selectedRarity && item.category !== 'SABOTAGE');
-            const finalPool = filters.length > 0 ? filters : allItems.filter(i => i.rarity === 'COMMON');
-            pool.push(finalPool[Math.floor(Math.random() * finalPool.length)]);
-        }
+    // 3. 6 Random Items
+    for (let i = 0; i < 6; i++) {
+      const selectedRarity = rollRarity()
+      const filters = allItems.filter(
+        (item) =>
+          item.rarity === selectedRarity && item.category !== "SABOTAGE",
+      )
+      const finalPool =
+        filters.length > 0
+          ? filters
+          : allItems.filter((i) => i.rarity === "COMMON")
+      pool.push(finalPool[Math.floor(Math.random() * finalPool.length)])
+    }
 
-        availableItems[p.id] = pool;
-    });
+    availableItems[p.id] = pool
+  }
 
-    $draftState.set({
-        availableItems,
-        selections: {},
-        confirmed: [],
-        roundNumber: 1
-    });
+  $draftState.set({
+    availableItems,
+    selections: {},
+    confirmed: [],
+    roundNumber: 1,
+  })
 
-    $phase.set('DRAFT');
-};
+  $phase.set("DRAFT")
+}
 
 export const selectDraftItem = (playerId: string, itemId: string) => {
-    const draft = $draftState.get();
-    const playerPool = draft.availableItems[playerId];
+  const draft = $draftState.get()
+  const playerPool = draft.availableItems[playerId]
 
-    if (!playerPool?.find(i => i.id === itemId)) return; // Invalid selection
+  if (!playerPool?.find((i) => i.id === itemId)) return // Invalid selection
 
-    // Update selection (not confirmed yet)
-    $draftState.set({
-        ...draft,
-        selections: {
-            ...draft.selections,
-            [playerId]: itemId
-        }
-    });
+  // Update selection (not confirmed yet)
+  $draftState.set({
+    ...draft,
+    selections: {
+      ...draft.selections,
+      [playerId]: itemId,
+    },
+  })
 
-    // Auto-confirm for single player convenience? 
-    // No, let them change mind until "Lock In" or just auto-lock if click?
-    // User wants "Secrecy", so maybe Confirm button.
-};
+  // Auto-confirm for single player convenience?
+  // No, let them change mind until "Lock In" or just auto-lock if click?
+  // User wants "Secrecy", so maybe Confirm button.
+}
 
 export const confirmDraftSelection = (playerId: string) => {
-    const draft = $draftState.get();
-    if (!draft.selections[playerId]) return;
-    if (draft.confirmed.includes(playerId)) return;
+  const draft = $draftState.get()
+  if (!draft.selections[playerId]) return
+  if (draft.confirmed.includes(playerId)) return
 
-    const newConfirmed = [...draft.confirmed, playerId];
+  const newConfirmed = [...draft.confirmed, playerId]
 
-    $draftState.set({
-        ...draft,
-        confirmed: newConfirmed
-    });
+  $draftState.set({
+    ...draft,
+    confirmed: newConfirmed,
+  })
 
-    // Check if all players confirmed
-    const players = $players.get();
-    if (newConfirmed.length === players.length) {
-        resolveDraftRound();
-    }
-};
+  // Check if all players confirmed
+  const players = $players.get()
+  if (newConfirmed.length === players.length) {
+    resolveDraftRound()
+  }
+}
 
 const resolveDraftRound = () => {
-    const draft = $draftState.get();
-    const players = $players.get();
+  const draft = $draftState.get()
+  const players = $players.get()
 
-    // 1. Add selected items to inventory (or stash)
-    // Since we don't have a "Stash" yet and user said "broken mechanic is drag and drop",
-    // let's try to auto-place or put in a placeholder "Stash" location?
-    // For now, let's use the old `placeItem` logic but find the first open spot?
-    // OR create a "Stash" concept in gameStore?
+  // 1. Add selected items to inventory (or stash)
+  // Since we don't have a "Stash" yet and user said "broken mechanic is drag and drop",
+  // let's try to auto-place or put in a placeholder "Stash" location?
+  // For now, let's use the old `placeItem` logic but find the first open spot?
+  // OR create a "Stash" concept in gameStore?
 
-    // Simplest approach: Try clear spot, if fail -> drop on ground (handled by UI)?
-    // Better: Add to a `stashedItems` array in store, UI shows them floating to be placed?
+  // Simplest approach: Try clear spot, if fail -> drop on ground (handled by UI)?
+  // Better: Add to a `stashedItems` array in store, UI shows them floating to be placed?
 
-    // For this refactor, let's trust `addRandomLoot` logic which finds a spot,
-    // or just place it at 0,0 if free.
+  // For this refactor, let's trust `addRandomLoot` logic which finds a spot,
+  // or just place it at 0,0 if free.
 
-    players.forEach(p => {
-        const itemId = draft.selections[p.id];
-        if (itemId) {
-            // Try to auto-place
-            // Use a helper that brute-forces a spot
-            addRandomLoot(itemId, p.id);
-        }
-    });
-
-    // 2. Advance Round or End Draft
-    if (draft.roundNumber >= 3) { // 3 Rounds total
-        nextPhase();
-    } else {
-        // Start next round - Regenerate pools? Or pass leftovers?
-        // User implied "First turn 0 shared items". 
-        // Let's regenerate fresh pools for next round to keep it simple and fun.
-        const availableItems: Record<string, Item[]> = {};
-        const allItems = Object.values(ITEMS);
-        players.forEach(p => {
-            const pool: Item[] = [];
-            for (let i = 0; i < 3; i++) {
-                pool.push(allItems[Math.floor(Math.random() * allItems.length)]);
-            }
-            availableItems[p.id] = pool;
-        });
-
-        $draftState.set({
-            availableItems,
-            selections: {},
-            confirmed: [],
-            roundNumber: draft.roundNumber + 1
-        });
+  for (const p of players) {
+    const itemId = draft.selections[p.id]
+    if (itemId) {
+      // Try to auto-place
+      // Use a helper that brute-forces a spot
+      addRandomLoot(itemId, p.id)
     }
-};
+  }
+
+  // 2. Advance Round or End Draft
+  if (draft.roundNumber >= 3) {
+    // 3 Rounds total
+    nextPhase()
+  } else {
+    // Start next round - Regenerate pools? Or pass leftovers?
+    // User implied "First turn 0 shared items".
+    // Let's regenerate fresh pools for next round to keep it simple and fun.
+    const availableItems: Record<string, Item[]> = {}
+    const allItems = Object.values(ITEMS)
+    for (const p of players) {
+      const pool: Item[] = []
+      for (let i = 0; i < 3; i++) {
+        pool.push(allItems[Math.floor(Math.random() * allItems.length)])
+      }
+      availableItems[p.id] = pool
+    }
+
+    $draftState.set({
+      availableItems,
+      selections: {},
+      confirmed: [],
+      roundNumber: draft.roundNumber + 1,
+    })
+  }
+}
 
 export const rummageInventory = (targetPlayerId: string): boolean => {
-    const items = $itemsOnGrid.get();
-    const targetItems = items.filter(i => i.ownerId === targetPlayerId && !i.locked);
+  const items = $itemsOnGrid.get()
+  const targetItems = items.filter(
+    (i) => i.ownerId === targetPlayerId && !i.locked,
+  )
 
-    if (targetItems.length === 0) return false;
+  if (targetItems.length === 0) return false
 
-    // Pick random item
-    const itemToMessUp = targetItems[Math.floor(Math.random() * targetItems.length)];
+  // Pick random item
+  const itemToMessUp =
+    targetItems[Math.floor(Math.random() * targetItems.length)]
 
-    // Try to move it to a new spot
-    // 10 attempts
-    for (let i = 0; i < 10; i++) {
-        const x = Math.floor(Math.random() * GRID_SIZE);
-        const y = Math.floor(Math.random() * GRID_SIZE);
-        const rot = (Math.floor(Math.random() * 4) * 90) as 0 | 90 | 180 | 270;
+  // Try to move it to a new spot
+  // 10 attempts
+  for (let i = 0; i < 10; i++) {
+    const x = Math.floor(Math.random() * GRID_SIZE)
+    const y = Math.floor(Math.random() * GRID_SIZE)
+    const rot = (Math.floor(Math.random() * 4) * 90) as 0 | 90 | 180 | 270
 
-        // Remove item temporarily to check collision for new spot
-        const otherItems = items.filter(k => k.instanceId !== itemToMessUp.instanceId);
+    // Remove item temporarily to check collision for new spot
+    const otherItems = items.filter(
+      (k) => k.instanceId !== itemToMessUp.instanceId,
+    )
 
-        const def = ITEMS[itemToMessUp.itemId];
-        const w = (rot === 90 || rot === 270) ? def.height : def.width;
-        const h = (rot === 90 || rot === 270) ? def.width : def.height;
+    const def = ITEMS[itemToMessUp.itemId]
+    const w = rot === 90 || rot === 270 ? def.height : def.width
+    const h = rot === 90 || rot === 270 ? def.width : def.height
 
-        if (!checkCollision(x, y, w, h, otherItems, targetPlayerId, undefined, def.category)) {
-            if (def.category === 'CONTAINER' || checkSupport(x, y, w, h, otherItems, targetPlayerId)) {
-                moveItem(itemToMessUp.instanceId, x, y, rot);
-                return true;
-            }
+    if (
+      !checkCollision(
+        x,
+        y,
+        w,
+        h,
+        otherItems,
+        targetPlayerId,
+        undefined,
+        def.category,
+      )
+    ) {
+      if (
+        def.category === "CONTAINER" ||
+        checkSupport(x, y, w, h, otherItems, targetPlayerId)
+      ) {
+        moveItem(itemToMessUp.instanceId, x, y, rot)
+        return true
+      }
+    }
+  }
+  return false
+}
+
+export type SabotageType = "DISCARD" | "CUT_HOLE" | "CURSE" | "DISGUISE"
+
+export const triggerSabotage = (
+  targetPlayerId: string,
+  ability: SabotageType,
+): boolean => {
+  const items = $itemsOnGrid.get()
+  const containers = $containers.get()
+  const targetItems = items.filter((i) => i.ownerId === targetPlayerId)
+
+  if (ability === "DISCARD") {
+    if (targetItems.length === 0) return false
+    // Remove random item
+    const itemToRemove =
+      targetItems[Math.floor(Math.random() * targetItems.length)]
+    $itemsOnGrid.set(
+      items.filter((i) => i.instanceId !== itemToRemove.instanceId),
+    )
+    return true
+  }
+
+  if (ability === "CUT_HOLE") {
+    const targetContainers = containers.filter(
+      (c) => c.ownerId === targetPlayerId,
+    )
+    if (targetContainers.length === 0) return false
+
+    // Pick random container
+    const container =
+      targetContainers[Math.floor(Math.random() * targetContainers.length)]
+
+    // Pick random cell that isn't already disabled
+    const enabledCells = container.cells.filter(
+      (cell) =>
+        !container.disabledCells?.some(
+          (dc) => dc.x === cell.x && dc.y === cell.y,
+        ),
+    )
+
+    if (enabledCells.length === 0) return false
+
+    const cellToCut =
+      enabledCells[Math.floor(Math.random() * enabledCells.length)]
+
+    // Update containers
+    $containers.set(
+      containers.map((c) => {
+        if (c.id === container.id) {
+          return {
+            ...c,
+            capacity: c.capacity - 1,
+            disabledCells: [...(c.disabledCells || []), cellToCut],
+          }
         }
-    }
-    return false;
-};
+        return c
+      }),
+    )
 
-export type SabotageType = 'DISCARD' | 'CUT_HOLE' | 'CURSE' | 'DISGUISE';
+    return true
+  }
 
-export const triggerSabotage = (targetPlayerId: string, ability: SabotageType): boolean => {
-    const items = $itemsOnGrid.get();
-    const containers = $containers.get();
-    const targetItems = items.filter(i => i.ownerId === targetPlayerId);
+  if (ability === "CURSE") {
+    // Add Heavy Rock. It's essentially "Add Random Loot" but malicious.
+    return addRandomLoot("rock", targetPlayerId)
+  }
 
-    if (ability === 'DISCARD') {
-        if (targetItems.length === 0) return false;
-        // Remove random item
-        const itemToRemove = targetItems[Math.floor(Math.random() * targetItems.length)];
-        $itemsOnGrid.set(items.filter(i => i.instanceId !== itemToRemove.instanceId));
-        return true;
-    }
+  if (ability === "DISGUISE") {
+    if (targetItems.length === 0) return false
+    const itemToDisguise =
+      targetItems[Math.floor(Math.random() * targetItems.length)]
 
-    if (ability === 'CUT_HOLE') {
-        const targetContainers = containers.filter(c => c.ownerId === targetPlayerId);
-        if (targetContainers.length === 0) return false;
+    // Pick a random other look
+    const allItemIds = Object.keys(ITEMS)
+    const randomLook = allItemIds[Math.floor(Math.random() * allItemIds.length)]
 
-        // Pick random container
-        const container = targetContainers[Math.floor(Math.random() * targetContainers.length)];
+    $itemsOnGrid.set(
+      items.map((i) =>
+        i.instanceId === itemToDisguise.instanceId
+          ? { ...i, disguiseItemId: randomLook }
+          : i,
+      ),
+    )
+    return true
+  }
 
-        // Pick random cell that isn't already disabled
-        const enabledCells = container.cells.filter(cell =>
-            !container.disabledCells?.some(dc => dc.x === cell.x && dc.y === cell.y)
-        );
-
-        if (enabledCells.length === 0) return false;
-
-        const cellToCut = enabledCells[Math.floor(Math.random() * enabledCells.length)];
-
-        // Update containers
-        $containers.set(containers.map(c => {
-            if (c.id === container.id) {
-                return {
-                    ...c,
-                    capacity: c.capacity - 1,
-                    disabledCells: [...(c.disabledCells || []), cellToCut]
-                };
-            }
-            return c;
-        }));
-
-        return true;
-    }
-
-    if (ability === 'CURSE') {
-        // Add Heavy Rock. It's essentially "Add Random Loot" but malicious.
-        return addRandomLoot('rock', targetPlayerId);
-    }
-
-    if (ability === 'DISGUISE') {
-        if (targetItems.length === 0) return false;
-        const itemToDisguise = targetItems[Math.floor(Math.random() * targetItems.length)];
-
-        // Pick a random other look
-        const allItemIds = Object.keys(ITEMS);
-        const randomLook = allItemIds[Math.floor(Math.random() * allItemIds.length)];
-
-        $itemsOnGrid.set(items.map(i =>
-            i.instanceId === itemToDisguise.instanceId
-                ? { ...i, disguiseItemId: randomLook }
-                : i
-        ));
-        return true;
-    }
-
-    return false;
-};
+  return false
+}
 
 export const healMorale = (amount: number) => {
-    const current = $gameState.get();
-    const newMorale = Math.min(100, current.morale + amount);
-    $gameState.set({ ...current, morale: newMorale });
-};
+  const current = $gameState.get()
+  const newMorale = Math.min(100, current.morale + amount)
+  $gameState.set({ ...current, morale: newMorale })
+}
 
 export const revealDisguises = (targetPlayerId: string): number => {
-    const items = $itemsOnGrid.get();
-    let revealedCount = 0;
+  const items = $itemsOnGrid.get()
+  let revealedCount = 0
 
-    const newItems = items.map(i => {
-        if (i.ownerId === targetPlayerId && i.disguiseItemId) {
-            revealedCount++;
-            return { ...i, disguiseItemId: undefined };
-        }
-        return i;
-    });
-
-    if (revealedCount > 0) {
-        $itemsOnGrid.set(newItems);
+  const newItems = items.map((i) => {
+    if (i.ownerId === targetPlayerId && i.disguiseItemId) {
+      revealedCount++
+      return { ...i, disguiseItemId: undefined }
     }
-    return revealedCount;
-};
+    return i
+  })
+
+  if (revealedCount > 0) {
+    $itemsOnGrid.set(newItems)
+  }
+  return revealedCount
+}
 
 export const returnItemToPool = (ownerId: string, itemId: string) => {
-    if ($phase.get() === 'DRAFT') {
-        const draft = $draftState.get();
-        const personalPool = draft.availableItems[ownerId] || [];
-        const itemDef = ITEMS[itemId];
-        if (itemDef) {
-            $draftState.set({
-                ...draft,
-                availableItems: {
-                    ...draft.availableItems,
-                    [ownerId]: [...personalPool, itemDef]
-                }
-            });
-        }
+  if ($phase.get() === "DRAFT") {
+    const draft = $draftState.get()
+    const personalPool = draft.availableItems[ownerId] || []
+    const itemDef = ITEMS[itemId]
+    if (itemDef) {
+      $draftState.set({
+        ...draft,
+        availableItems: {
+          ...draft.availableItems,
+          [ownerId]: [...personalPool, itemDef],
+        },
+      })
     }
-};
+  }
+}
 
-export const SANDBOX_PLAYER_ID = 'SANDBOX_USER';
+export const SANDBOX_PLAYER_ID = "SANDBOX_USER"
 
 // Helper to update URL params
 const updateUrlParam = (key: string, value: string | null) => {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    if (value) {
-        url.searchParams.set(key, value);
-    } else {
-        url.searchParams.delete(key);
-    }
-    window.history.replaceState({}, '', url.toString());
-};
+  if (typeof window === "undefined") return
+  const url = new URL(window.location.href)
+  if (value) {
+    url.searchParams.set(key, value)
+  } else {
+    url.searchParams.delete(key)
+  }
+  window.history.replaceState({}, "", url.toString())
+}
 
 export const enterSandbox = () => {
-    $phase.set('SANDBOX');
-    $itemsOnGrid.set([]);
-    $viewingPlayerId.set(SANDBOX_PLAYER_ID);
-    updateUrlParam('mode', 'sandbox');
-    
-    // Create a full 8x8 grid container for sandbox
-    const fullGrid: Coordinate[] = [];
-    for(let x=0; x<GRID_SIZE; x++) {
-        for(let y=0; y<GRID_SIZE; y++) {
-            fullGrid.push({ x, y });
-        }
+  $phase.set("SANDBOX")
+  $itemsOnGrid.set([])
+  $viewingPlayerId.set(SANDBOX_PLAYER_ID)
+  updateUrlParam("mode", "sandbox")
+
+  // Create a full 8x8 grid container for sandbox
+  const fullGrid: Coordinate[] = []
+  for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_SIZE; y++) {
+      fullGrid.push({ x, y })
     }
-    
-    $containers.set([{
-        id: 'sandbox-container',
-        ownerId: SANDBOX_PLAYER_ID,
-        type: 'BACKPACK',
-        cells: fullGrid,
-        capacity: GRID_SIZE * GRID_SIZE
-    }]);
-};
+  }
+
+  $containers.set([
+    {
+      id: "sandbox-container",
+      ownerId: SANDBOX_PLAYER_ID,
+      type: "BACKPACK",
+      cells: fullGrid,
+      capacity: GRID_SIZE * GRID_SIZE,
+    },
+  ])
+}
 
 export const leaveSandbox = () => {
-    $phase.set('LOBBY');
-    updateUrlParam('mode', null);
-};
+  $phase.set("LOBBY")
+  updateUrlParam("mode", null)
+}
 
 // Check for sandbox mode on init
-if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'sandbox') {
-        // Use a timeout to ensure stores are initialized
-        setTimeout(() => {
-            enterSandbox();
-        }, 0);
-    }
+if (typeof window !== "undefined") {
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get("mode") === "sandbox") {
+    // Use a timeout to ensure stores are initialized
+    setTimeout(() => {
+      enterSandbox()
+    }, 0)
+  }
 }
 
 export const clearSandboxGrid = () => {
-    $itemsOnGrid.set([]);
-};
+  $itemsOnGrid.set([])
+}
