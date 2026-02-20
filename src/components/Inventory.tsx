@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
 import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId, $localPlayerId, $activePreview, returnItemToPool, SANDBOX_PLAYER_ID } from '../store/gameStore';
@@ -71,9 +71,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
 
   // Interaction logic
   const canInteract = canInteractProp && !viewOnly && (
-    ownerId === localPlayerId || 
-    localPlayerId === 'solo' || 
-    !localPlayerId || 
+    ownerId === localPlayerId ||
+    localPlayerId === 'solo' ||
+    !localPlayerId ||
     ownerId === SANDBOX_PLAYER_ID
   ) && localPlayerId !== 'OBSERVER';
 
@@ -126,7 +126,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const bagHeightCells = GRID_SIZE;
 
   // Virtual adjacency for drag state
-  const virtualItems = React.useMemo(() => {
+  const virtualItems = useMemo(() => {
     let baseItems = [...itemsOnGrid];
     const isDragging = !!(draggedInstanceId || externalDraggedItem);
 
@@ -502,20 +502,20 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                 container.cells.map((cell, idx) => {
                   const key = `${cell.x},${cell.y}`;
                   const isGlobalStar = starredKeys.has(key);
-                  
+
                   // Find synergy info for this square if any
                   const activeSyn = displayResult?.activeSynergySquares.find(s => s.x === cell.x && s.y === cell.y);
                   const potentialSyn = displayResult?.potentialSynergySquares.find(s => s.x === cell.x && s.y === cell.y);
-                  
+
                   const isActiveSynergy = !!activeSyn;
                   const isPotentialSynergy = !!potentialSyn;
 
                   if (isGlobalStar || isActiveSynergy || isPotentialSynergy) {
                     const isFilled = isGlobalStar || isActiveSynergy;
                     const iconName = (activeSyn?.icon || potentialSyn?.icon || 'Star');
-                    
-                    const Icon = (LucideIcons as Record<string, LucideIcons.LucideIcon>)[iconName] || LucideIcons.Star;
-                    
+
+                    const Icon = (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[iconName] || LucideIcons.Star;
+
                     return (
                       <div
                         key={`syn-overlay-${container.id}-${idx}`}
