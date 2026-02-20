@@ -312,6 +312,89 @@ export const createCustomContainer = (playerId: string, cells: Coordinate[]) => 
     }
 };
 
+export const isAdjacent = (a: InventoryItemInstance, b: InventoryItemInstance): boolean => {
+    const aDef = ITEMS[a.itemId];
+    const bDef = ITEMS[b.itemId];
+    if (!aDef || !bDef) return false;
+    
+    const aW = (a.rotation === 90 || a.rotation === 270) ? aDef.height : aDef.width;
+    const aH = (a.rotation === 90 || a.rotation === 270) ? aDef.width : aDef.height;
+    const bW = (b.rotation === 90 || b.rotation === 270) ? bDef.height : bDef.width;
+    const bH = (b.rotation === 90 || b.rotation === 270) ? bDef.width : bDef.height;
+
+    const aLeft = a.x; const aRight = a.x + aW;
+    const aTop = a.y; const aBottom = a.y + aH;
+    const bLeft = b.x; const bRight = b.x + bW;
+    const bTop = b.y; const bBottom = b.y + bH;
+
+    const horizontalOverlap = aLeft < bRight && aRight > bLeft;
+    const verticalOverlap = aTop < bBottom && aBottom > bTop;
+    
+    const touchingHorizontal = (aRight === bLeft || aLeft === bRight) && verticalOverlap;
+    const touchingVertical = (aBottom === bTop || aTop === bBottom) && horizontalOverlap;
+
+    return touchingHorizontal || touchingVertical;
+};
+
+export const checkForCrafting = (ownerId: string) => {
+    const items = $itemsOnGrid.get();
+    const playerItems = items.filter(i => i.ownerId === ownerId);
+    
+    for (const item of playerItems) {
+        const def = ITEMS[item.itemId];
+        if (def?.recipe) {
+            const ingredients = [...def.recipe.ingredients];
+            // The item itself is usually the first ingredient
+            
+            // For each ingredient required, find an adjacent item that matches
+            // This is a simple greedy matcher for the prototype
+            const itemsToCheck = [...playerItems];
+            
+            const matchedInstances: InventoryItemInstance[] = [];
+            
+            // To simplify: check if ALL ingredients exist and are connected in a cluster
+            // For now: check if they all exist in the bag
+            let allFound = true;
+            for (const ingId of ingredients) {
+                const idx = itemsToCheck.findIndex(i => i.itemId === ingId);
+                if (idx >= 0) {
+                    matchedInstances.push(itemsToCheck[idx]);
+                    itemsToCheck.splice(idx, 1);
+                } else {
+                    allFound = false;
+                    break;
+                }
+            }
+            
+            if (allFound) {
+                // Check if they are all adjacent to at least one other in the set (cluster)
+                // For 2 items, just check if they are adjacent
+                if (matchedInstances.length === 2) {
+                    if (isAdjacent(matchedInstances[0], matchedInstances[1])) {
+                        // CRAFT!
+                        const resultItemId = def.recipe.result;
+                        const first = matchedInstances[0];
+                        
+                        const newItems = items.filter(i => !matchedInstances.some(m => m.instanceId === i.instanceId));
+                        const newItem: InventoryItemInstance = {
+                            instanceId: generateId(),
+                            itemId: resultItemId,
+                            x: first.x,
+                            y: first.y,
+                            rotation: first.rotation,
+                            ownerId: ownerId
+                        };
+                        
+                        $itemsOnGrid.set([...newItems, newItem]);
+                        // Only craft one per check to avoid recursion issues
+                        return;
+                    }
+                }
+            }
+        }
+    }
+};
+
 export const nextPhase = () => {
     const current = $phase.get();
 
@@ -380,6 +463,7 @@ export const placeItem = (itemId: string, x: number, y: number, rotation: 0 | 90
     };
 
     $itemsOnGrid.set([...currentItems, newItem]);
+    checkForCrafting(ownerId);
     return true;
 };
 
@@ -439,6 +523,7 @@ export const moveItem = (instanceId: string, x: number, y: number, rotation?: 0 
     $itemsOnGrid.set(items.map(i =>
         i.instanceId === instanceId ? { ...i, x, y, rotation: finalRot } : i
     ));
+    checkForCrafting(item.ownerId);
     return true;
 };
 
@@ -841,8 +926,8 @@ export const triggerSabotage = (targetPlayerId: string, ability: SabotageType): 
     }
 
     if (ability === 'CURSE') {
-        // Add Cursed Scrap. It's essentially "Add Random Loot" but malicious.
-        return addRandomLoot('curse_scrap', targetPlayerId);
+        // Add Heavy Rock. It's essentially "Add Random Loot" but malicious.
+        return addRandomLoot('rock', targetPlayerId);
     }
 
     if (ability === 'DISGUISE') {
@@ -903,4 +988,61 @@ export const returnItemToPool = (ownerId: string, itemId: string) => {
             });
         }
     }
+};
+
+export const SANDBOX_PLAYER_ID = 'SANDBOX_USER';
+
+// Helper to update URL params
+const updateUrlParam = (key: string, value: string | null) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (value) {
+        url.searchParams.set(key, value);
+    } else {
+        url.searchParams.delete(key);
+    }
+    window.history.replaceState({}, '', url.toString());
+};
+
+export const enterSandbox = () => {
+    $phase.set('SANDBOX');
+    $itemsOnGrid.set([]);
+    $viewingPlayerId.set(SANDBOX_PLAYER_ID);
+    updateUrlParam('mode', 'sandbox');
+    
+    // Create a full 8x8 grid container for sandbox
+    const fullGrid: Coordinate[] = [];
+    for(let x=0; x<GRID_SIZE; x++) {
+        for(let y=0; y<GRID_SIZE; y++) {
+            fullGrid.push({ x, y });
+        }
+    }
+    
+    $containers.set([{
+        id: 'sandbox-container',
+        ownerId: SANDBOX_PLAYER_ID,
+        type: 'BACKPACK',
+        cells: fullGrid,
+        capacity: GRID_SIZE * GRID_SIZE
+    }]);
+};
+
+export const leaveSandbox = () => {
+    $phase.set('LOBBY');
+    updateUrlParam('mode', null);
+};
+
+// Check for sandbox mode on init
+if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'sandbox') {
+        // Use a timeout to ensure stores are initialized
+        setTimeout(() => {
+            enterSandbox();
+        }, 0);
+    }
+}
+
+export const clearSandboxGrid = () => {
+    $itemsOnGrid.set([]);
 };

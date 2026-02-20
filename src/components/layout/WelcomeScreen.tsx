@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { $players, startGame, addPlayer, setLocalPlayer, $localPlayerId } from '../../store/gameStore';
+import { $players, startGame, addPlayer, setLocalPlayer, $localPlayerId, enterSandbox } from '../../store/gameStore';
 
 const WelcomeScreen: React.FC = () => {
     const players = useStore($players);
@@ -71,6 +71,15 @@ const WelcomeScreen: React.FC = () => {
                             </div>
                         </>
                     )}
+                </div>
+
+                <div className="mt-8">
+                    <button
+                        onClick={enterSandbox}
+                        className="px-6 py-2 bg-wood-800 hover:bg-wood-700 text-gold-500 rounded-full border border-gold-500/30 font-bold uppercase tracking-widest text-xs transition-all shadow-xl"
+                    >
+                        Enter Synergy Sandbox
+                    </button>
                 </div>
 
                 {players.length > 0 && (

@@ -1,6 +1,6 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
-import { $draggedItem, $localPlayerId, $viewingPlayerId, $activePreview } from '../../store/gameStore';
+import { $draggedItem, $localPlayerId, $viewingPlayerId, $activePreview, $phase, SANDBOX_PLAYER_ID } from '../../store/gameStore';
 import { useStore } from '@nanostores/react';
 import clsx from 'clsx';
 
@@ -62,7 +62,8 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
 
     const viewingPlayerId = useStore($viewingPlayerId);
     const localPlayerId = useStore($localPlayerId);
-    const isMe = viewingPlayerId === localPlayerId;
+    const phase = useStore($phase);
+    const isMe = (viewingPlayerId === localPlayerId) || (phase === 'SANDBOX') || (viewingPlayerId === SANDBOX_PLAYER_ID);
 
     const draggedItem = useStore($draggedItem);
     const isSelected = draggedItem === item.id;
@@ -74,7 +75,7 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
     const MINI_GAP = 1;
 
     return (
-        <div className="relative">
+        <div className="relative flex flex-col gap-1">
             <div
                 ref={itemRef}
                 draggable={isMe}
@@ -151,6 +152,10 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
                         <LucideIcons.Lock size={12} className="text-wood-400" />
                     </div>
                 )}
+            </div>
+            
+            <div className="text-[10px] text-center font-bold text-parchment-300 truncate px-1 group-hover:text-parchment-100 transition-colors">
+                {item.name}
             </div>
 
             {/* Tooltip is managed globally by react-tooltip */}

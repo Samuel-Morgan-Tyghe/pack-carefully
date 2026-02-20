@@ -4,6 +4,7 @@ import { ITEMS } from '../../lib/items';
 import { $itemsOnGrid } from '../../store/gameStore';
 import { useStore } from '@nanostores/react';
 import { getAdjacencyBonuses } from '../../lib/adjacency';
+import clsx from 'clsx';
 
 interface ItemTooltipProps {
     itemId: string;
@@ -11,20 +12,21 @@ interface ItemTooltipProps {
 }
 
 const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
-    const def = ITEMS[itemId];
-    if (!def) return null;
-
-    // Optional: Fetch instance data from store if instanceId is provided
-    // This allows tooltips to show liveStats and adjacency in combat
     const itemsOnGrid = useStore($itemsOnGrid);
-    const itemInstance = instanceId ? itemsOnGrid.find(i => i.instanceId === instanceId) : undefined;
 
-    // Calculate adjacency results if we have an instance
-    // Note: This might be slightly expensive but tooltips are only shown one at a time
+    const def = ITEMS[itemId];
+
+    const itemInstance = React.useMemo(() => 
+        instanceId ? itemsOnGrid.find(i => i.instanceId === instanceId) : undefined,
+        [itemsOnGrid, instanceId]
+    );
+
     const adjacencyResult = React.useMemo(() => {
-        if (!itemInstance) return null;
-        return getAdjacencyBonuses(itemsOnGrid)[instanceId!];
+        if (!itemInstance || !instanceId) return null;
+        return getAdjacencyBonuses(itemsOnGrid)[instanceId];
     }, [itemsOnGrid, instanceId, itemInstance]);
+
+    if (!def) return null;
 
     const rarityColor: Record<string, string> = {
         COMMON: 'text-slate-400',
@@ -34,6 +36,44 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
     };
 
     const liveStats = itemInstance?.liveStats;
+
+    const renderStatBadge = (
+        icon: React.ReactNode,
+        statName: string,
+        baseValue: number | undefined,
+        currentValue: number | undefined,
+        colorClass: string,
+        bgClass: string,
+        borderClass: string,
+        suffix: string = ""
+    ) => {
+        if (baseValue === undefined && currentValue === undefined) return null;
+
+        const displayValue = currentValue ?? baseValue;
+
+        // Adjacency can use 'defense' or 'block', unify here
+        const buff = (adjacencyResult?.buffs[statName] || 0) + (statName === 'defense' ? (adjacencyResult?.buffs['block'] || 0) : 0);
+        const multiplier = (adjacencyResult?.multipliers[statName] || 1) * (statName === 'defense' ? (adjacencyResult?.multipliers['block'] || 1) : 1);
+
+        const hasBoost = buff !== 0 || multiplier !== 1;
+
+        return (
+            <span className={clsx(
+                "text-[9px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 shrink-0 transition-all",
+                colorClass, bgClass, borderClass,
+                hasBoost && "ring-1 ring-gold-500/50 shadow-[0_0_8px_rgba(234,179,8,0.2)] border-gold-500/30"
+            )}>
+                {icon}
+                <span>{displayValue}{suffix}</span>
+                {hasBoost && (
+                    <span className="text-[7px] opacity-90 flex items-center gap-0.5 ml-0.5 font-black text-gold-400">
+                        {buff !== 0 && (<span>{buff > 0 ? `+${buff}` : buff}</span>)}
+                        {multiplier !== 1 && (<span>x{multiplier.toFixed(1).replace('.0', '')}</span>)}
+                    </span>
+                )}
+            </span>
+        );
+    };
 
     return (
         <div className="w-[220px] text-xs pointer-events-none">
@@ -60,54 +100,15 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
             {/* Combat Stats / Live Stats */}
             {(def.combatStats || liveStats) && (
                 <div className="flex flex-wrap gap-1 mb-2">
-                    {/* Damage */}
-                    {(liveStats?.damage !== undefined || def.combatStats?.damage !== undefined) && (
-                        <span className="text-red-400 text-[9px] font-bold bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50 flex items-center gap-0.5">
-                            <LucideIcons.Swords size={9} /> {liveStats?.damage ?? def.combatStats?.damage}
-                        </span>
-                    )}
+                    {renderStatBadge(<LucideIcons.Swords size={9} />, 'damage', def.combatStats?.damage, liveStats?.damage, 'text-red-400', 'bg-red-950/50', 'border-red-900/50')}
+                    {renderStatBadge(<LucideIcons.Shield size={9} />, 'defense', def.combatStats?.defense || def.combatStats?.block, liveStats?.block, 'text-blue-400', 'bg-blue-950/50', 'border-blue-900/50')}
+                    {renderStatBadge(<LucideIcons.Zap size={9} />, 'speed', def.combatStats?.speed, liveStats?.speed, 'text-yellow-400', 'bg-yellow-950/50', 'border-yellow-900/50')}
+                    {renderStatBadge(<LucideIcons.Target size={9} />, 'accuracy', def.combatStats?.accuracy, liveStats?.accuracy, 'text-green-400', 'bg-green-950/50', 'border-green-900/50', '%')}
+                    {renderStatBadge(<LucideIcons.Heart size={9} />, 'heal', def.combatStats?.heal, liveStats?.heal, 'text-emerald-400', 'bg-emerald-950/50', 'border-emerald-900/50')}
+                    {renderStatBadge(<span className="text-[9px]">⚡</span>, 'energyCost', def.combatStats?.energyCost, liveStats?.energyCost, 'text-amber-400', 'bg-amber-950/50', 'border-amber-900/50')}
 
-                    {/* Defense/Block */}
-                    {(liveStats?.block !== undefined || def.combatStats?.block !== undefined || def.combatStats?.defense !== undefined) && (
-                        <span className="text-blue-400 text-[9px] font-bold bg-blue-950/50 px-1.5 py-0.5 rounded border border-blue-900/50 flex items-center gap-0.5">
-                            <LucideIcons.Shield size={9} /> {liveStats?.block ?? (def.combatStats?.block ?? def.combatStats?.defense)}
-                        </span>
-                    )}
-
-                    {/* Speed */}
-                    {(liveStats?.speed !== undefined || def.combatStats?.speed !== undefined) && (
-                        <span className="text-yellow-400 text-[9px] font-bold bg-yellow-950/50 px-1.5 py-0.5 rounded border border-yellow-900/50 flex items-center gap-0.5">
-                            <LucideIcons.Zap size={9} /> {liveStats?.speed ?? def.combatStats?.speed}
-                        </span>
-                    )}
-
-                    {/* Accuracy */}
-                    {(liveStats?.accuracy !== undefined || def.combatStats?.accuracy !== undefined) && (
-                        <span className="text-green-400 text-[9px] font-bold bg-green-950/50 px-1.5 py-0.5 rounded border border-green-900/50 flex items-center gap-0.5">
-                            <LucideIcons.Target size={9} /> {liveStats?.accuracy ?? def.combatStats?.accuracy}%
-                        </span>
-                    )}
-
-                    {/* Heal */}
-                    {(liveStats?.heal !== undefined || def.combatStats?.heal !== undefined) && (
-                        <span className="text-emerald-400 text-[9px] font-bold bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-900/50 flex items-center gap-0.5">
-                            <LucideIcons.Heart size={9} /> {liveStats?.heal ?? def.combatStats?.heal}
-                        </span>
-                    )}
-
-                    {/* Energy Cost */}
-                    {(liveStats?.energyCost !== undefined || def.combatStats?.energyCost !== undefined) && (
-                        <span className="text-amber-400 text-[9px] font-bold bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-900/50 flex items-center gap-0.5">
-                            ⚡ {liveStats?.energyCost ?? def.combatStats?.energyCost}
-                        </span>
-                    )}
-
-                    {/* Passive Energy Regen */}
-                    {def.combatStats?.energyRegen !== undefined && (
-                        <span className="text-amber-300 text-[9px] font-bold bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-900/50 flex items-center gap-0.5">
-                            ⚡+{def.combatStats.energyRegen}/s
-                        </span>
-                    )}
+                    {/* Passive Energy Regen - usually not boosted by adjacency yet but we check anyway */}
+                    {renderStatBadge(<span className="text-[9px]">⚡</span>, 'energyRegen', def.combatStats?.energyRegen, undefined, 'text-amber-300', 'bg-amber-950/50', 'border-amber-900/50', '/s')}
                 </div>
             )}
 
@@ -125,7 +126,7 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
                             </div>
                         ))
                     ) : (
-                        def.adjacency?.map((adj: any, i: number) => (
+                        def.adjacency?.map((adj, i: number) => (
                             <div key={i} className="text-[10px] text-amber-300/70 mb-0.5 flex items-start gap-1">
                                 <LucideIcons.Sparkles size={9} className="mt-0.5 shrink-0" />
                                 <span>{adj.effect}</span>

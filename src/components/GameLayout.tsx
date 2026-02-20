@@ -13,6 +13,7 @@ import GameResultScreen from './layout/GameResultScreen';
 import BagBuilder from './game/BagBuilder';
 import JourneyPhase from './game/JourneyPhase';
 import Finale from './game/Finale';
+import Sandbox from './game/Sandbox';
 import DebugVerification from './DebugVerification';
 import Tutorial from './layout/Tutorial';
 import Settings from './layout/Settings';
@@ -32,6 +33,8 @@ const GameLayout: React.FC = () => {
 
             {phase === 'LOBBY' ? (
                 <WelcomeScreen />
+            ) : phase === 'SANDBOX' ? (
+                <Sandbox />
             ) : (
                 <>
                     <GameHUD />
@@ -67,11 +70,12 @@ const GameLayout: React.FC = () => {
             <Settings />
             <Tooltip
                 id="item-tooltip"
-                className="!bg-slate-900/95 !border !border-slate-600 !rounded-lg !p-3 !text-xs !shadow-2xl !backdrop-blur-sm !opacity-100 !z-[9999999]"
+                className="!bg-slate-900/95 !border !border-slate-600 !rounded-xl !p-4 !text-sm !shadow-2xl !backdrop-blur-sm !opacity-100 !z-[9999999]"
                 render={({ activeAnchor }) => {
                     const itemId = activeAnchor?.getAttribute('data-item-id');
+                    const instanceId = activeAnchor?.getAttribute('data-instance-id') || undefined;
                     if (!itemId) return null;
-                    return <ItemTooltip itemId={itemId} />;
+                    return <ItemTooltip itemId={itemId} instanceId={instanceId} />;
                 }}
             />
         </div>

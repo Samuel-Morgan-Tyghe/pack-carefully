@@ -69,27 +69,27 @@ export const generateLootPool = (day: number): ScavengeEvent => {
         {
             title: "Abandoned Campsite",
             description: "Looks like someone left in a hurry. Their loss.",
-            pool: ['water_bottle', 'rations', 'matches', 'sleeping_bag', 'pouch']
+            pool: ['water_bottle', 'sleeping_bag', 'backpack']
         },
         {
             title: "Overturned Merchant Cart",
             description: "Wares scattered everywhere. Some of it is still useful.",
-            pool: ['rope', 'flashlight', 'knife', 'pouch', 'backpack']
+            pool: ['flashlight', 'backpack', 'dagger']
         },
         {
             title: "Ancient Ruins",
             description: "Old magic lingers here.",
-            pool: ['wand', 'mana_crystal', 'potion', 'map', 'pocket']
+            pool: ['knights_crest', 'first_aid']
         },
         {
             title: "Battlefield Remnants",
             description: "A skirmish happened here recently.",
-            pool: ['sword', 'hammer', 'bow', 'first_aid', 'backpack']
+            pool: ['dagger', 'knights_crest', 'first_aid']
         },
         {
             title: "Lost Hiker's Stash",
             description: "Poor soul. They won't need this anymore.",
-            pool: ['compass', 'rations', 'pocket', 'knife']
+            pool: ['water_bottle', 'flashlight', 'rock']
         }
     ];
 

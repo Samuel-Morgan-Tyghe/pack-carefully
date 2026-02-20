@@ -14,13 +14,13 @@ const Journey: React.FC = () => {
     
     const events = [
         {
-            title: "River Crossing",
-            description: "The bridge is washed out. We need a Rope to cross safely.",
-            requiredItem: "rope",
-            successText: "Excellent! The rope held firm.",
-            failText: "We had to swim. Supplies were lost and morale took a hit.",
+            title: "Desert Trek",
+            description: "The sun is brutal. We need a Water Bottle to stay hydrated.",
+            requiredItem: "water_bottle",
+            successText: "Refreshing! We made it through the heat.",
+            failText: "Dehydration set in. We had to slow down and lost supplies.",
             damage: 20, // Damage on fail
-            icon: "Waves"
+            icon: "Sun"
         },
         {
             title: "Dark Cave",

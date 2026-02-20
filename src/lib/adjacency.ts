@@ -1,5 +1,11 @@
-import type { InventoryItemInstance, AdjacencyPattern } from '../types';
+import type { InventoryItemInstance, AdjacencyPattern, AdjacencyRule, FunctionalSynergy, SynergyResult } from '../types';
 import { ITEMS, GRID_SIZE } from './items';
+
+export interface SynergySquare {
+    x: number;
+    y: number;
+    icon?: string;
+}
 
 export interface AdjacencyResult {
     instanceId: string;
@@ -8,8 +14,8 @@ export interface AdjacencyResult {
     multipliers: Record<string, number>; // stat -> multiplier (e.g. { speed: 2 })
     activeRules: string[];
     boostedSquares: { x: number, y: number }[]; // Squares boosted by this item
-    activeSynergySquares: { x: number, y: number }[]; // Squares where synergy is active
-    potentialSynergySquares: { x: number, y: number }[]; // Pattern squares that could synergy
+    activeSynergySquares: SynergySquare[]; // Squares where synergy is active
+    potentialSynergySquares: SynergySquare[]; // Pattern squares that could synergy
 }
 
 // Helper to get cells occupied by an item
@@ -55,7 +61,7 @@ const checkPattern = (itemA: InventoryItemInstance, itemB: InventoryItemInstance
         cellsB.some(cellB => {
             const dx = Math.abs(cellA.x - cellB.x);
             const dy = Math.abs(cellA.y - cellB.y);
-
+            
             if (pattern === 'ADJACENT') {
                 return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
             }
@@ -69,6 +75,9 @@ const checkPattern = (itemA: InventoryItemInstance, itemB: InventoryItemInstance
         })
     );
 };
+
+type CombinedRule = (AdjacencyRule & { isLegacy: true }) | (FunctionalSynergy & { isFunctional: true });
+
 
 export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<string, AdjacencyResult> => {
     const results: Record<string, AdjacencyResult> = {};
@@ -88,128 +97,186 @@ export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<
         };
     });
 
-    // First Pass: Identify Boosted Squares (Stars from BOOST_SQUARE)
+    // First Pass: Identify Boosted Squares (Global Stars)
     gridItems.forEach(sourceItem => {
         const sourceDef = ITEMS[sourceItem.itemId];
-        if (!sourceDef?.adjacency) return;
+        if (!sourceDef) return;
 
-        sourceDef.adjacency.forEach(rule => {
+        // Legacy Boost Squares
+        sourceDef.adjacency?.forEach(rule => {
             if (rule.type === 'BOOST_SQUARE') {
                 const cells = getItemCells(sourceItem);
 
-                if (Array.isArray(rule.pattern)) {
-                    cells.forEach(cell => {
-                        (rule.pattern as { dx: number, dy: number }[]).forEach((off) => {
+                cells.forEach(cell => {
+                    const targets: { x: number, y: number }[] = [];
+                    if (Array.isArray(rule.pattern)) {
+                        rule.pattern.forEach(off => {
                             const { rdx, rdy } = getRotatedOffset(off.dx, off.dy, sourceItem.rotation);
-                            const t = { x: cell.x + rdx, y: cell.y + rdy };
-                            const key = `${t.x},${t.y}`;
-                            if (!cellBoosts.has(key)) cellBoosts.set(key, new Set());
-                            cellBoosts.get(key)!.add(sourceItem.instanceId);
-                            results[sourceItem.instanceId].boostedSquares.push(t);
+                            targets.push({ x: cell.x + rdx, y: cell.y + rdy });
                         });
-                    });
-                } else {
-                    cells.forEach(cell => {
-                        const targets: { x: number, y: number }[] = [];
-                        if (rule.pattern === 'ADJACENT') {
-                            targets.push({ x: cell.x + 1, y: cell.y }, { x: cell.x - 1, y: cell.y }, { x: cell.x, y: cell.y + 1 }, { x: cell.x, y: cell.y - 1 });
-                        } else if (rule.pattern === 'PARALLEL') {
-                            targets.push({ x: cell.x + 2, y: cell.y }, { x: cell.x - 2, y: cell.y }, { x: cell.x, y: cell.y + 2 }, { x: cell.x, y: cell.y - 2 });
-                        }
+                    } else if (rule.pattern === 'ADJACENT') {
+                        targets.push({ x: cell.x + 1, y: cell.y }, { x: cell.x - 1, y: cell.y }, { x: cell.x, y: cell.y + 1 }, { x: cell.x, y: cell.y - 1 });
+                    }
 
-                        targets.forEach(t => {
-                            const key = `${t.x},${t.y}`;
-                            if (!cellBoosts.has(key)) cellBoosts.set(key, new Set());
-                            cellBoosts.get(key)!.add(sourceItem.instanceId);
-                            results[sourceItem.instanceId].boostedSquares.push(t);
-                        });
+                    targets.forEach(t => {
+                        if (t.x < 0 || t.x >= GRID_SIZE || t.y < 0 || t.y >= GRID_SIZE) return;
+                        const key = `${t.x},${t.y}`;
+                        if (!cellBoosts.has(key)) cellBoosts.set(key, new Set());
+                        cellBoosts.get(key)!.add(sourceItem.instanceId);
+                        results[sourceItem.instanceId].boostedSquares.push(t);
                     });
-                }
+                });
+            }
+        });
+
+        // Functional Boost Squares
+        sourceDef.synergies?.forEach(syn => {
+            if (syn.isBoostSquare) {
+                const cells = getItemCells(sourceItem);
+                cells.forEach(cell => {
+                    const footprint: { x: number, y: number }[] = [];
+                    if (Array.isArray(syn.pattern)) {
+                        syn.pattern.forEach(off => {
+                            const { rdx, rdy } = getRotatedOffset(off.dx, off.dy, sourceItem.rotation);
+                            footprint.push({ x: cell.x + rdx, y: cell.y + rdy });
+                        });
+                    } else if (syn.pattern === 'ADJACENT') {
+                        footprint.push({ x: cell.x + 1, y: cell.y }, { x: cell.x - 1, y: cell.y }, { x: cell.x, y: cell.y + 1 }, { x: cell.x, y: cell.y - 1 });
+                    }
+
+                    footprint.forEach(t => {
+                        if (t.x < 0 || t.x >= GRID_SIZE || t.y < 0 || t.y >= GRID_SIZE) return;
+                        const key = `${t.x},${t.y}`;
+                        if (!cellBoosts.has(key)) cellBoosts.set(key, new Set());
+                        cellBoosts.get(key)!.add(sourceItem.instanceId);
+                        results[sourceItem.instanceId].boostedSquares.push(t);
+                    });
+                });
             }
         });
     });
 
-    // Second Pass: Apply Buffs and Track Synergy Squares
+    // Second Pass: Identify Synergy Square Highlights (Active vs Potential)
     gridItems.forEach((sourceItem) => {
         const sourceDef = ITEMS[sourceItem.itemId];
-        if (!sourceDef?.adjacency) return;
+        if (!sourceDef) return;
 
         const cellsA = getItemCells(sourceItem);
 
-        sourceDef.adjacency.forEach(rule => {
-            if (rule.type === 'BOOST_SQUARE') return;
+        // Process both legacy and functional synergies
+        const allRules: CombinedRule[] = [
+            ...((sourceDef.adjacency || []).map(r => ({ ...r, isLegacy: true as const }))),
+            ...((sourceDef.synergies || []).map(s => ({ ...s, isFunctional: true as const })))
+        ];
 
-            // Identify pattern "footprint" cells
+        allRules.forEach(rule => {
+            if ('type' in rule && rule.type === 'BOOST_SQUARE') return;
+            if ('isBoostSquare' in rule && rule.isBoostSquare) return;
+
+            // Calculate Footprint
             const footprint: { x: number, y: number }[] = [];
-            if (Array.isArray(rule.pattern)) {
-                cellsA.forEach(ca => {
-                    (rule.pattern as { dx: number, dy: number }[]).forEach(off => {
+            const pattern = rule.pattern;
+
+            cellsA.forEach(ca => {
+                if (Array.isArray(pattern)) {
+                    pattern.forEach(off => {
                         const { rdx, rdy } = getRotatedOffset(off.dx, off.dy, sourceItem.rotation);
                         footprint.push({ x: ca.x + rdx, y: ca.y + rdy });
                     });
-                });
-            } else {
-                // Common patterns
-                cellsA.forEach(ca => {
-                    if (rule.pattern === 'ADJACENT') {
-                        footprint.push({ x: ca.x + 1, y: ca.y }, { x: ca.x - 1, y: ca.y }, { x: ca.x, y: ca.y + 1 }, { x: ca.x, y: ca.y - 1 });
-                    } else if (rule.pattern === 'PARALLEL') {
-                        footprint.push({ x: ca.x + 2, y: ca.y }, { x: ca.x - 2, y: ca.y }, { x: ca.x, y: ca.y + 2 }, { x: ca.x, y: ca.y - 2 });
-                    } else if (rule.pattern === 'TWO_ACROSS') {
-                        footprint.push({ x: ca.x + 2, y: ca.y + 2 }, { x: ca.x - 2, y: ca.y - 2 }, { x: ca.x + 2, y: ca.y - 2 }, { x: ca.x - 2, y: ca.y + 2 });
-                    }
-                });
-            }
+                } else {
+                    if (pattern === 'ADJACENT') footprint.push({ x: ca.x + 1, y: ca.y }, { x: ca.x - 1, y: ca.y }, { x: ca.x, y: ca.y + 1 }, { x: ca.x, y: ca.y - 1 });
+                    else if (pattern === 'PARALLEL') footprint.push({ x: ca.x + 2, y: ca.y }, { x: ca.x - 2, y: ca.y }, { x: ca.x, y: ca.y + 2 }, { x: ca.x, y: ca.y - 2 });
+                    else if (pattern === 'TWO_ACROSS') footprint.push({ x: ca.x + 2, y: ca.y + 2 }, { x: ca.x - 2, y: ca.y - 2 }, { x: ca.x + 2, y: ca.y - 2 }, { x: ca.x - 2, y: ca.y + 2 });
+                }
+            });
 
-            // De-duplicate footprint
+            // De-duplicate & bounds check, and ENSURE they don't overlap the source item itself
+            const cellsAKeys = new Set(cellsA.map(c => `${c.x},${c.y}`));
             const uniqueFootprint = Array.from(new Set(footprint.map(f => `${f.x},${f.y}`)))
-                .map(s => {
-                    const [x, y] = s.split(',').map(Number);
-                    return { x, y };
-                })
-                .filter(f => f.x >= 0 && f.x < GRID_SIZE && f.y >= 0 && f.y < GRID_SIZE); // Standard grid bounds
+                .map(s => { const [x, y] = s.split(',').map(Number); return { x, y }; })
+                .filter(f => f.x >= 0 && f.x < GRID_SIZE && f.y >= 0 && f.y < GRID_SIZE && !cellsAKeys.has(`${f.x},${f.y}`));
 
             uniqueFootprint.forEach(square => {
-                // Find if any item is in this square
                 const targetItem = gridItems.find(gi => {
                     if (gi.instanceId === sourceItem.instanceId) return false;
-                    const tCells = getItemCells(gi);
-                    return tCells.some(tc => tc.x === square.x && tc.y === square.y);
+                    return getItemCells(gi).some(tc => tc.x === square.x && tc.y === square.y);
                 });
+
+                let icon = 'Star'; // Default
+
+                // Determine context-specific icon even for potential synergies
+                if ('isFunctional' in rule && rule.isFunctional) {
+                    const desc = rule.description.toLowerCase();
+                    if (desc.includes('damage') || desc.includes('weapon') || desc.includes('attack') || desc.includes('sword') || desc.includes('wield') || desc.includes('empower')) icon = 'Swords';
+                    else if (desc.includes('heal') || desc.includes('health') || desc.includes('regen') || desc.includes('diet') || desc.includes('banquet') || desc.includes('hydration')) icon = 'Heart';
+                    else if (desc.includes('defense') || desc.includes('shield') || desc.includes('block') || desc.includes('armor') || desc.includes('protection')) icon = 'Shield';
+                    else if (desc.includes('accuracy') || desc.includes('aim') || desc.includes('access')) icon = 'Target';
+                    else if (desc.includes('speed') || desc.includes('fast') || desc.includes('quick') || desc.includes('haste')) icon = 'Zap';
+                    else if (desc.includes('energy') || desc.includes('stamina') || desc.includes('battery') || desc.includes('power')) icon = 'Battery';
+                } else if ('isLegacy' in rule && rule.isLegacy) {
+                    const stat = rule.stat || 'damage';
+                    if (stat === 'heal' || stat === 'healthRegen') icon = 'Heart';
+                    else if (stat === 'damage') icon = 'Swords';
+                    else if (stat === 'defense' || stat === 'block') icon = 'Shield';
+                    else if (stat === 'accuracy') icon = 'Target';
+                    else if (stat === 'speed') icon = 'Zap';
+                    else if (stat === 'energyRegen' || stat === 'maxEnergy' || stat === 'staminaRegen') icon = 'Battery';
+                    
+                    if (rule.targetCategories?.includes('WEAPON')) icon = 'Swords';
+                }
 
                 if (targetItem) {
                     const targetDef = ITEMS[targetItem.itemId];
-                    let matchesCriteria = false;
-                    if (rule.targetIds?.includes(targetItem.itemId)) matchesCriteria = true;
-                    if (rule.targetCategories?.includes(targetDef.category)) matchesCriteria = true;
-                    if (!rule.targetIds && !rule.targetCategories) matchesCriteria = true; // Generic self-buff like Compass
+                    let isActive = false;
+                    
+                    if ('isFunctional' in rule && rule.isFunctional) {
+                        const res: SynergyResult = rule.apply(sourceItem, targetItem, gridItems);
+                        isActive = (res.buffs && Object.keys(res.buffs).length > 0) || (res.multipliers && Object.keys(res.multipliers).length > 0);
+                        
+                        // Refine icon if active
+                        const stats = [...Object.keys(res.buffs || {}), ...Object.keys(res.multipliers || {})];
+                        if (stats.includes('heal') || stats.includes('healthRegen')) icon = 'Heart';
+                        else if (stats.includes('damage')) icon = 'Swords';
+                        else if (stats.includes('defense') || stats.includes('block')) icon = 'Shield';
+                        else if (stats.includes('accuracy')) icon = 'Target';
+                        else if (stats.includes('speed')) icon = 'Zap';
+                        else if (stats.includes('energyRegen') || stats.includes('maxEnergy') || stats.includes('staminaRegen')) icon = 'Battery';
+                    } else if ('isLegacy' in rule && rule.isLegacy) {
+                        let matches = false;
+                        if (rule.targetIds?.includes(targetItem.itemId)) matches = true;
+                        if (rule.targetCategories?.includes(targetDef.category)) matches = true;
+                        if (!rule.targetIds && !rule.targetCategories) matches = true;
 
-                    if (matchesCriteria) {
-                        results[sourceItem.instanceId].activeSynergySquares.push(square);
-                    } else {
-                        results[sourceItem.instanceId].potentialSynergySquares.push(square);
+                        if (matches) {
+                            const stat = rule.stat || 'damage';
+                            const hasStat = (targetDef.combatStats && stat in targetDef.combatStats) || (stat === 'defense' && targetDef.combatStats?.block !== undefined);
+                            isActive = hasStat || !!rule.targetSelf;
+                        }
                     }
+
+                    if (isActive) results[sourceItem.instanceId].activeSynergySquares.push({ ...square, icon });
+                    else results[sourceItem.instanceId].potentialSynergySquares.push({ ...square, icon });
                 } else {
-                    results[sourceItem.instanceId].potentialSynergySquares.push(square);
+                    results[sourceItem.instanceId].potentialSynergySquares.push({ ...square, icon });
                 }
             });
         });
     });
 
-    // Third Pass: Actually apply the buffs (to avoid duplicate counts from multi-cell footprints)
+    // Third Pass: Calculate Final Stats
     for (let i = 0; i < gridItems.length; i++) {
         const sourceItem = gridItems[i];
         const sourceDef = ITEMS[sourceItem.itemId];
-        if (!sourceDef?.adjacency) continue;
+        if (!sourceDef) continue;
 
         for (let j = 0; j < gridItems.length; j++) {
             if (i === j) continue;
             const targetItem = gridItems[j];
             const targetDef = ITEMS[targetItem.itemId];
 
-            sourceDef.adjacency.forEach(rule => {
+            // Legacy
+            sourceDef.adjacency?.forEach(rule => {
                 if (rule.type === 'BOOST_SQUARE') return;
-
                 if (checkPattern(sourceItem, targetItem, rule.pattern)) {
                     let apply = false;
                     if (rule.targetIds?.includes(targetItem.itemId)) apply = true;
@@ -229,28 +296,70 @@ export const getAdjacencyBonuses = (gridItems: InventoryItemInstance[]): Record<
                     }
                 }
             });
+
+            // Functional
+            sourceDef.synergies?.forEach(syn => {
+                if (syn.isBoostSquare) return;
+                if (checkPattern(sourceItem, targetItem, syn.pattern)) {
+                    const res = syn.apply(sourceItem, targetItem, gridItems);
+                    const effectTargetId = syn.targetIsSelf ? sourceItem.instanceId : targetItem.instanceId;
+
+                    if (res.buffs) {
+                        Object.entries(res.buffs).forEach(([stat, val]) => {
+                            results[effectTargetId].buffs[stat] = (results[effectTargetId].buffs[stat] || 0) + (val as number);
+                            if (stat === 'damage' || stat === 'defense' || stat === 'block' || stat === 'heal') {
+                                results[effectTargetId].totalBuff += (val as number);
+                            }
+                        });
+                    }
+                    if (res.multipliers) {
+                        Object.entries(res.multipliers).forEach(([stat, val]) => {
+                            results[effectTargetId].multipliers[stat] = (results[effectTargetId].multipliers[stat] || 1) * (val as number);
+                        });
+                    }
+                    if ((res.buffs && Object.keys(res.buffs).length > 0) || (res.multipliers && Object.keys(res.multipliers).length > 0)) {
+                        results[effectTargetId].activeRules.push(`From ${sourceDef.name}: ${syn.description}`);
+                    }
+                }
+            });
         }
 
-        // Apply "Star" (Boost Square) effects
+        // Apply Boost Square logic (legacy and functional)
         const cells = getItemCells(sourceItem);
         cells.forEach(c => {
-            const key = `${c.x},${c.y}`;
-            const boostingInstanceIds = cellBoosts.get(key);
+            const boostingInstanceIds = cellBoosts.get(`${c.x},${c.y}`);
             if (boostingInstanceIds) {
                 boostingInstanceIds.forEach(boosterId => {
                     const boosterItem = gridItems.find(item => item.instanceId === boosterId);
                     if (!boosterItem) return;
                     const boosterDef = ITEMS[boosterItem.itemId];
-                    if (!boosterDef || !boosterDef.adjacency) return;
+                    if (!boosterDef) return;
 
-                    const boostRule = boosterDef.adjacency.find(r => r.type === 'BOOST_SQUARE');
-                    if (boostRule) {
-                        const stat = boostRule.stat || 'damage';
-                        const val = boostRule.value || 0;
-                        results[sourceItem.instanceId].buffs[stat] = (results[sourceItem.instanceId].buffs[stat] || 0) + val;
-                        results[sourceItem.instanceId].totalBuff += val;
-                        results[sourceItem.instanceId].activeRules.push(`From ${boosterDef.name}: +${val} ${stat}`);
-                    }
+                    // Legacy Boost
+                    boosterDef.adjacency?.forEach(rule => {
+                        if (rule.type === 'BOOST_SQUARE') {
+                            const stat = rule.stat || 'damage';
+                            results[sourceItem.instanceId].buffs[stat] = (results[sourceItem.instanceId].buffs[stat] || 0) + rule.value;
+                            results[sourceItem.instanceId].totalBuff += rule.value;
+                            results[sourceItem.instanceId].activeRules.push(`From ${boosterDef.name}: +${rule.value} ${stat}`);
+                        }
+                    });
+
+                    // Functional Boost
+                    boosterDef.synergies?.forEach(syn => {
+                        if (syn.isBoostSquare) {
+                            const res = syn.apply(boosterItem, sourceItem, gridItems);
+                            if (res.buffs) {
+                                Object.entries(res.buffs).forEach(([stat, val]) => {
+                                    results[sourceItem.instanceId].buffs[stat] = (results[sourceItem.instanceId].buffs[stat] || 0) + (val as number);
+                                    results[sourceItem.instanceId].totalBuff += (val as number);
+                                });
+                            }
+                            if ((res.buffs && Object.keys(res.buffs).length > 0) || (res.multipliers && Object.keys(res.multipliers).length > 0)) {
+                                results[sourceItem.instanceId].activeRules.push(`From ${boosterDef.name}: ${syn.description}`);
+                            }
+                        }
+                    });
                 });
             }
         });

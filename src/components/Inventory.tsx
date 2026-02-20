@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import type { PanInfo } from 'framer-motion';
 import { useStore } from '@nanostores/react';
-import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId, $localPlayerId, $activePreview, returnItemToPool } from '../store/gameStore';
+import { $itemsOnGrid, $draggedItem, moveItem, placeItem, checkCollision, rotateItem, rotateItemCounterClockwise, removeItem, toggleLock, $containers, checkSupport, $currentPlayerId, $localPlayerId, $activePreview, returnItemToPool, SANDBOX_PLAYER_ID } from '../store/gameStore';
 import { GRID_SIZE, ITEMS } from '../lib/items';
 import type { InventoryItemInstance } from '../types';
 import BackpackItem from './game/BackpackItem';
 import BackpackGhost from './game/BackpackGhost';
-import { Star } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { getAdjacencyBonuses, type AdjacencyResult } from '../lib/adjacency';
 import clsx from 'clsx';
 
@@ -70,7 +70,12 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const activePreview = useStore($activePreview);
 
   // Interaction logic
-  const canInteract = canInteractProp && !viewOnly && (ownerId === localPlayerId || localPlayerId === 'solo' || !localPlayerId) && localPlayerId !== 'OBSERVER';
+  const canInteract = canInteractProp && !viewOnly && (
+    ownerId === localPlayerId || 
+    localPlayerId === 'solo' || 
+    !localPlayerId || 
+    ownerId === SANDBOX_PLAYER_ID
+  ) && localPlayerId !== 'OBSERVER';
 
   // Sink global preview to local selection
   useEffect(() => {
@@ -165,9 +170,6 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     ? virtualResults[draggedInstanceId || 'dragged-external']
     : null;
   const displayResult = draggedResult || selectedResult;
-
-  const activeSynergyKeys = new Set(displayResult?.activeSynergySquares.map(s => `${s.x},${s.y}`) || []);
-  const potentialSynergyKeys = new Set(displayResult?.potentialSynergySquares.map(s => `${s.x},${s.y}`) || []);
 
   const snapToGrid = (point: { x: number, y: number }, itemWidth: number = 1, itemHeight: number = 1) => {
     if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 };
@@ -500,14 +502,23 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                 container.cells.map((cell, idx) => {
                   const key = `${cell.x},${cell.y}`;
                   const isGlobalStar = starredKeys.has(key);
-                  const isActiveSynergy = activeSynergyKeys.has(key);
-                  const isPotentialSynergy = potentialSynergyKeys.has(key);
+                  
+                  // Find synergy info for this square if any
+                  const activeSyn = displayResult?.activeSynergySquares.find(s => s.x === cell.x && s.y === cell.y);
+                  const potentialSyn = displayResult?.potentialSynergySquares.find(s => s.x === cell.x && s.y === cell.y);
+                  
+                  const isActiveSynergy = !!activeSyn;
+                  const isPotentialSynergy = !!potentialSyn;
 
                   if (isGlobalStar || isActiveSynergy || isPotentialSynergy) {
                     const isFilled = isGlobalStar || isActiveSynergy;
+                    const iconName = (activeSyn?.icon || potentialSyn?.icon || 'Star');
+                    
+                    const Icon = (LucideIcons as Record<string, LucideIcons.LucideIcon>)[iconName] || LucideIcons.Star;
+                    
                     return (
                       <div
-                        key={`star-overlay-${container.id}-${idx}`}
+                        key={`syn-overlay-${container.id}-${idx}`}
                         className={clsx(
                           "absolute flex items-center justify-center transition-all duration-300",
                           isFilled ? "animate-bounce scale-110" : "opacity-40 scale-75"
@@ -519,7 +530,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                           height: CELL_SIZE,
                         }}
                       >
-                        <Star
+                        <Icon
                           className={clsx(
                             "w-6 h-6",
                             isFilled ? "text-gold-400 fill-gold-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]" : "text-gold-100"

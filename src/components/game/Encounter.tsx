@@ -57,6 +57,8 @@ const Encounter: React.FC = () => {
             baseDefense: 0,
             energy: stats.maxEnergy,
             maxEnergy: stats.maxEnergy,
+            stamina: stats.maxStamina,
+            maxStamina: stats.maxStamina,
             stats,
             statuses: [],
             synergies,
@@ -75,6 +77,8 @@ const Encounter: React.FC = () => {
             baseDefense: 0,
             energy: 100,
             maxEnergy: 100,
+            stamina: 5,
+            maxStamina: 5,
             stats: {
                 damage: 5 + Math.floor(difficulty / 5),
                 defense: 0,
@@ -85,7 +89,10 @@ const Encounter: React.FC = () => {
                 maxMana: 0,
                 manaRegen: 0,
                 maxEnergy: 100,
-                energyRegen: 5
+                energyRegen: 5,
+                staminaRegen: 1.0,
+                maxStamina: 5,
+                triggerSpeed: 1.0
             },
             statuses: [],
             synergies: [],

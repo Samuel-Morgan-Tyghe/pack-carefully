@@ -1,21 +1,52 @@
 export type Role = 'Hiker' | 'Traitor';
 
-export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER';
+export type GamePhase = 'LOBBY' | 'BAG_BUILDING' | 'DRAFT' | 'JOURNEY' | 'CAMPFIRE' | 'FINALE' | 'GAME_OVER' | 'SANDBOX';
 
 export type ItemCategory = 'ESSENTIAL' | 'TOOL' | 'SURVIVAL' | 'COMFORT' | 'SABOTAGE' | 'CONTAINER' | 'WEAPON' | 'CLOTHING';
 
-export type AdjacencyPattern = 'ADJACENT' | 'PARALLEL' | 'TWO_ACROSS' | { dx: number, dy: number }[];
+export type AdjacencyPattern = 'ADJACENT' | 'PARALLEL' | 'TWO_ACROSS' | 'DIAMOND' | { dx: number, dy: number }[];
 
 export interface AdjacencyRule {
   type: 'BUFF' | 'DEBUFF' | 'MULTIPLIER' | 'BOOST_SQUARE';
   pattern: AdjacencyPattern;
   targetCategories?: ItemCategory[];
   targetIds?: string[];
-  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown' | 'healthRegen' | 'manaRegen' | 'maxMana' | 'energyRegen' | 'maxEnergy';
+  stat?: 'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'multiplier' | 'cooldown' | 'healthRegen' | 'manaRegen' | 'maxMana' | 'energyRegen' | 'maxEnergy' | 'staminaRegen';
   effect: string;
   value: number; // For BUFF/DEBUFF: added value. For MULTIPLIER: factor (e.g. 1.5). For BOOST_SQUARE: level?
   stacking?: boolean; // If true, applies for EACH item matching the pattern
   targetSelf?: boolean; // If true, the buff applies to the source item, not the target
+}
+
+export interface SynergyResult {
+  buffs?: Partial<{
+    damage: number;
+    defense: number;
+    block: number;
+    heal: number;
+    speed: number;
+    accuracy: number;
+    manaCost: number;
+    maxMana: number;
+    manaRegen: number;
+    shieldRegen: number;
+    healthRegen: number;
+    energyCost: number;
+    maxEnergy: number;
+    energyRegen: number;
+    staminaCost: number;
+    staminaRegen: number;
+  }>;
+  multipliers?: Partial<Record<'damage' | 'defense' | 'block' | 'heal' | 'speed' | 'accuracy' | 'manaCost' | 'maxMana' | 'manaRegen' | 'shieldRegen' | 'healthRegen' | 'energyCost' | 'maxEnergy' | 'energyRegen' | 'staminaCost' | 'staminaRegen' | 'triggerSpeed', number>>;
+}
+
+export interface FunctionalSynergy {
+  pattern: AdjacencyPattern;
+  description: string;
+  apply: (source: InventoryItemInstance, target: InventoryItemInstance, allItems: InventoryItemInstance[]) => SynergyResult;
+  targetIsSelf?: boolean; // If true, source gets the bonus. Otherwise target gets it.
+  isBoostSquare?: boolean; // Special handling for star-based global boosts
+  isDiamond?: boolean; // Secondary synergy type
 }
 
 export interface Item {
@@ -28,7 +59,9 @@ export interface Item {
   icon: string; // Lucide icon name or image path
   scoreValue: number; // Positive for good items, negative for sabotage
   rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
+  /** @deprecated use synergies instead */
   adjacency?: AdjacencyRule[];
+  synergies?: FunctionalSynergy[];
   combatStats?: {
     damage?: number;
     defense?: number; // Passive mitigation (Armor)
@@ -44,6 +77,10 @@ export interface Item {
     energyCost?: number; // Energy consumed when this weapon fires
     maxEnergy?: number; // Adds to max energy pool
     energyRegen?: number; // Energy regenerated per second
+    staminaCost?: number; // Stamina consumed per trigger
+    staminaRegen?: number; // Stamina regenerated per second
+    maxStamina?: number; // Adds to max stamina pool
+    triggerSpeed?: number; // Multiplier for how fast it triggers
   };
   triggerType?: 'ATTACK' | 'HEAL' | 'SHIELD' | 'PASSIVE';
   effects?: {
@@ -51,6 +88,10 @@ export interface Item {
     value: number; // Stacks or Duration
     chance?: number; // % chance to apply
   }[];
+  recipe?: {
+    ingredients: string[]; // item IDs
+    result: string; // item ID
+  };
 }
 
 export interface Player {
@@ -121,6 +162,8 @@ export interface InventoryItemInstance {
     energyCost?: number;
     heal?: number;
     block?: number;
+    staminaCost?: number;
+    triggerSpeed?: number;
   };
 }
 

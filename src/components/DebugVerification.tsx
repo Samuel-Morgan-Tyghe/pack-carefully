@@ -44,18 +44,18 @@ const DebugVerification: React.FC = () => {
             // Check Morale
             if ($gameState.get().morale !== initialMorale - 15) throw new Error("Morale did not decrease correctly");
             
-            // Check Loot (Cursed Scrap)
+            // Check Loot (Heavy Rock)
             const victimId = players[0].id;
-            addRandomLoot('curse_scrap', victimId);
+            addRandomLoot('rock', victimId);
             
             const items = $itemsOnGrid.get();
-            const hasScrap = items.some(i => i.itemId === 'curse_scrap' && i.ownerId === victimId);
+            const hasScrap = items.some(i => i.itemId === 'rock' && i.ownerId === victimId);
             
             if (!hasScrap) log("⚠️ Loot placement failed (might be full? or random fail). Retrying forced placement...");
             
             // Force place if random failed, to text logic
             if (!hasScrap) {
-                placeItem('curse_scrap', 0, 0, 0, victimId);
+                placeItem('rock', 0, 0, 0, victimId);
             }
             
             log("✅ Tactical Loss Logic verified (Morale drop + Loot).");
@@ -67,9 +67,9 @@ const DebugVerification: React.FC = () => {
             const p2Id = players[1].id;
             // Clear their bag first to be sure
             // Actually just place an item at 0,0
-            placeItem('torch', 0, 0, 0, p2Id);
+            placeItem('flashlight', 0, 0, 0, p2Id);
             
-            const itemBefore = $itemsOnGrid.get().find(i => i.ownerId === p2Id && i.itemId === 'torch');
+            const itemBefore = $itemsOnGrid.get().find(i => i.ownerId === p2Id && i.itemId === 'flashlight');
             if (!itemBefore) throw new Error("Failed to setup item for sabotage");
             
             log(`Item before: ${itemBefore.x}, ${itemBefore.y} (Rot: ${itemBefore.rotation})`);

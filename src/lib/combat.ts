@@ -17,6 +17,9 @@ export interface CombatStats {
     healthRegen?: number;
     maxEnergy: number;
     energyRegen: number;
+    staminaRegen: number; // Added
+    maxStamina: number; // Added
+    triggerSpeed: number; // Added (Multiplier)
 }
 
 export interface StatusEffect {
@@ -34,6 +37,8 @@ export interface CombatEntity {
     baseDefense: number;
     energy: number;
     maxEnergy: number;
+    stamina: number; // Added
+    maxStamina: number; // Added
     image?: string;
     stats: CombatStats;
     statuses: StatusEffect[];
@@ -73,7 +78,10 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): {
         shieldRegen: 0,
         healthRegen: 0,
         maxEnergy: 100, // Base energy pool
-        energyRegen: 2  // Base regen per second
+        energyRegen: 2,  // Base regen per second
+        maxStamina: 5,   // Base stamina pool (standard 1.0 regen is usually enough for 5 max)
+        staminaRegen: 1.0, // Standard base regen
+        triggerSpeed: 1.0  // Default multiplier
     };
 
     const bonusesMap = getAdjacencyBonuses(items);
@@ -89,7 +97,9 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): {
             accuracy: def.combatStats?.accuracy || 100,
             energyCost: def.combatStats?.energyCost || 0,
             heal: def.combatStats?.heal || 0,
-            block: def.combatStats?.block || 0
+            block: def.combatStats?.block || 0,
+            staminaCost: def.combatStats?.staminaCost || 0, // Added
+            triggerSpeed: def.combatStats?.triggerSpeed || 1.0 // Added
         };
 
         // Apply additive buffs
@@ -108,6 +118,7 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): {
             if (bonus.multipliers.accuracy) liveStats.accuracy = Math.floor(liveStats.accuracy * bonus.multipliers.accuracy);
             if (bonus.multipliers.heal) liveStats.heal = Math.floor(liveStats.heal * bonus.multipliers.heal);
             if (bonus.multipliers.block) liveStats.block = Math.floor(liveStats.block * bonus.multipliers.block);
+            if (bonus.multipliers.triggerSpeed) liveStats.triggerSpeed *= bonus.multipliers.triggerSpeed; // Multiplicative
         }
 
         // Accumulate global passive stats
@@ -117,9 +128,13 @@ export const calculatePlayerCombatInfo = (items: InventoryItemInstance[]): {
             totalStats.defense += def.combatStats?.defense || 0;
             totalStats.healthRegen! += def.combatStats?.healthRegen || 0;
             totalStats.shieldRegen! += def.combatStats?.shieldRegen || 0;
+            totalStats.maxStamina += def.combatStats?.maxStamina || 0; // Added
+            totalStats.staminaRegen += def.combatStats?.staminaRegen || 0; // Added
+            totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0; // Global multiplier from bags
 
-            // Apply global buffs from passive items if they exist (though usually they target specific items)
+            // Apply global buffs from passive items if they exist
             if (bonus?.buffs?.defense) totalStats.defense += bonus.buffs.defense;
+            if (bonus?.buffs?.staminaRegen) totalStats.staminaRegen += bonus.buffs.staminaRegen;
         }
 
         return { ...instance, liveStats };
@@ -180,35 +195,58 @@ export const processCombatTick = (
     p.energy = Math.min(p.maxEnergy, p.energy + (p.stats.energyRegen * deltaMs / 1000));
     e.energy = Math.min(e.maxEnergy, e.energy + (e.stats.energyRegen * deltaMs / 1000));
 
+    // Tick Regen/Poison every 2 seconds
+    if (Math.floor(elapsedTime / 2000) > Math.floor((elapsedTime - deltaMs) / 2000)) {
+        // Player
+        const pRegen = p.stats.healthRegen || 0;
+        const pPoison = p.statuses.filter(s => s.type === 'POISON').reduce((sum, s) => sum + s.value, 0);
+        const pNet = pRegen - pPoison;
+        if (pNet > 0) p.hp = Math.min(p.maxHp, p.hp + pNet);
+        else if (pNet < 0) p.hp = Math.max(0, p.hp + pNet);
+
+        // Enemy
+        const eRegen = e.stats.healthRegen || 0;
+        const ePoison = e.statuses.filter(s => s.type === 'POISON').reduce((sum, s) => sum + s.value, 0);
+        const eNet = eRegen - ePoison;
+        if (eNet > 0) e.hp = Math.min(e.maxHp, e.hp + eNet);
+        else if (eNet < 0) e.hp = Math.max(0, e.hp + eNet);
+    }
+
+    // Stamina Regen (Continuous)
+    p.stamina = Math.min(p.maxStamina, p.stamina + (p.stats.staminaRegen * deltaMs / 1000));
+    e.stamina = Math.min(e.maxStamina, e.stamina + (e.stats.staminaRegen * deltaMs / 1000));
+
     // Process Player Cooldowns
     const nextPlayerCooldowns = playerCooldowns.map(cd => {
-        let current = cd.current - deltaMs;
+        const instance = p.inventory.find(i => i.instanceId === cd.instanceId);
+        const liveStats = instance?.liveStats;
+        const triggerSpeed = liveStats?.triggerSpeed || 1.0;
+
+        const current = cd.current - (deltaMs * triggerSpeed);
+
         if (current <= 0) {
-            // Trigger Item!
-            const instance = p.inventory.find(i => i.instanceId === cd.instanceId);
             const def = ITEMS[cd.itemId];
-            const liveStats = instance?.liveStats;
-
-            if (!liveStats) return { ...cd, current: cd.max }; // Fail-safe
-
-            // Only pick up items that have a trigger role (Attack, Heal, Shield)
+            if (!liveStats) return { ...cd, current: cd.max };
             if (def.triggerType === 'PASSIVE') return { ...cd, current: cd.max };
 
             const energyCost = liveStats.energyCost || 0;
+            const staminaCost = liveStats.staminaCost || 0;
 
-            // Check energy
+            // Check resources
             if (energyCost > 0 && p.energy < energyCost) {
-                const failTrigger = { type: 'FAIL_ENERGY' as const, timestamp: elapsedTime };
-                return { ...cd, current, lastTrigger: failTrigger };
+                return { ...cd, current: 0 }; // Wait for energy
+            }
+            if (staminaCost > 0 && p.stamina < staminaCost) {
+                return { ...cd, current: 0 }; // Wait for stamina (Hard Ceiling)
             }
 
-            // Deduct energy
+            // Deduct resources
             p.energy -= energyCost;
+            p.stamina -= staminaCost;
             const successTrigger = { type: 'SUCCESS' as const, timestamp: elapsedTime };
 
             if (def.triggerType === 'ATTACK') {
                 const baseDmg = liveStats.damage || 0;
-                // Resolve Accuracy
                 const miss = Math.random() * 100 > (liveStats.accuracy || 100);
                 if (miss) {
                     events.push(`Player's ${def.name} missed!`);
@@ -232,7 +270,7 @@ export const processCombatTick = (
                 events.push(`Player's ${def.name} adds ${blockVal} shield!`);
             }
 
-            // Apply Status Effects from this specific item
+            // Apply Status Effects
             if (def.effects) {
                 def.effects.forEach(eff => {
                     if (eff.chance && Math.random() * 100 > eff.chance) return;
@@ -240,8 +278,7 @@ export const processCombatTick = (
                 });
             }
 
-            current = cd.max;
-            return { ...cd, current, lastTrigger: successTrigger };
+            return { ...cd, current: cd.max, lastTrigger: successTrigger };
         }
         return { ...cd, current };
     });
@@ -310,41 +347,48 @@ const ENEMY_TEMPLATES: Record<EnemyType, {
     baseDef: number;
     defPerDiff: number;
     itemsCount: number; // Base items
+    baseStamina: number; // Added
+    staminaRegen: number; // Added
 }> = {
     AGGRESSIVE: {
         names: ['Dire Wolf', 'Berserker', 'Wild Boar'],
-        pool: ['dagger', 'sword', 'hammer', 'battle_axe', 'oil_flask'],
+        pool: ['dagger', 'flashlight'],
         baseHp: 40, hpPerDiff: 10,
         baseDef: 0, defPerDiff: 0,
-        itemsCount: 1
+        itemsCount: 1,
+        baseStamina: 3, staminaRegen: 1.0
     },
     DEFENSIVE: {
         names: ['Iron Bear', 'Stone Golem', 'Turtle'],
-        pool: ['rock', 'shield', 'helmet', 'potion', 'hammer'], // helmet/shield if exist, else basic
+        pool: ['rock', 'knights_crest', 'first_aid', 'wooden_shield', 'rations'],
         baseHp: 80, hpPerDiff: 20,
         baseDef: 2, defPerDiff: 1,
-        itemsCount: 1
+        itemsCount: 1,
+        baseStamina: 5, staminaRegen: 0.8
     },
     SWARM: {
         names: ['Rat Pack', 'Bee Swarm', 'Kobold'],
-        pool: ['dagger', 'slingshot', 'broken_radio', 'rusty_nails'],
+        pool: ['dagger', 'rock', 'rations'],
         baseHp: 30, hpPerDiff: 5,
         baseDef: 0, defPerDiff: 0,
-        itemsCount: 2
+        itemsCount: 2,
+        baseStamina: 2, staminaRegen: 1.5
     },
     EVASIVE: {
         names: ['Wind Spirit', 'Ninja', 'Bat'],
-        pool: ['bow', 'slingshot', 'dagger', 'rope'],
+        pool: ['dagger', 'water_bottle', 'rations'],
         baseHp: 35, hpPerDiff: 8,
         baseDef: 0, defPerDiff: 0,
-        itemsCount: 1
+        itemsCount: 1,
+        baseStamina: 4, staminaRegen: 1.2
     },
     BOSS: {
         names: ['Dragon', 'Dark Knight', 'Beholder'],
-        pool: ['excalibur', 'obsidian_shield', 'dragon_scale', 'battle_axe'],
+        pool: ['dagger', 'knights_crest', 'first_aid', 'sleeping_bag', 'wooden_shield'],
         baseHp: 200, hpPerDiff: 50,
         baseDef: 5, defPerDiff: 2,
-        itemsCount: 3
+        itemsCount: 3,
+        baseStamina: 10, staminaRegen: 2.0
     }
 };
 
@@ -404,6 +448,8 @@ export const generateEnemy = (type: EnemyType, difficulty: number): CombatEntity
         baseDefense,
         energy: finalStats.maxEnergy,
         maxEnergy: finalStats.maxEnergy,
+        stamina: template.baseStamina,
+        maxStamina: template.baseStamina,
         stats: finalStats,
         statuses: [],
         synergies,

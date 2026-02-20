@@ -1,6 +1,321 @@
 import type { Item } from '../types';
 
 export const ITEMS: Record<string, Item> = {
+  water_bottle: {
+    id: 'water_bottle',
+    name: 'Water Bottle',
+    description: 'Hydration.',
+    category: 'ESSENTIAL',
+    width: 1,
+    height: 2,
+    icon: 'Droplets',
+    scoreValue: 10,
+    rarity: 'COMMON',
+    combatStats: { energyRegen: 5 },
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Hydration (+10 Max Energy)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (ITEMS[target.itemId].category === 'ESSENTIAL') return { buffs: { maxEnergy: 10 } };
+          return {};
+        }
+      }
+    ]
+  },
+  rations: {
+    id: 'rations',
+    name: 'Survival Rations',
+    description: 'Dry food.',
+    category: 'ESSENTIAL',
+    width: 2,
+    height: 1,
+    icon: 'Package',
+    scoreValue: 10,
+    rarity: 'COMMON',
+    combatStats: { healthRegen: 1, energyRegen: 2 },
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Banquet (+3 HP Regen)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          const targetDef = ITEMS[target.itemId];
+          if (targetDef.category === 'ESSENTIAL' && (target.itemId === 'rations' || target.itemId === 'water_bottle')) {
+            return { buffs: { healthRegen: 3 } };
+          }
+          return {};
+        }
+      }
+    ]
+  },
+  flashlight: {
+    id: 'flashlight',
+    name: 'Flashlight',
+    description: 'Spot targets.',
+    category: 'TOOL',
+    width: 1,
+    height: 2,
+    icon: 'Flashlight',
+    scoreValue: 5,
+    rarity: 'COMMON',
+    combatStats: { accuracy: 15 },
+  },
+  first_aid: {
+    id: 'first_aid',
+    name: 'First Aid Kit',
+    description: 'Emergency care.',
+    category: 'SURVIVAL',
+    width: 2,
+    height: 2,
+    icon: 'BriefcaseMedical',
+    scoreValue: 20,
+    triggerType: 'HEAL',
+    combatStats: { heal: 15, energyCost: 20 },
+    rarity: 'UNCOMMON',
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Clean Wounds (1.5x Heal)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (target.itemId === 'water_bottle') return { multipliers: { heal: 1.5 } };
+          return {};
+        }
+      }
+    ]
+  },
+  wooden_shield: {
+    id: 'wooden_shield',
+    name: 'Wooden Shield',
+    description: 'Basic protection.',
+    category: 'TOOL',
+    width: 2,
+    height: 2,
+    icon: 'Shield',
+    scoreValue: 15,
+    rarity: 'COMMON',
+    combatStats: { defense: 5, block: 10, staminaCost: 1.0 },
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Shield Wall (+8 DEF)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          const targetDef = ITEMS[target.itemId];
+          if (targetDef.category === 'CLOTHING' || targetDef.category === 'SURVIVAL' || target.itemId === 'wooden_shield') {
+            return { buffs: { defense: 8 } };
+          }
+          return {};
+        }
+      }
+    ]
+  },
+  sleeping_bag: {
+    id: 'sleeping_bag',
+    name: 'Sleeping Bag',
+    description: 'Rest well.',
+    category: 'COMFORT',
+    width: 2,
+    height: 3,
+    icon: 'Bed',
+    scoreValue: 5,
+    rarity: 'COMMON',
+    combatStats: { energyRegen: 2, maxEnergy: 20, healthRegen: 3 },
+  },
+  rock: {
+    id: 'rock',
+    name: 'Heavy Rock',
+    description: 'Useless weight.',
+    category: 'SABOTAGE',
+    width: 2,
+    height: 2,
+    icon: 'Gem',
+    scoreValue: -10,
+    rarity: 'COMMON',
+  },
+  wooden_sword: {
+    id: 'wooden_sword',
+    name: 'Wooden Sword',
+    description: 'A training blade.',
+    category: 'WEAPON',
+    width: 1,
+    height: 3,
+    icon: 'Sword',
+    scoreValue: 5,
+    triggerType: 'ATTACK',
+    combatStats: { damage: 4, speed: 5, accuracy: 90, energyCost: 10, staminaCost: 0.7 },
+    rarity: 'COMMON',
+    recipe: {
+      ingredients: ['wooden_sword', 'rock'],
+      result: 'hero_sword'
+    }
+  },
+  hero_sword: {
+    id: 'hero_sword',
+    name: 'Hero Sword',
+    description: 'A blade of destiny.',
+    category: 'WEAPON',
+    width: 1,
+    height: 3,
+    icon: 'Sword',
+    scoreValue: 25,
+    triggerType: 'ATTACK',
+    combatStats: { damage: 10, speed: 6, accuracy: 95, energyCost: 15, staminaCost: 1.0 },
+    rarity: 'RARE',
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Empower (+2 DMG per weapon)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (ITEMS[target.itemId].category === 'WEAPON') return { buffs: { damage: 2 } };
+          return {};
+        }
+      }
+    ]
+  },
+  dagger: {
+    id: 'dagger',
+    name: 'Poison Dagger',
+    description: 'Inflicts poison.',
+    category: 'WEAPON',
+    width: 1,
+    height: 1,
+    icon: 'Syringe',
+    scoreValue: 7,
+    triggerType: 'ATTACK',
+    combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 15, staminaCost: 0.5 },
+    effects: [{ type: 'POISON', value: 2 }],
+    rarity: 'UNCOMMON',
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Dual Wield (+2 Speed)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (ITEMS[target.itemId].category === 'WEAPON') return { buffs: { speed: 2 } };
+          return {};
+        }
+      }
+    ]
+  },
+  backpack: {
+    id: 'backpack',
+    name: 'Backpack',
+    description: 'Significant storage.',
+    category: 'CONTAINER',
+    width: 2,
+    height: 3,
+    icon: 'Backpack',
+    scoreValue: 0,
+    rarity: 'UNCOMMON',
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Easy Access (+10 Accuracy)',
+        apply: (_, target) => {
+          if (target.itemId === 'flashlight') return { buffs: { accuracy: 10 } };
+          return {};
+        }
+      }
+    ]
+  },
+  fanny_pack: {
+    id: 'fanny_pack',
+    name: 'Fanny Pack',
+    description: 'Quick access.',
+    category: 'CONTAINER',
+    width: 2,
+    height: 1,
+    icon: 'Square',
+    scoreValue: 5,
+    rarity: 'COMMON',
+    combatStats: { triggerSpeed: 1.1 } // +10% speed
+  },
+  stamina_sack: {
+    id: 'stamina_sack',
+    name: 'Stamina Sack',
+    description: 'Breathe easy.',
+    category: 'CONTAINER',
+    width: 2,
+    height: 1,
+    icon: 'Package',
+    scoreValue: 5,
+    rarity: 'COMMON',
+    combatStats: { staminaRegen: 1.0 } // +1.0 stamina/sec
+  },
+  lead_weight: {
+    id: 'lead_weight',
+    name: 'Lead Weight',
+    description: 'Heavy burden.',
+    category: 'SABOTAGE',
+    width: 1,
+    height: 1,
+    icon: 'Anchor',
+    scoreValue: -15,
+    rarity: 'UNCOMMON',
+    combatStats: { staminaRegen: -0.5 } // Drains stamina
+  },
+  rusty_nail: {
+    id: 'rusty_nail',
+    name: 'Rusty Nail',
+    description: 'Sharp and dirty.',
+    category: 'SABOTAGE',
+    width: 1,
+    height: 1,
+    icon: 'Hash',
+    scoreValue: -10,
+    rarity: 'COMMON',
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Self-Harm (Bleed)',
+        targetIsSelf: true,
+        apply: () => ({ buffs: { damage: -1 } }) // Placeholder for bleed mechanism
+      }
+    ]
+  },
+  knights_crest: {
+    id: 'knights_crest',
+    name: "Knight's Crest",
+    description: 'Protects the flanks.',
+    category: 'CLOTHING',
+    width: 1,
+    height: 1,
+    icon: 'ShieldAlert',
+    scoreValue: 25,
+    rarity: 'RARE',
+    combatStats: { defense: 10 },
+    synergies: [
+      {
+        pattern: [
+          { dx: 1, dy: 2 }, { dx: 2, dy: 1 },
+          { dx: -1, dy: 2 }, { dx: -2, dy: 1 },
+          { dx: 1, dy: -2 }, { dx: 2, dy: -1 },
+          { dx: -1, dy: -2 }, { dx: -2, dy: -1 }
+        ],
+        description: 'Flank Protection (1.2x DEF)',
+        targetIsSelf: true,
+        apply: () => ({ multipliers: { defense: 1.2 } })
+      },
+      {
+        pattern: 'ADJACENT',
+        description: 'Reinforced (+5 DEF)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (target.itemId === 'wooden_shield' || target.itemId === 'knights_crest') {
+            return { buffs: { defense: 5 } };
+          }
+          return {};
+        }
+      }
+    ]
+  },
+};
+
+export const LEGACY_ITEMS: Record<string, Item> = {
   compass: {
     id: 'compass',
     name: 'Compass',
@@ -48,8 +363,15 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Map',
     scoreValue: 15,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['compass', 'spyglass'], stat: 'accuracy', effect: '+15 Accuracy (Scouting)', value: 15 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Scouting (+15 Accuracy)',
+        apply: (_, target) => {
+          if (['compass', 'spyglass'].includes(target.itemId)) return { buffs: { accuracy: 15 } };
+          return {};
+        }
+      }
     ]
   },
   flashlight: {
@@ -88,8 +410,15 @@ export const ITEMS: Record<string, Item> = {
     triggerType: 'HEAL',
     combatStats: { heal: 15, energyCost: 20 },
     rarity: 'UNCOMMON',
-    adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['potion', 'canteen', 'water_bottle'], stat: 'heal', effect: '1.5x Heal (Clean Wounds)', value: 1.5 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '1.5x Heal (Clean Wounds)',
+        apply: (_, target) => {
+          if (['potion', 'canteen', 'water_bottle'].includes(target.itemId)) return { multipliers: { heal: 1.5 } };
+          return {};
+        }
+      }
     ]
   },
   matches: {
@@ -102,8 +431,15 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Flame',
     scoreValue: 5,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'damage', effect: 'Fire-Coating (+5 DMG)', value: 5 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: 'Fire-Coating (+5 DMG)',
+        apply: (_, target) => {
+          if (LEGACY_ITEMS[target.itemId].category === 'WEAPON') return { buffs: { damage: 5 } };
+          return {};
+        }
+      }
     ]
   },
   sleeping_bag: {
@@ -128,8 +464,15 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Gem',
     scoreValue: -10,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON', 'TOOL', 'ESSENTIAL', 'SURVIVAL'], stat: 'speed', effect: '-3 Speed (Heavy)', value: -3 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '-3 Speed (Heavy)',
+        apply: (_, target) => {
+          if (['WEAPON', 'TOOL', 'ESSENTIAL', 'SURVIVAL'].includes(LEGACY_ITEMS[target.itemId].category)) return { buffs: { speed: -3 } };
+          return {};
+        }
+      }
     ]
   },
   broken_radio: {
@@ -142,8 +485,15 @@ export const ITEMS: Record<string, Item> = {
     icon: 'Radio',
     scoreValue: -5,
     rarity: 'COMMON',
-    adjacency: [
-      { type: 'DEBUFF', pattern: 'ADJACENT', targetCategories: ['TOOL'], stat: 'accuracy', effect: '-8 Accuracy (Noise)', value: -8 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '-8 Accuracy (Noise)',
+        apply: (_, target) => {
+          if (LEGACY_ITEMS[target.itemId].category === 'TOOL') return { buffs: { accuracy: -8 } };
+          return {};
+        }
+      }
     ]
   },
   // WEAPONS (Dagger, Hammer, Wand, Bow, Knife, Sword, Potion, Curse Scrap) keep mostly same but check 'Scoring'
@@ -160,8 +510,15 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { damage: 2, speed: 8, accuracy: 90, energyCost: 15 },
     effects: [{ type: 'POISON', value: 2 }],
     rarity: 'UNCOMMON',
-    adjacency: [
-      { type: 'MULTIPLIER', pattern: 'ADJACENT', targetIds: ['katana'], stat: 'speed', effect: '1.3x Speed (Dual Blades)', value: 1.3 }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '1.3x Speed (Dual Blades)',
+        apply: (_, target) => {
+          if (target.itemId === 'katana') return { multipliers: { speed: 1.3 } };
+          return {};
+        }
+      }
     ]
   },
   hammer: {
@@ -194,8 +551,16 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { damage: 2, speed: 6, accuracy: 100, manaCost: 5, energyCost: 15 },
     effects: [{ type: 'FIRE', value: 3 }],
     rarity: 'UNCOMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'manaRegen', effect: '+5 Mana Regen (Arcane Link)', value: 5, targetSelf: true }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '+5 Mana Regen (Arcane Link)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (LEGACY_ITEMS[target.itemId].category === 'WEAPON') return { buffs: { manaRegen: 5 } };
+          return {};
+        }
+      }
     ]
   },
   bow: {
@@ -210,8 +575,16 @@ export const ITEMS: Record<string, Item> = {
     triggerType: 'ATTACK',
     combatStats: { damage: 6, speed: 7, accuracy: 95, energyCost: 30 },
     rarity: 'UNCOMMON',
-    adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetCategories: ['WEAPON'], stat: 'accuracy', effect: '+10 Accuracy (Aimed Shot)', value: 10, targetSelf: true }
+    synergies: [
+      {
+        pattern: 'ADJACENT',
+        description: '+10 Accuracy (Aimed Shot)',
+        targetIsSelf: true,
+        apply: (_, target) => {
+          if (LEGACY_ITEMS[target.itemId].category === 'WEAPON') return { buffs: { accuracy: 10 } };
+          return {};
+        }
+      }
     ]
   },
   knife: {
@@ -332,7 +705,7 @@ export const ITEMS: Record<string, Item> = {
     combatStats: { damage: 2, speed: 9, accuracy: 80, energyCost: 8 },
     rarity: 'COMMON',
     adjacency: [
-      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['matches'], stat: 'damage', effect: '+8 DMG (Ammo!)', value: 8, targetSelf: true }
+      { type: 'BUFF', pattern: 'ADJACENT', targetIds: ['matches'], stat: 'damage', effect: '+8 DMG (Ammo Synergy)', value: 8, targetSelf: true }
     ]
   },
   katana: {

@@ -47,6 +47,8 @@ const AutoBattler: React.FC = () => {
             baseDefense: stats.defense,
             energy: stats.maxEnergy,
             maxEnergy: stats.maxEnergy,
+            stamina: stats.maxStamina,
+            maxStamina: stats.maxStamina,
             stats: stats,
             synergies: synergies,
             statuses: [],
@@ -160,7 +162,7 @@ const AutoBattler: React.FC = () => {
             }, 50); // 20 ticks per second
             return () => clearInterval(interval);
         }
-    }, [isFighting, gameResult, elapsedTime]);
+    }, [isFighting, gameResult, elapsedTime, tickSpeed]);
 
     if (!player || !enemy) return <div>Loading Combat...</div>;
 
@@ -191,12 +193,15 @@ const AutoBattler: React.FC = () => {
 
                     <HealthBar current={player.hp} max={player.maxHp} shield={player.shield} color="bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
                     <EnergyBar current={player.energy} max={player.maxEnergy} />
+                    <StaminaBar current={player.stamina} max={player.maxStamina} />
 
-                    <div className="grid grid-cols-4 gap-2 relative z-10">
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
                         <StatBox icon={<Sword size={14} className="text-red-400" />} value={player.stats.damage} label="DMG" />
                         <StatBox icon={<Shield size={14} className="text-blue-400" />} value={player.baseDefense} label="DEF" />
                         <StatBox icon={<Zap size={14} className="text-yellow-400" />} value={player.stats.speed} label="SPD" />
                         <StatBox icon={<Battery size={14} className="text-amber-400" />} value={`${Math.round(player.stats.energyRegen)}/s`} label="NRG" />
+                        <StatBox icon={<Activity size={14} className="text-green-400" />} value={`${player.stats.staminaRegen.toFixed(1)}/s`} label="STM" />
+                        <StatBox icon={<Zap size={14} className="text-purple-400" />} value={`${player.stats.triggerSpeed.toFixed(1)}x`} label="FAST" />
                     </div>
 
                     {/* PLAYER GRID */}
@@ -434,6 +439,21 @@ const EnergyBar = ({ current, max }: { current: number, max: number }) => (
         <div className="absolute inset-0 flex items-center justify-between px-3 text-[9px] font-bold text-white shadow-black drop-shadow-md">
             <span>⚡ {Math.round(current)}</span>
             <span>{Math.round(max)}</span>
+        </div>
+    </div>
+);
+
+const StaminaBar = ({ current, max }: { current: number, max: number }) => (
+    <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner">
+        <motion.div
+            className="h-full bg-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+            initial={{ width: '100%' }}
+            animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
+            transition={{ duration: 0.1, ease: 'linear' }}
+        />
+        <div className="absolute inset-0 flex items-center justify-between px-3 text-[9px] font-bold text-white shadow-black drop-shadow-md">
+            <span>🔋 {current.toFixed(1)}</span>
+            <span>{max}</span>
         </div>
     </div>
 );

@@ -14,8 +14,11 @@ const createPlayer = (): CombatEntity => ({
     baseDefense: 0,
     energy: 100,
     maxEnergy: 100,
+    stamina: 5,
+    maxStamina: 5,
     stats: {
-        damage: 0, defense: 0, block: 0, heal: 0, speed: 0, accuracy: 100, maxMana: 20, manaRegen: 0, shieldRegen: 0, healthRegen: 0, maxEnergy: 100, energyRegen: 5
+        damage: 0, defense: 0, block: 0, heal: 0, speed: 0, accuracy: 100, maxMana: 20, manaRegen: 0, shieldRegen: 0, healthRegen: 0, maxEnergy: 100, energyRegen: 5,
+        staminaRegen: 1.0, maxStamina: 5, triggerSpeed: 1.0
     },
     statuses: [],
     synergies: [],
@@ -32,8 +35,11 @@ const createEnemy = (): CombatEntity => ({
     baseDefense: 0,
     energy: 100,
     maxEnergy: 100,
+    stamina: 5,
+    maxStamina: 5,
     stats: {
-        damage: 10, defense: 0, block: 0, heal: 0, speed: 5, accuracy: 100, maxMana: 0, manaRegen: 0, shieldRegen: 0, healthRegen: 0, maxEnergy: 100, energyRegen: 5
+        damage: 10, defense: 0, block: 0, heal: 0, speed: 5, accuracy: 100, maxMana: 0, manaRegen: 0, shieldRegen: 0, healthRegen: 0, maxEnergy: 100, energyRegen: 5,
+        staminaRegen: 1.0, maxStamina: 5, triggerSpeed: 1.0
     },
     statuses: [],
     synergies: [],
