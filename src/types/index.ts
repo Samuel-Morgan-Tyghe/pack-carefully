@@ -39,6 +39,7 @@ export interface SynergyResult {
     energyCost: number
     maxEnergy: number
     energyRegen: number
+    manaCost: number // Added
   }>
   multipliers?: Partial<
     Record<
@@ -52,7 +53,8 @@ export interface SynergyResult {
       | "energyCost"
       | "maxEnergy"
       | "energyRegen"
-      | "triggerSpeed",
+      | "triggerSpeed"
+      | "manaCost", 
       number
     >
   >
@@ -102,6 +104,7 @@ export interface Item {
     energyRegen?: number // Energy regenerated per second
     triggerSpeed?: number // Multiplier for how fast it triggers
     baseCooldownMs?: number // Default cooldown if not specified
+    manaCost?: number // Added
   }
   triggerType?: "ATTACK" | "HEAL" | "SHIELD" | "PASSIVE"
   effects?: {
@@ -174,6 +177,7 @@ export interface InventoryItemInstance {
     block?: number
     triggerSpeed?: number
     baseCooldownMs?: number
+    manaCost?: number // Added
   }
 }
 
