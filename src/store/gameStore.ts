@@ -851,7 +851,6 @@ export const startDraft = () => {
       (i) =>
         (i.category === "CLOTHING" ||
           i.category === "SURVIVAL" ||
-          i.combatStats?.defense ||
           i.combatStats?.block) &&
         i.rarity === defRarity,
     )

@@ -71,9 +71,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
   const widthPx = w * CELL_SIZE + (w - 1) * GAP
   const heightPx = h * CELL_SIZE + (h - 1) * GAP
 
-  // Detect if x2 speed is active
-  const hasSpeedBoost = myBonus?.multipliers?.speed === 2
-
   return (
     <motion.div
       layout // Use layout animation for smooth sorting/shifts if we implement auto-sort
@@ -154,8 +151,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         // Active Adjacency Glow
         (myBonus?.totalBuff || 0) > 0 &&
           "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
-        hasSpeedBoost &&
-          "shadow-[0_0_20px_rgba(255,255,255,0.6)] border-white scale-[1.05]",
 
         // Locked Visual
         item.locked &&
@@ -189,13 +184,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         <span className="text-[10px] font-bold uppercase tracking-wider text-parchment-200 mt-1 pointer-events-none">
           {itemDef.name}
         </span>
-      )}
-
-      {/* Speed Boost Badge */}
-      {hasSpeedBoost && (
-        <div className="absolute top-0 left-0 bg-white text-black text-[8px] font-black px-1 rounded-br-md shadow-md animate-pulse">
-          X2 SPEED
-        </div>
       )}
 
       {/* Lock Icon Overlay */}

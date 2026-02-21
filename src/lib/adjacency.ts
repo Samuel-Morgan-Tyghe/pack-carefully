@@ -15,14 +15,13 @@ export interface AdjacencyResult {
   instanceId: string
   totalBuff: number
   buffs: Record<string, number> // stat -> additive value
-  multipliers: Record<string, number> // stat -> multiplier (e.g. { speed: 2 })
+  multipliers: Record<string, number> // stat -> multiplier
   activeRules: string[]
   boostedSquares: { x: number; y: number }[] // Squares boosted by this item
   activeSynergySquares: SynergySquare[] // Squares where synergy is active
   potentialSynergySquares: SynergySquare[] // Pattern squares that could synergy
 }
 
-// Helper to get cells occupied by an item
 const getItemCells = (item: InventoryItemInstance) => {
   const def = ITEMS[item.itemId]
   if (!def) return []
@@ -39,7 +38,6 @@ const getItemCells = (item: InventoryItemInstance) => {
   return cells
 }
 
-// Helper to rotate an offset based on item rotation
 const getRotatedOffset = (dx: number, dy: number, rotation: number) => {
   if (rotation === 90) return { rdx: -dy, rdy: dx }
   if (rotation === 180) return { rdx: -dx, rdy: -dy }
@@ -47,7 +45,6 @@ const getRotatedOffset = (dx: number, dy: number, rotation: number) => {
   return { rdx: dx, rdy: dy }
 }
 
-// Helper to check spatial relationship
 const checkPattern = (
   itemA: InventoryItemInstance,
   itemB: InventoryItemInstance,
@@ -92,7 +89,6 @@ export const getAdjacencyBonuses = (
   const results: Record<string, AdjacencyResult> = {}
   const cellBoosts = new Map<string, Set<string>>()
 
-  // Initialize results
   for (const item of gridItems) {
     results[item.instanceId] = {
       instanceId: item.instanceId,
@@ -106,12 +102,10 @@ export const getAdjacencyBonuses = (
     }
   }
 
-  // First Pass: Identify Boosted Squares (Global Stars)
   for (const sourceItem of gridItems) {
     const sourceDef = ITEMS[sourceItem.itemId]
     if (!sourceDef) continue
 
-    // Functional Boost Squares
     if (sourceDef.synergies) {
       for (const syn of sourceDef.synergies) {
         if (syn.isBoostSquare) {
@@ -150,20 +144,16 @@ export const getAdjacencyBonuses = (
     }
   }
 
-  // Second Pass: Identify Synergy Square Highlights (Active vs Potential)
   for (const sourceItem of gridItems) {
     const sourceDef = ITEMS[sourceItem.itemId]
     if (!sourceDef) continue
 
     const cellsA = getItemCells(sourceItem)
-
-    // Process functional synergies
     const allRules = sourceDef.synergies || []
 
     for (const rule of allRules) {
       if (rule.isBoostSquare) continue
 
-      // Calculate Footprint
       const footprint: { x: number; y: number }[] = []
       const pattern = rule.pattern
 
@@ -202,7 +192,6 @@ export const getAdjacencyBonuses = (
         }
       }
 
-      // De-duplicate & bounds check, and ENSURE they don't overlap the source item itself
       const cellsAKeys = new Set(cellsA.map((c) => `${c.x},${c.y}`))
       const uniqueFootprint = Array.from(
         new Set(footprint.map((f) => `${f.x},${f.y}`)),
@@ -228,90 +217,40 @@ export const getAdjacencyBonuses = (
           )
         })
 
-        let icon = "Star" // Default
-
-        // Determine context-specific icon even for potential synergies
+        let icon = "Star"
         const desc = rule.description.toLowerCase()
         if (
           desc.includes("damage") ||
           desc.includes("weapon") ||
           desc.includes("attack") ||
-          desc.includes("sword") ||
-          desc.includes("wield") ||
-          desc.includes("empower")
+          desc.includes("sword")
         )
           icon = "Swords"
         else if (
           desc.includes("heal") ||
           desc.includes("health") ||
-          desc.includes("regen") ||
-          desc.includes("diet") ||
-          desc.includes("banquet") ||
-          desc.includes("hydration")
+          desc.includes("hp")
         )
           icon = "Heart"
-        else if (
-          desc.includes("defense") ||
-          desc.includes("shield") ||
-          desc.includes("block") ||
-          desc.includes("armor") ||
-          desc.includes("protection")
-        )
+        else if (desc.includes("block") || desc.includes("armor"))
           icon = "Shield"
-        else if (
-          desc.includes("accuracy") ||
-          desc.includes("aim") ||
-          desc.includes("access")
-        )
-          icon = "Target"
-        else if (
-          desc.includes("speed") ||
-          desc.includes("fast") ||
-          desc.includes("quick") ||
-          desc.includes("haste")
-        )
-          icon = "Zap"
-        else if (
-          desc.includes("energy") ||
-          desc.includes("stamina") ||
-          desc.includes("battery") ||
-          desc.includes("power")
-        )
+        else if (desc.includes("energy") || desc.includes("battery"))
           icon = "Battery"
+        else if (desc.includes("mana") || desc.includes("magic"))
+          icon = "Droplets"
 
         if (targetItem) {
-          let isActive = false
-
           const res: SynergyResult = rule.apply(
             sourceItem,
             targetItem,
             gridItems,
           )
-          isActive = !!(
+          const isActive = !!(
             (res.buffs && Object.keys(res.buffs).length > 0) ||
             (res.multipliers && Object.keys(res.multipliers).length > 0)
           )
 
           if (isActive) {
-            // Refine icon if active
-            const stats = [
-              ...Object.keys(res.buffs || {}),
-              ...Object.keys(res.multipliers || {}),
-            ]
-            if (stats.includes("heal") || stats.includes("healthRegen"))
-              icon = "Heart"
-            else if (stats.includes("damage")) icon = "Swords"
-            else if (stats.includes("defense") || stats.includes("block"))
-              icon = "Shield"
-            else if (stats.includes("accuracy")) icon = "Target"
-            else if (stats.includes("speed")) icon = "Zap"
-            else if (
-              stats.includes("energyRegen") ||
-              stats.includes("maxEnergy") ||
-              stats.includes("staminaRegen")
-            )
-              icon = "Battery"
-
             results[sourceItem.instanceId].activeSynergySquares.push({
               ...square,
               icon,
@@ -332,7 +271,6 @@ export const getAdjacencyBonuses = (
     }
   }
 
-  // Third Pass: Calculate Final Stats
   for (let i = 0; i < gridItems.length; i++) {
     const sourceItem = gridItems[i]
     const sourceDef = ITEMS[sourceItem.itemId]
@@ -342,7 +280,6 @@ export const getAdjacencyBonuses = (
       if (i === j) continue
       const targetItem = gridItems[j]
 
-      // Functional
       if (sourceDef.synergies) {
         for (const syn of sourceDef.synergies) {
           if (syn.isBoostSquare) continue
@@ -356,12 +293,7 @@ export const getAdjacencyBonuses = (
               for (const [stat, val] of Object.entries(res.buffs)) {
                 results[effectTargetId].buffs[stat] =
                   (results[effectTargetId].buffs[stat] || 0) + (val as number)
-                if (
-                  stat === "damage" ||
-                  stat === "defense" ||
-                  stat === "block" ||
-                  stat === "heal"
-                ) {
+                if (stat === "damage" || stat === "block" || stat === "heal") {
                   results[effectTargetId].totalBuff += val as number
                 }
               }
@@ -386,7 +318,6 @@ export const getAdjacencyBonuses = (
       }
     }
 
-    // Apply Boost Square logic (legacy and functional)
     const cells = getItemCells(sourceItem)
     for (const c of cells) {
       const boostingInstanceIds = cellBoosts.get(`${c.x},${c.y}`)
@@ -399,7 +330,6 @@ export const getAdjacencyBonuses = (
           const boosterDef = ITEMS[boosterItem.itemId]
           if (!boosterDef) continue
 
-          // Functional Boost
           if (boosterDef.synergies) {
             for (const syn of boosterDef.synergies) {
               if (syn.isBoostSquare) {
@@ -409,7 +339,13 @@ export const getAdjacencyBonuses = (
                     results[sourceItem.instanceId].buffs[stat] =
                       (results[sourceItem.instanceId].buffs[stat] || 0) +
                       (val as number)
-                    results[sourceItem.instanceId].totalBuff += val as number
+                    if (
+                      stat === "damage" ||
+                      stat === "block" ||
+                      stat === "heal"
+                    ) {
+                      results[sourceItem.instanceId].totalBuff += val as number
+                    }
                   }
                 }
                 if (

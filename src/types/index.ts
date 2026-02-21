@@ -30,40 +30,28 @@ export type AdjacencyPattern =
 export interface SynergyResult {
   buffs?: Partial<{
     damage: number
-    defense: number
     block: number
     heal: number
-    speed: number
-    accuracy: number
-    manaCost: number
+    healthRegen: number
+    maxHp: number
     maxMana: number
     manaRegen: number
-    shieldRegen: number
-    healthRegen: number
     energyCost: number
     maxEnergy: number
     energyRegen: number
-    staminaCost: number
-    staminaRegen: number
   }>
   multipliers?: Partial<
     Record<
       | "damage"
-      | "defense"
       | "block"
       | "heal"
-      | "speed"
-      | "accuracy"
-      | "manaCost"
+      | "healthRegen"
+      | "maxHp"
       | "maxMana"
       | "manaRegen"
-      | "shieldRegen"
-      | "healthRegen"
       | "energyCost"
       | "maxEnergy"
       | "energyRegen"
-      | "staminaCost"
-      | "staminaRegen"
       | "triggerSpeed",
       number
     >
@@ -83,6 +71,14 @@ export interface FunctionalSynergy {
   isDiamond?: boolean // Secondary synergy type
 }
 
+export interface SynergyEffect {
+  sourceId: string
+  targetId: string
+  type: string
+  value: number
+  description: string
+}
+
 export interface Item {
   id: string
   name: string
@@ -95,23 +91,17 @@ export interface Item {
   synergies?: FunctionalSynergy[]
   combatStats?: {
     damage?: number
-    defense?: number // Passive mitigation (Armor)
     block?: number // Active mitigation (Shield HP)
     heal?: number
-    speed?: number // Initiative
-    accuracy?: number // 0-100%
-    manaCost?: number
+    healthRegen?: number
+    maxHp?: number
     maxMana?: number
     manaRegen?: number
-    shieldRegen?: number
-    healthRegen?: number
     energyCost?: number // Energy consumed when this weapon fires
     maxEnergy?: number // Adds to max energy pool
     energyRegen?: number // Energy regenerated per second
-    staminaCost?: number // Stamina consumed per trigger
-    staminaRegen?: number // Stamina regenerated per second
-    maxStamina?: number // Adds to max stamina pool
     triggerSpeed?: number // Multiplier for how fast it triggers
+    baseCooldownMs?: number // Default cooldown if not specified
   }
   triggerType?: "ATTACK" | "HEAL" | "SHIELD" | "PASSIVE"
   effects?: {
@@ -187,13 +177,11 @@ export interface InventoryItemInstance {
   disguiseItemId?: string // If set, this item looks like this ItemId
   liveStats?: {
     damage?: number
-    speed?: number
-    accuracy?: number
     energyCost?: number
     heal?: number
     block?: number
-    staminaCost?: number
     triggerSpeed?: number
+    baseCooldownMs?: number
   }
 }
 

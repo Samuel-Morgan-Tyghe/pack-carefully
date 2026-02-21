@@ -6,7 +6,6 @@ import React, { useRef, useState } from "react"
 import { calculatePlayerCombatInfo } from "../../lib/combat"
 import { GRID_SIZE, ITEMS } from "../../lib/items"
 import { playSound } from "../../lib/sounds"
-import { getDragHighlights } from "../../lib/synergies"
 import {
   $containers,
   $currentPlayerId,
@@ -22,7 +21,7 @@ import BackpackItem from "./BackpackItem"
 
 const CELL_SIZE = 64
 const GAP = 4
-const BOSS_DIFFICULTY = 200 // Hard!
+const BOSS_DIFFICULTY = 200
 
 const MegaBag: React.FC = () => {
   const items = useStore($itemsOnGrid)
@@ -31,7 +30,6 @@ const MegaBag: React.FC = () => {
   const currentPlayerId = useStore($currentPlayerId)
   const gridRef = useRef<HTMLDivElement>(null)
 
-  // Track dragging state
   const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(
     null,
   )
@@ -40,9 +38,6 @@ const MegaBag: React.FC = () => {
     y: number
   } | null>(null)
   const [isGhostValid, setIsGhostValid] = useState(true)
-  const [highlightedInstanceIds, setHighlightedInstanceIds] = useState<
-    string[]
-  >([])
 
   const snapToGrid = (point: { x: number; y: number }) => {
     if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 }
@@ -75,14 +70,13 @@ const MegaBag: React.FC = () => {
     if (!itemDef) return false
 
     const item = items.find((i) => i.instanceId === instanceId)
-    const ownerId = item?.ownerId || currentPlayerId || players[0]?.id // Use tracked player
+    const ownerId = item?.ownerId || currentPlayerId || players[0]?.id
 
     const w =
       currentRot === 90 || currentRot === 270 ? itemDef.height : itemDef.width
     const h =
       currentRot === 90 || currentRot === 270 ? itemDef.width : itemDef.height
 
-    // 1. Collision (Item vs Item)
     const noCollision = !checkCollision(
       gx,
       gy,
@@ -93,9 +87,6 @@ const MegaBag: React.FC = () => {
       instanceId,
       itemDef.category,
     )
-
-    // 2. Support (Item inside Container)
-    // We must check if the item is fully inside valid container cells
     const supported = checkSupport(gx, gy, w, h, items, ownerId)
 
     return noCollision && supported
@@ -121,10 +112,6 @@ const MegaBag: React.FC = () => {
       currentRot,
     )
     setIsGhostValid(valid)
-
-    // Calculate Synergy Highlights
-    const highlights = getDragHighlights(itemId, gridX, gridY, items)
-    setHighlightedInstanceIds(highlights)
   }
 
   const handleDragEnd = (
@@ -142,16 +129,14 @@ const MegaBag: React.FC = () => {
 
     setDraggedInstanceId(null)
     setGhostPosition(null)
-    setHighlightedInstanceIds([])
   }
 
   const combatInfo = calculatePlayerCombatInfo(items)
-  // Simple power metric: Damage * 2 + Defense + HP/10
   const totalPower =
     combatInfo.stats.damage * 2 +
-    combatInfo.stats.defense +
-    Math.floor((100 + combatInfo.stats.block) / 10)
-  const winChance = Math.min(100, Math.round((totalPower / 50) * 100)) // Adjusted difficulty scaling
+    combatInfo.stats.block +
+    Math.floor(combatInfo.stats.maxHp / 10)
+  const winChance = Math.min(100, Math.round((totalPower / 50) * 100))
 
   const handleBossFight = () => {
     const success = totalPower >= BOSS_DIFFICULTY
@@ -168,7 +153,7 @@ const MegaBag: React.FC = () => {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         layoutId="backpack-grid"
-        className="relative bg-transparent p-12" // Removed background to emphasize containers
+        className="relative bg-transparent p-12"
         style={{
           width: GRID_SIZE * 64 + 96 + (GRID_SIZE - 1) * GAP,
           height: GRID_SIZE * 64 + 96 + (GRID_SIZE - 1) * GAP,
@@ -180,13 +165,12 @@ const MegaBag: React.FC = () => {
 
         <div
           ref={gridRef}
-          className="relative rounded-xl border-2 border-dashed border-white/10" // Visual boundary of the floor
+          className="relative rounded-xl border-2 border-dashed border-white/10"
           style={{
             width: GRID_SIZE * 64 + (GRID_SIZE - 1) * GAP,
             height: GRID_SIZE * 64 + (GRID_SIZE - 1) * GAP,
           }}
         >
-          {/* Render Containers (Polyominoes) */}
           {containers.map((container) => (
             <React.Fragment key={container.id}>
               {container.cells.map((cell, idx) => {
@@ -215,18 +199,16 @@ const MegaBag: React.FC = () => {
             </React.Fragment>
           ))}
 
-          {/* Ghost */}
           <BackpackGhost
             ghostPosition={ghostPosition}
             isGhostValid={isGhostValid}
             draggedInstanceId={draggedInstanceId}
             externalDraggedItem={null}
-            itemsOnGrid={items} // Show all items
+            itemsOnGrid={items}
             CELL_SIZE={CELL_SIZE}
             GAP={GAP}
           />
 
-          {/* Items */}
           {items.map((item) => (
             <BackpackItem
               key={item.instanceId}
@@ -237,7 +219,6 @@ const MegaBag: React.FC = () => {
               onDragEnd={handleDragEnd}
               CELL_SIZE={CELL_SIZE}
               GAP={GAP}
-              isHighlighted={highlightedInstanceIds.includes(item.instanceId)}
               minX={0}
               minY={0}
             />

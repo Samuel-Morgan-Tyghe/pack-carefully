@@ -54,13 +54,12 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
 
     const displayValue = currentValue ?? baseValue
 
-    // Adjacency can use 'defense' or 'block', unify here
-    const buff =
-      (adjacencyResult?.buffs[statName] || 0) +
-      (statName === "defense" ? adjacencyResult?.buffs.block || 0 : 0)
-    const multiplier =
-      (adjacencyResult?.multipliers[statName] || 1) *
-      (statName === "defense" ? adjacencyResult?.multipliers.block || 1 : 1)
+    const buff = adjacencyResult?.buffs
+      ? (adjacencyResult.buffs as any)[statName] || 0
+      : 0
+    const multiplier = adjacencyResult?.multipliers
+      ? (adjacencyResult.multipliers as any)[statName] || 1
+      : 1
 
     const hasBoost = buff !== 0 || multiplier !== 1
 
@@ -142,31 +141,12 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
           )}
           {renderStatBadge(
             <LucideIcons.Shield size={9} />,
-            "defense",
-            def.combatStats?.defense || def.combatStats?.block,
+            "block",
+            def.combatStats?.block,
             liveStats?.block,
             "text-blue-400",
             "bg-blue-950/50",
             "border-blue-900/50",
-          )}
-          {renderStatBadge(
-            <LucideIcons.Zap size={9} />,
-            "speed",
-            def.combatStats?.speed,
-            liveStats?.speed,
-            "text-yellow-400",
-            "bg-yellow-950/50",
-            "border-yellow-900/50",
-          )}
-          {renderStatBadge(
-            <LucideIcons.Target size={9} />,
-            "accuracy",
-            def.combatStats?.accuracy,
-            liveStats?.accuracy,
-            "text-green-400",
-            "bg-green-950/50",
-            "border-green-900/50",
-            "%",
           )}
           {renderStatBadge(
             <LucideIcons.Heart size={9} />,
@@ -178,6 +158,24 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
             "border-emerald-900/50",
           )}
           {renderStatBadge(
+            <LucideIcons.Activity size={9} />,
+            "maxHp",
+            def.combatStats?.maxHp,
+            undefined,
+            "text-rose-400",
+            "bg-rose-950/50",
+            "border-rose-900/50",
+          )}
+          {renderStatBadge(
+            <LucideIcons.Droplets size={9} />,
+            "maxMana",
+            def.combatStats?.maxMana,
+            undefined,
+            "text-cyan-400",
+            "bg-cyan-950/50",
+            "border-cyan-900/50",
+          )}
+          {renderStatBadge(
             <span className="text-[9px]">⚡</span>,
             "energyCost",
             def.combatStats?.energyCost,
@@ -186,17 +184,14 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
             "bg-amber-950/50",
             "border-amber-900/50",
           )}
-
-          {/* Passive Energy Regen - usually not boosted by adjacency yet but we check anyway */}
           {renderStatBadge(
-            <span className="text-[9px]">⚡</span>,
-            "energyRegen",
-            def.combatStats?.energyRegen,
+            <LucideIcons.Battery size={9} />,
+            "maxEnergy",
+            def.combatStats?.maxEnergy,
             undefined,
             "text-amber-300",
             "bg-amber-950/50",
             "border-amber-900/50",
-            "/s",
           )}
         </div>
       )}
