@@ -89,7 +89,7 @@ export const createCombatEntity = (
   }
 }
 
-export const calculatePlayerCombatInfo = (
+const calculatePlayerCombatInfo = (
   items: InventoryItemInstance[],
 ): {
   stats: CombatStats
@@ -285,61 +285,6 @@ export const processCombatTick = (
   }
 }
 
-/**
- * Shared logic to simulate a full combat encounter without real-time delays.
- */
-export const simulateCombat = (
-  player: CombatEntity,
-  enemy: CombatEntity,
-  maxTicks = 2000,
-): { winner: "PLAYER" | "ENEMY" | "DRAW"; events: string[] } => {
-  let p = { ...player }
-  let e = { ...enemy }
-  const allEvents: string[] = []
-
-  const initCDs = (entity: CombatEntity): ItemCooldown[] =>
-    entity.inventory
-      .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
-      .map((inst) => {
-        const baseCD = inst.liveStats?.baseCooldownMs || 5000
-        return {
-          instanceId: inst.instanceId,
-          itemId: inst.itemId,
-          current: 0,
-          max: baseCD,
-          baseMax: baseCD,
-        }
-      })
-
-  let pCooldowns = initCDs(p)
-  let eCooldowns = initCDs(e)
-
-  const TICK_MS = 100
-  let time = 0
-
-  for (let i = 0; i < maxTicks; i++) {
-    const result = processCombatTick(
-      p,
-      e,
-      pCooldowns,
-      eCooldowns,
-      TICK_MS,
-      time,
-    )
-    p = result.player
-    e = result.enemy
-    pCooldowns = result.playerCooldowns
-    eCooldowns = result.enemyCooldowns
-    allEvents.push(...result.events)
-    time += TICK_MS
-
-    if (e.hp <= 0) return { winner: "PLAYER", events: allEvents }
-    if (p.hp <= 0) return { winner: "ENEMY", events: allEvents }
-  }
-
-  return { winner: "DRAW", events: allEvents }
-}
-
 export type EnemyType =
   | "AGGRESSIVE"
   | "DEFENSIVE"
@@ -373,11 +318,4 @@ export const generateEnemy = (
   enemy.stats.damage += difficulty * 2
 
   return enemy
-}
-
-export const calculateCombatPower = (
-  items: InventoryItemInstance[],
-): number => {
-  const { stats } = calculatePlayerCombatInfo(items)
-  return Math.floor(stats.damage + stats.block + stats.maxHp / 10)
 }

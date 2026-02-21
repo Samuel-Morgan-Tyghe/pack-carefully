@@ -3,19 +3,16 @@ import { generateRandomContainers } from "../lib/generators"
 import { GRID_SIZE, ITEMS } from "../lib/items"
 import { generateId } from "../lib/utils"
 import type {
+  Container,
+  Coordinate,
   DraftState,
   GamePhase,
   GameState,
   InventoryItemInstance,
-  Item,
   ItemCategory,
   Player,
   Role,
 } from "../types"
-import type { Container, Coordinate } from "../types"
-
-import { computed } from "nanostores"
-import { getAdjacencyBonuses } from "../lib/adjacency"
 
 // State Atoms
 export const $phase = atom<GamePhase>("LOBBY")
@@ -23,7 +20,6 @@ export const $players = atom<Player[]>([])
 export const $containers = atom<Container[]>([])
 export const $currentPlayerId = atom<string | null>(null)
 export const $itemsOnGrid = atom<InventoryItemInstance[]>([])
-export const $availableItems = atom<Item[]>(Object.values(ITEMS))
 export const $draggedItem = atom<string | null>(null)
 export const $activePreview = atom<{
   type: "instance" | "definition"
@@ -110,11 +106,6 @@ const broadcast = (type: string, payload: unknown) => {
     syncChannel.postMessage({ type, payload })
   }
 }
-
-// Derived State
-export const $adjacencyBonuses = computed($itemsOnGrid, (items) =>
-  getAdjacencyBonuses(items),
-)
 
 // Gamification State
 
