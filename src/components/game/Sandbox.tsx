@@ -10,19 +10,12 @@ import {
 } from "../../store/gameStore"
 import Inventory from "../Inventory"
 import ShelfItem from "../layout/ShelfItem"
-
-const CATEGORIES = [
-  "WEAPON",
-  "TOOL",
-  "ESSENTIAL",
-  "SURVIVAL",
-  "COMFORT",
-  "CONTAINER",
-  "SABOTAGE",
-  "CLOTHING",
-]
+import type { Item } from "../../types"
 
 const Sandbox: React.FC = () => {
+  const CATEGORIES = [
+    ...new Set(Object.values(ITEMS).map((i: Item) => i.category)),
+  ]
   const [activeTab, setActiveTab] = useState(CATEGORIES[0])
 
   // Sandbox uses ALL items available in the ITEMS constant

@@ -66,7 +66,7 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
     return (
       <span
         className={clsx(
-          "text-[9px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 shrink-0 transition-all",
+          "text-sm font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 shrink-0 transition-all",
           colorClass,
           bgClass,
           borderClass,

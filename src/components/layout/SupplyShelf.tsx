@@ -7,19 +7,11 @@ import { $draftState, $localPlayerId } from "../../store/gameStore"
 import type { Item } from "../../types"
 import { ShelfCategory } from "./ShelfCategory"
 
-const CATEGORIES = [
-  "WEAPON",
-  "TOOL",
-  "ESSENTIAL",
-  "SURVIVAL",
-  "COMFORT",
-  "CONTAINER",
-  "SABOTAGE",
-]
-
 const SupplyShelf: React.FC = () => {
   const { availableItems: draftPool } = useStore($draftState)
   const localPlayerId = useStore($localPlayerId)
+
+  const CATEGORIES = draftPool[localPlayerId ?? ""].map((i: Item) => i.category)
   const [activeTab, setActiveTab] = useState(CATEGORIES[0])
 
   // Get personal items for this player, fallback to empty
