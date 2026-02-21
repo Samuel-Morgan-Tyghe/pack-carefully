@@ -158,14 +158,6 @@ export interface Container {
   disabledCells?: Coordinate[] // Cells that have been "Cut" (Sabotage)
 }
 
-export interface GridCell {
-  x: number
-  y: number
-  itemId: string | null
-  occupied: boolean
-  ownerId?: string | null
-}
-
 export interface InventoryItemInstance {
   instanceId: string
   itemId: string

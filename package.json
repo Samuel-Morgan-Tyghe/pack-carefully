@@ -11,10 +11,13 @@
     "preview": "vite preview",
     "predeploy": "npm run lint && npm run build",
     "deploy": "gh-pages -d dist",
-    "prepare": "husky"
+    "prepare": "husky",
+    "knip": "knip"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": ["biome check --apply"]
+    "src/**/*.{ts,tsx}": [
+      "biome check --apply"
+    ]
   },
   "dependencies": {
     "@nanostores/react": "^1.0.0",
@@ -32,7 +35,7 @@
     "@biomejs/biome": "^1.8.3",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/canvas-confetti": "^1.9.0",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.10.13",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
@@ -40,6 +43,7 @@
     "gh-pages": "^6.3.0",
     "globals": "^16.5.0",
     "husky": "^9.1.7",
+    "knip": "^5.84.1",
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",

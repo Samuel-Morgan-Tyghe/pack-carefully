@@ -1,6 +1,6 @@
 import { atom } from "nanostores"
 
-export interface GameSettings {
+interface GameSettings {
   soundVolume: number // 0-100
   musicVolume: number // 0-100
   gameDifficulty: "easy" | "normal" | "hard"
@@ -44,7 +44,7 @@ const saveSettings = (settings: GameSettings) => {
 export const $settings = atom<GameSettings>(loadSettings())
 
 // Actions
-export const updateSettings = (updates: Partial<GameSettings>) => {
+const updateSettings = (updates: Partial<GameSettings>) => {
   const current = $settings.get()
   const newSettings = { ...current, ...updates }
   $settings.set(newSettings)
