@@ -5,6 +5,8 @@ import {
   Activity,
   Battery,
   Droplets,
+  Pause,
+  Play,
   Shield,
   Skull,
   Sword,
@@ -45,6 +47,7 @@ const AutoBattler: React.FC = () => {
   const [enemy, setEnemy] = useState<CombatEntity | null>(null)
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([])
   const [isFighting, setIsFighting] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [gameResult, setGameResult] = useState<"WIN" | "LOSS" | null>(null)
 
   const [playerCooldowns, setPlayerCooldowns] = useState<ItemCooldown[]>([])
@@ -58,6 +61,7 @@ const AutoBattler: React.FC = () => {
     playerCooldowns,
     enemyCooldowns,
     isFighting,
+    isPaused,
     gameResult,
   })
 
@@ -79,7 +83,7 @@ const AutoBattler: React.FC = () => {
     const pCooldowns: ItemCooldown[] = newPlayer.inventory
       .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
       .map((inst) => {
-        const baseCd = inst.liveStats?.baseCooldownMs || 5000
+        const baseCd = inst.liveStats?.baseCooldown || 5.0
         return {
           instanceId: inst.instanceId,
           itemId: inst.itemId,
@@ -105,7 +109,7 @@ const AutoBattler: React.FC = () => {
     const eCooldowns: ItemCooldown[] = newEnemy.inventory
       .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
       .map((inst) => {
-        const baseCd = inst.liveStats?.baseCooldownMs || 5000
+        const baseCd = inst.liveStats?.baseCooldown || 5.0
         return {
           instanceId: inst.instanceId,
           itemId: inst.itemId,
@@ -119,12 +123,16 @@ const AutoBattler: React.FC = () => {
     setCombatLog([])
     setGameResult(null)
     setIsFighting(false)
+    setIsPaused(false)
   }, [items, containers, localPlayerId, day])
 
   const startCombat = () => {
     setElapsedTime(0)
     setIsFighting(true)
+    setIsPaused(false)
   }
+
+  const togglePause = () => setIsPaused(!isPaused)
 
   useEffect(() => {
     stateRef.current = {
@@ -133,12 +141,21 @@ const AutoBattler: React.FC = () => {
       playerCooldowns,
       enemyCooldowns,
       isFighting,
+      isPaused,
       gameResult,
     }
-  }, [player, enemy, playerCooldowns, enemyCooldowns, isFighting, gameResult])
+  }, [
+    player,
+    enemy,
+    playerCooldowns,
+    enemyCooldowns,
+    isFighting,
+    isPaused,
+    gameResult,
+  ])
 
   useEffect(() => {
-    if (isFighting && !gameResult) {
+    if (isFighting && !isPaused && !gameResult) {
       let lastTime = performance.now()
       const interval = setInterval(() => {
         const now = performance.now()
@@ -146,7 +163,13 @@ const AutoBattler: React.FC = () => {
         lastTime = now
 
         const current = stateRef.current
-        if (!current.player || !current.enemy || current.gameResult) return
+        if (
+          !current.player ||
+          !current.enemy ||
+          current.gameResult ||
+          current.isPaused
+        )
+          return
 
         if (current.player.hp <= 0) {
           setGameResult("LOSS")
@@ -189,7 +212,7 @@ const AutoBattler: React.FC = () => {
       }, 50)
       return () => clearInterval(interval)
     }
-  }, [isFighting, gameResult, elapsedTime, tickSpeed])
+  }, [isFighting, gameResult, elapsedTime, tickSpeed, isPaused])
 
   if (!player || !enemy) return <div>Loading Combat...</div>
 
@@ -303,16 +326,34 @@ const AutoBattler: React.FC = () => {
                     Begin Battle
                   </span>
                 </motion.button>
-              ) : isFighting ? (
-                <motion.div
-                  key="fighting"
-                  className="bg-wood-900/80 border-2 border-red-500/50 p-4 rounded-xl text-center shadow-lg"
-                >
-                  <div className="text-3xl animate-bounce">⚔️</div>
-                  <div className="text-xs font-black text-red-500 tracking-widest mt-2 uppercase">
-                    Combat in Progress
-                  </div>
-                </motion.div>
+              ) : isFighting && !gameResult ? (
+                <div className="flex flex-col gap-2">
+                  <motion.div
+                    key="fighting"
+                    className="bg-wood-900/80 border-2 border-red-500/50 p-4 rounded-xl text-center shadow-lg"
+                  >
+                    <div
+                      className={clsx(
+                        "text-3xl",
+                        !isPaused && "animate-bounce",
+                      )}
+                    >
+                      {isPaused ? "⏸️" : "⚔️"}
+                    </div>
+                    <div className="text-xs font-black text-red-500 tracking-widest mt-2 uppercase">
+                      {isPaused ? "Combat Paused" : "Combat in Progress"}
+                    </div>
+                  </motion.div>
+
+                  <button
+                    type="button"
+                    onClick={togglePause}
+                    className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors border-b-4 border-slate-900"
+                  >
+                    {isPaused ? <Play size={16} /> : <Pause size={16} />}
+                    {isPaused ? "RESUME" : "PAUSE"}
+                  </button>
+                </div>
               ) : (
                 <motion.div
                   key="result"

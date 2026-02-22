@@ -4,6 +4,7 @@ import type { PanInfo } from "framer-motion"
 import * as LucideIcons from "lucide-react"
 import React, { useRef, useState, useEffect, useMemo } from "react"
 import { type AdjacencyResult, getAdjacencyBonuses } from "../lib/adjacency"
+import { calculatePlayerCombatInfo } from "../lib/combat"
 import { ITEMS } from "../lib/items"
 import {
   $activePreview,
@@ -205,9 +206,14 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     ownerId,
   ])
 
-  const virtualResults = React.useMemo(
-    () => getAdjacencyBonuses(virtualItems),
+  const { itemsWithLiveStats: liveVirtualItems } = useMemo(
+    () => calculatePlayerCombatInfo(virtualItems),
     [virtualItems],
+  )
+
+  const virtualResults = React.useMemo(
+    () => getAdjacencyBonuses(liveVirtualItems),
+    [liveVirtualItems],
   )
   const allStarredSquares = Object.values(virtualResults).flatMap(
     (res: AdjacencyResult) => res.boostedSquares || [],
@@ -595,26 +601,35 @@ const Inventory: React.FC<InventoryProps> = (props) => {
             />
           )}
 
-          {itemsOnGrid.map((item) => (
-            <BackpackItem
-              key={`${item.instanceId}-${dragSessionId}`} // KEY RESET: Clears Framer Motion transforms
-              item={item}
-              draggedInstanceId={draggedInstanceId}
-              onDragStart={handleDragStart}
-              onDrag={handleDrag}
-              onDragEnd={handleDragEnd}
-              CELL_SIZE={CELL_SIZE}
-              GAP={GAP}
-              isSelected={selectedItemId === item.instanceId}
-              onSelect={() =>
-                !viewOnly &&
-                $activePreview.set({ type: "instance", id: item.instanceId })
-              }
-              adjacencyResult={virtualResults[item.instanceId]}
-              viewOnly={viewOnly}
-              cooldown={cooldowns[item.instanceId] || 0}
-            />
-          ))}
+          {itemsOnGrid.map((baseItem) => {
+            // Find the version with live stats (DPS/EPS)
+            const item =
+              liveVirtualItems.find(
+                (li: InventoryItemInstance) =>
+                  li.instanceId === baseItem.instanceId,
+              ) || baseItem
+
+            return (
+              <BackpackItem
+                key={`${item.instanceId}-${dragSessionId}`}
+                item={item}
+                draggedInstanceId={draggedInstanceId}
+                onDragStart={handleDragStart}
+                onDrag={handleDrag}
+                onDragEnd={handleDragEnd}
+                CELL_SIZE={CELL_SIZE}
+                GAP={GAP}
+                isSelected={selectedItemId === item.instanceId}
+                onSelect={() =>
+                  !viewOnly &&
+                  $activePreview.set({ type: "instance", id: item.instanceId })
+                }
+                adjacencyResult={virtualResults[item.instanceId]}
+                viewOnly={viewOnly}
+                cooldown={cooldowns[item.instanceId] || 0}
+              />
+            )
+          })}
 
           {(selectedItemId || draggedInstanceId || externalDraggedItem) &&
             !viewOnly && (

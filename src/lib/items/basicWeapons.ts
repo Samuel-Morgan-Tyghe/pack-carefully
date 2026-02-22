@@ -1,33 +1,30 @@
 import type { Item } from "../../types"
+import { TIER_TARGETS, calcWeaponStats } from "../balancing"
 
 export const basicWeapons: Record<string, Item> = {
-  // COMMON WEAPONS (~15 DPS)
   dagger: {
     id: "dagger",
     name: "Dagger",
-    description: "Fast and efficient. 15 DPS.",
+    description: "Fast and efficient.",
     category: "WEAPON",
     width: 1,
     height: 2,
     icon: "Sword",
     rarity: "COMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 12,
-      energyCost: 4,
-      baseCooldownMs: 800,
-    },
+    combatStats: calcWeaponStats({
+      dps: TIER_TARGETS.COMMON.dps,
+      eps: TIER_TARGETS.COMMON.eps,
+      baseCooldown: 0.8,
+    }),
   },
   hatchet: {
     id: "hatchet",
     name: "Hatchet",
-    description: "Heavy swings. 15 DPS.",
+    description: "Heavy swings.",
     category: "WEAPON",
     width: 2,
     height: 2,
-    // L-shape:
-    // [X][X]
-    // [X][ ]
     shape: [
       { x: 0, y: 0 },
       { x: 1, y: 0 },
@@ -36,16 +33,16 @@ export const basicWeapons: Record<string, Item> = {
     icon: "Axe",
     rarity: "COMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 30,
-      energyCost: 10,
-      baseCooldownMs: 2000,
-    },
+    combatStats: calcWeaponStats({
+      dps: TIER_TARGETS.COMMON.dps,
+      eps: TIER_TARGETS.COMMON.eps,
+      baseCooldown: 2.0,
+    }),
   },
   wand_of_sparking: {
     id: "wand_of_sparking",
     name: "Wand of Sparking",
-    description: "Magical sparks. 15 DPS. Passive: +1 Mana Regen.",
+    description: "Magical sparks. Passive: +1 Mana Regen.",
     category: "WEAPON",
     width: 1,
     height: 2,
@@ -53,34 +50,34 @@ export const basicWeapons: Record<string, Item> = {
     rarity: "COMMON",
     triggerType: "ATTACK",
     combatStats: {
-      damage: 15,
-      manaCost: 5,
+      ...calcWeaponStats({
+        dps: TIER_TARGETS.COMMON.dps,
+        mps: TIER_TARGETS.COMMON.mps,
+        baseCooldown: 1.0,
+      }),
       manaRegen: 1,
-      baseCooldownMs: 1000,
     },
   },
-
-  // UNCOMMON WEAPONS (~25 DPS)
   broadsword: {
     id: "broadsword",
     name: "Broadsword",
-    description: "Stronger but exhausting. 25 DPS.",
+    description: "Stronger but exhausting.",
     category: "WEAPON",
     width: 1,
     height: 3,
     icon: "Sword",
     rarity: "UNCOMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 50,
-      energyCost: 25,
-      baseCooldownMs: 2000,
-    },
+    combatStats: calcWeaponStats({
+      dps: TIER_TARGETS.UNCOMMON.dps,
+      eps: TIER_TARGETS.UNCOMMON.eps,
+      energyCost: 90,
+    }),
   },
   staff_of_life: {
     id: "staff_of_life",
     name: "Staff of Life",
-    description: "Life magic. 25 DPS. Passive: +10 Max HP.",
+    description: "Life magic. Passive: +15 Max HP.",
     category: "WEAPON",
     width: 1,
     height: 3,
@@ -88,25 +85,21 @@ export const basicWeapons: Record<string, Item> = {
     rarity: "UNCOMMON",
     triggerType: "ATTACK",
     combatStats: {
-      damage: 25,
-      manaCost: 10,
-      maxHp: 10,
-      baseCooldownMs: 1000,
+      ...calcWeaponStats({
+        dps: TIER_TARGETS.UNCOMMON.dps,
+        mps: TIER_TARGETS.UNCOMMON.mps,
+        baseCooldown: 1.0,
+      }),
+      maxHp: 15,
     },
   },
-
-  // RARE WEAPONS (~40-50 DPS)
   warhammer: {
     id: "warhammer",
     name: "Warhammer",
-    description: "Devastating but slow. ~27 DPS.",
+    description: "Devastating but slow.",
     category: "WEAPON",
     width: 3,
     height: 3,
-    // Large T-shape:
-    // [X][X][X] Head
-    // [ ][X][ ] Handle
-    // [ ][X][ ] Handle
     shape: [
       { x: 0, y: 0 },
       { x: 1, y: 0 },
@@ -117,16 +110,16 @@ export const basicWeapons: Record<string, Item> = {
     icon: "Hammer",
     rarity: "RARE",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 80, // Reduced from 120 to prevent 1HKOs
-      energyCost: 40, // Adjusted from 60
-      baseCooldownMs: 3000,
-    },
+    combatStats: calcWeaponStats({
+      dps: TIER_TARGETS.RARE.dps,
+      eps: TIER_TARGETS.RARE.eps,
+      energyCost: 100,
+    }),
   },
   arcane_scepter: {
     id: "arcane_scepter",
     name: "Arcane Scepter",
-    description: "Arcane mastery. 50 DPS. Passive: +3 Mana Regen.",
+    description: "Arcane mastery. Passive: +5 Mana Regen.",
     category: "WEAPON",
     width: 1,
     height: 3,
@@ -134,10 +127,12 @@ export const basicWeapons: Record<string, Item> = {
     rarity: "RARE",
     triggerType: "ATTACK",
     combatStats: {
-      damage: 40,
-      manaCost: 20,
-      manaRegen: 3,
-      baseCooldownMs: 800,
+      ...calcWeaponStats({
+        dps: TIER_TARGETS.RARE.dps,
+        mps: TIER_TARGETS.RARE.mps,
+        baseCooldown: 0.8,
+      }),
+      manaRegen: 5,
     },
   },
 }

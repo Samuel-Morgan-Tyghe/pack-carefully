@@ -104,7 +104,7 @@ export interface Item {
     maxEnergy?: number // Adds to max energy pool
     energyRegen?: number // Energy regenerated per second
     triggerSpeed?: number // Multiplier for how fast it triggers
-    baseCooldownMs?: number // Default cooldown if not specified
+    baseCooldown?: number // Default cooldown in SECONDS
     manaCost?: number
   }
   triggerType?: "ATTACK" | "HEAL" | "SHIELD" | "PASSIVE"
@@ -177,8 +177,11 @@ export interface InventoryItemInstance {
     heal?: number
     block?: number
     triggerSpeed?: number
-    baseCooldownMs?: number
+    baseCooldown?: number // In SECONDS
     manaCost?: number
+    dps?: number // Calculated Damage Per Second
+    eps?: number // Calculated Energy Per Second
+    mps?: number // Calculated Mana Per Second
   }
 }
 

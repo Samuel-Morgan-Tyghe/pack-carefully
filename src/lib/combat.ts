@@ -49,12 +49,12 @@ export interface CombatEntity {
 export interface ItemCooldown {
   instanceId: string
   itemId: string
-  current: number // ms remaining
-  max: number // ms total
+  current: number // seconds remaining
+  max: number // seconds total
   baseMax: number // Original max cooldown before modifiers
   lastTrigger?: {
     type: "SUCCESS" | "FAIL_ENERGY"
-    timestamp: number // Combat elapsed time
+    timestamp: number // Combat elapsed time in seconds
   } | null
 }
 
@@ -106,10 +106,10 @@ export const calculatePlayerCombatInfo = (
     heal: 0,
     maxHp: 100, // Base HP
     healthRegen: 0,
-    maxMana: 20, // Base Mana
-    manaRegen: 1,
+    maxMana: 100, // Balanced with HP and Energy
+    manaRegen: 3.3, // Baseline Regen (35 / 10ish)
     maxEnergy: 100, // Base Energy
-    energyRegen: 5,
+    energyRegen: 11.6, // Adjusted for 35 EPS baseline
     triggerSpeed: 1.0, // Default multiplier
   }
 
@@ -127,7 +127,7 @@ export const calculatePlayerCombatInfo = (
       energyCost: def.combatStats?.energyCost || 0,
       manaCost: def.combatStats?.manaCost || 0,
       triggerSpeed: def.combatStats?.triggerSpeed || 1.0,
-      baseCooldownMs: def.combatStats?.baseCooldownMs || 5000,
+      baseCooldown: def.combatStats?.baseCooldown || 5.0, // ALREADY IN SECONDS
     }
 
     // Apply additive buffs
@@ -176,7 +176,21 @@ export const calculatePlayerCombatInfo = (
       totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0
     }
 
-    return { ...instance, liveStats }
+    // Calculate derived rates (DPS, EPS, MPS)
+    const cooldown = liveStats.baseCooldown / liveStats.triggerSpeed
+    const dps = Number((liveStats.damage / cooldown).toFixed(1))
+    const eps = Number((liveStats.energyCost / cooldown).toFixed(1))
+    const mps = Number((liveStats.manaCost / cooldown).toFixed(1))
+
+    return {
+      ...instance,
+      liveStats: {
+        ...liveStats,
+        dps,
+        eps,
+        mps,
+      },
+    }
   })
 
   return { stats: totalStats, itemsWithLiveStats }
@@ -245,7 +259,7 @@ export const processCombatTick = (
   playerCooldowns: ItemCooldown[],
   enemyCooldowns: ItemCooldown[],
   deltaMs: number,
-  elapsedTime: number,
+  elapsedTimeSec: number,
 ): {
   player: CombatEntity
   enemy: CombatEntity
@@ -256,10 +270,11 @@ export const processCombatTick = (
   const p = { ...player, statuses: [...player.statuses] }
   const e = { ...enemy, statuses: [...enemy.statuses] }
   const events: string[] = []
+  const deltaSec = deltaMs / 1000
 
   // Block Decay (Depletes over time)
   const decayRate = 5
-  const decay = (decayRate * deltaMs) / 1000
+  const decay = decayRate * deltaSec
   p.block = Math.max(0, p.block - decay)
   e.block = Math.max(0, e.block - decay)
 
@@ -269,7 +284,6 @@ export const processCombatTick = (
     if (statusCount === 0) return
 
     const inv = entity.inventory
-    const deltaSec = deltaMs / 1000
 
     // Aura of Thorns
     if (inv.some((i) => i.itemId === "aura_of_thorns")) {
@@ -302,25 +316,19 @@ export const processCombatTick = (
 
   // Passive Regen
   if (p.stats.healthRegen)
-    p.hp = Math.min(p.maxHp, p.hp + (p.stats.healthRegen * deltaMs) / 1000)
+    p.hp = Math.min(p.maxHp, p.hp + p.stats.healthRegen * deltaSec)
 
   // Energy Regen
-  p.energy = Math.min(
-    p.maxEnergy,
-    p.energy + (p.stats.energyRegen * deltaMs) / 1000,
-  )
-  e.energy = Math.min(
-    e.maxEnergy,
-    e.energy + (e.stats.energyRegen * deltaMs) / 1000,
-  )
+  p.energy = Math.min(p.maxEnergy, p.energy + p.stats.energyRegen * deltaSec)
+  e.energy = Math.min(e.maxEnergy, e.energy + e.stats.energyRegen * deltaSec)
 
   // Mana Regen
-  p.mana = Math.min(p.maxMana, p.mana + (p.stats.manaRegen * deltaMs) / 1000)
-  e.mana = Math.min(e.maxMana, e.mana + (e.stats.manaRegen * deltaMs) / 1000)
+  p.mana = Math.min(p.maxMana, p.mana + p.stats.manaRegen * deltaSec)
+  e.mana = Math.min(e.maxMana, e.mana + e.stats.manaRegen * deltaSec)
 
   // Tick Poison
   if (
-    Math.floor(elapsedTime / 2000) > Math.floor((elapsedTime - deltaMs) / 2000)
+    Math.floor(elapsedTimeSec / 2) > Math.floor((elapsedTimeSec - deltaSec) / 2)
   ) {
     const pPoison = p.statuses
       .filter((s) => s.type === "POISON")
@@ -345,7 +353,7 @@ export const processCombatTick = (
       )
       const liveStats = instance?.liveStats
       const triggerSpeed = liveStats?.triggerSpeed || 1.0
-      const current = cd.current - deltaMs * triggerSpeed
+      const current = cd.current - deltaSec * triggerSpeed
 
       if (current <= 0) {
         const def = ITEMS[cd.itemId]
@@ -382,7 +390,34 @@ export const processCombatTick = (
           success = false
         }
 
-        if (!success) return { ...cd, current: 0 }
+        // HEAL NO-OP CHECK: Do not consume resources if healing is redundant
+        if (
+          success &&
+          def.triggerType === "HEAL" &&
+          entity.hp >= entity.maxHp
+        ) {
+          return {
+            ...cd,
+            current: cd.max,
+            lastTrigger: {
+              type: "SUCCESS" as const,
+              timestamp: elapsedTimeSec,
+            },
+          }
+        }
+
+        // COOLDOWN RESET LOGIC: Always reset cooldown, even on failure
+        if (!success) {
+          events.push(`${entity.name}'s ${def.name} failed (Low Resource)!`)
+          return {
+            ...cd,
+            current: cd.max, // Reset to full cooldown even if failed
+            lastTrigger: {
+              type: "FAIL_ENERGY" as const,
+              timestamp: elapsedTimeSec,
+            },
+          }
+        }
 
         entity.energy -= energyCost
         entity.mana -= manaCost
@@ -409,7 +444,7 @@ export const processCombatTick = (
         return {
           ...cd,
           current: cd.max,
-          lastTrigger: { type: "SUCCESS" as const, timestamp: elapsedTime },
+          lastTrigger: { type: "SUCCESS" as const, timestamp: elapsedTimeSec },
         }
       }
       return { ...cd, current }
@@ -444,7 +479,7 @@ export const simulateCombat = (
     entity.inventory
       .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
       .map((inst) => {
-        const baseCD = inst.liveStats?.baseCooldownMs || 5000
+        const baseCD = inst.liveStats?.baseCooldown || 5.0
         return {
           instanceId: inst.instanceId,
           itemId: inst.itemId,
@@ -457,7 +492,7 @@ export const simulateCombat = (
   let pCooldowns = initCDs(p)
   let eCooldowns = initCDs(e)
 
-  const TICK_MS = 100
+  const TICK_SEC = 0.1
   let time = 0
 
   for (let i = 0; i < maxTicks; i++) {
@@ -466,7 +501,7 @@ export const simulateCombat = (
       e,
       pCooldowns,
       eCooldowns,
-      TICK_MS,
+      TICK_SEC * 1000,
       time,
     )
     p = result.player
@@ -474,7 +509,7 @@ export const simulateCombat = (
     pCooldowns = result.playerCooldowns
     eCooldowns = result.enemyCooldowns
     allEvents.push(...result.events)
-    time += TICK_MS
+    time += TICK_SEC
 
     if (e.hp <= 0) return { winner: "PLAYER", events: allEvents }
     if (p.hp <= 0) return { winner: "ENEMY", events: allEvents }

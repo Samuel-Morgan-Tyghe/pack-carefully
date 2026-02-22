@@ -13,8 +13,8 @@ export const basicSupport: Record<string, Item> = {
     triggerType: "HEAL",
     combatStats: {
       heal: 20,
-      energyCost: 30,
-      baseCooldownMs: 6000,
+      energyCost: 40,
+      baseCooldown: 6.0,
     },
   },
   battery_pack: {
@@ -29,7 +29,7 @@ export const basicSupport: Record<string, Item> = {
     triggerType: "PASSIVE",
     combatStats: {
       maxEnergy: 30,
-      energyRegen: 2,
+      energyRegen: 3,
     },
   },
   water_canteen: {

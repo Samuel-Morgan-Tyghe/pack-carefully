@@ -17,8 +17,6 @@ export const basicTools: Record<string, Item> = {
         description: "Boost Attack (+30% DMG)",
         targetIsSelf: false,
         apply: (_, target) => {
-          // Use ITEMS from parent to avoid circularity issues if possible,
-          // or assume it's available at runtime
           if (ITEMS[target.itemId]?.category === "WEAPON") {
             return { multipliers: { damage: 1.3 } }
           }

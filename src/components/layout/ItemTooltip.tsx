@@ -40,6 +40,24 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
 
   const liveStats = itemInstance?.liveStats
 
+  // FALLBACK: If no instance (on shelf), calculate base rates from definition
+  const baseRates = React.useMemo(() => {
+    if (liveStats) return null
+    if (!def.combatStats) return null
+    const cooldown = def.combatStats.baseCooldown || 5.0
+    const triggerSpeed = def.combatStats.triggerSpeed || 1.0
+    const actualCD = cooldown / triggerSpeed
+    return {
+      dps: Number(((def.combatStats.damage || 0) / actualCD).toFixed(1)),
+      eps: Number(((def.combatStats.energyCost || 0) / actualCD).toFixed(1)),
+      mps: Number(((def.combatStats.manaCost || 0) / actualCD).toFixed(1)),
+    }
+  }, [def, liveStats])
+
+  const displayDps = liveStats?.dps ?? baseRates?.dps
+  const displayEps = liveStats?.eps ?? baseRates?.eps
+  const displayMps = liveStats?.mps ?? baseRates?.mps
+
   const renderStatBadge = (
     icon: React.ReactNode,
     statName: string,
@@ -127,6 +145,56 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
         {def.description}
       </p>
 
+      {/* High Level Metrics (DPS / EPS) */}
+      {(displayDps !== undefined ||
+        displayEps !== undefined ||
+        displayMps !== undefined) && (
+        <div className="flex gap-2 mb-2 border-b border-slate-700/30 pb-2">
+          {displayDps !== undefined && displayDps > 0 && (
+            <div className="flex flex-col">
+              <span className="text-[7px] text-slate-500 uppercase font-black">
+                Lethality
+              </span>
+              <div className="flex items-center gap-1 text-red-400 font-black text-sm">
+                <LucideIcons.Swords size={12} />
+                <span>
+                  {displayDps}{" "}
+                  <span className="text-[10px] opacity-70">DPS</span>
+                </span>
+              </div>
+            </div>
+          )}
+          {displayEps !== undefined && displayEps > 0 && (
+            <div className="flex flex-col">
+              <span className="text-[7px] text-slate-500 uppercase font-black">
+                Exhaustion
+              </span>
+              <div className="flex items-center gap-1 text-indigo-400 font-black text-sm">
+                <LucideIcons.Zap size={12} />
+                <span>
+                  {displayEps}{" "}
+                  <span className="text-[10px] opacity-70">EPS</span>
+                </span>
+              </div>
+            </div>
+          )}
+          {displayMps !== undefined && displayMps > 0 && (
+            <div className="flex flex-col">
+              <span className="text-[7px] text-slate-500 uppercase font-black">
+                Magical
+              </span>
+              <div className="flex items-center gap-1 text-cyan-400 font-black text-sm">
+                <LucideIcons.Droplets size={12} />
+                <span>
+                  {displayMps}{" "}
+                  <span className="text-[10px] opacity-70">MPS</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Combat Stats / Live Stats */}
       {(def.combatStats || liveStats) && (
         <div className="flex flex-wrap gap-1 mb-2">
@@ -156,6 +224,25 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
             "text-emerald-400",
             "bg-emerald-950/50",
             "border-emerald-900/50",
+          )}
+          {renderStatBadge(
+            <LucideIcons.Droplets size={9} />,
+            "manaCost",
+            def.combatStats?.manaCost,
+            liveStats?.manaCost,
+            "text-cyan-400",
+            "bg-cyan-950/50",
+            "border-cyan-900/50",
+          )}
+          {renderStatBadge(
+            <LucideIcons.Clock size={9} />,
+            "baseCooldown",
+            def.combatStats?.baseCooldown,
+            liveStats?.baseCooldown,
+            "text-slate-300",
+            "bg-slate-950/50",
+            "border-slate-800/50",
+            "s",
           )}
           {renderStatBadge(
             <LucideIcons.Activity size={9} />,
