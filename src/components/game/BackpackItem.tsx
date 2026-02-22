@@ -6,8 +6,8 @@ import React from "react"
 import type { AdjacencyResult } from "../../lib/adjacency"
 import { ITEMS } from "../../lib/items"
 import { playSound } from "../../lib/sounds"
-import { toggleLock, getPixelCoords } from "../../store/gameStore"
-import type { InventoryItemInstance } from "../../types"
+import { getItemCells, getPixelCoords, toggleLock } from "../../store/gameStore"
+import type { Coordinate, InventoryItemInstance } from "../../types"
 
 interface BackpackItemProps {
   item: InventoryItemInstance
@@ -48,15 +48,30 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
   const itemDef = ITEMS[item.itemId]
   const disguiseDef = item.disguiseItemId ? ITEMS[item.disguiseItemId] : null
   const displayDef = disguiseDef || itemDef
-  
+
   const isDragging = draggedInstanceId === item.instanceId
   const canInteract = !viewOnly
 
-  // Calculate dimensions based on rotation
-  const w = item.rotation === 90 || item.rotation === 270 ? itemDef.height : itemDef.width
-  const h = item.rotation === 90 || item.rotation === 270 ? itemDef.width : itemDef.height
+  // Logic: Get the "True Shape" cells relative to item.x, item.y
+  const trueCells = getItemCells(item.x, item.y, item.itemId, item.rotation)
 
-  // Use global coordinate lookup for the base transform
+  // Normalized cells relative to the item's own top-left (0,0)
+  const visualCells = trueCells.map((c: Coordinate) => ({
+    x: c.x - item.x,
+    y: c.y - item.y,
+  }))
+
+  // Bounding box for the main container
+  const w =
+    item.rotation === 90 || item.rotation === 270
+      ? itemDef.height
+      : itemDef.width
+  const h =
+    item.rotation === 90 || item.rotation === 270
+      ? itemDef.width
+      : itemDef.height
+
+  // Absolute pixel target for transform
   const coords = getPixelCoords(item.x, item.y)
 
   return (
@@ -65,18 +80,20 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
       dragMomentum={false}
       dragElastic={0}
       whileDrag={{ zIndex: 100, scale: 1.02 }}
-      // Use x/y props for transform-based positioning
-      animate={{ 
-        x: coords.x, 
-        y: coords.y 
+      // TRANSFORM ONLY: Bind animation directly to grid coordinates.
+      // If store doesn't update, it snaps back to original coords.
+      // If store updates, it snaps to new coords.
+      animate={{
+        x: coords.x,
+        y: coords.y,
       }}
-      // Fast snap transition
-      transition={{ type: "spring", stiffness: 1000, damping: 50, mass: 1 }}
+      transition={{ type: "spring", stiffness: 1200, damping: 50 }}
       initial={false}
       style={{
         position: "absolute",
         width: w * CELL_SIZE + (w - 1) * GAP,
         height: h * CELL_SIZE + (h - 1) * GAP,
+        // No left/top used for primary positioning
         left: 0,
         top: 0,
         pointerEvents: viewOnly ? "none" : "auto",
@@ -93,10 +110,14 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         }
       }}
       onDrag={(_, info) =>
-        canInteract && !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)
+        canInteract &&
+        !item.locked &&
+        onDrag(item.instanceId, item.itemId, item.rotation, info)
       }
       onDragEnd={(_, info) =>
-        canInteract && !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)
+        canInteract &&
+        !item.locked &&
+        onDragEnd(item.instanceId, item.itemId, item.rotation, info)
       }
       onClick={(e) => {
         if (!canInteract) return
@@ -104,36 +125,82 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         else if (!isDragging) onSelect?.()
       }}
       className={clsx(
-        "absolute rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touch-none transition-shadow",
-        !viewOnly ? "cursor-grab active:cursor-grabbing" : "cursor-default",
-        isDragging ? "opacity-50" : displayDef.category === "CONTAINER" ? "z-10" : "z-20",
-        isSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50",
-        isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50",
-        
-        displayDef.category === "ESSENTIAL" ? "bg-gradient-to-br from-blue-700 to-blue-900 border-blue-500/50" :
-        displayDef.category === "WEAPON" ? "bg-gradient-to-br from-red-800 to-red-950 border-red-600/50" :
-        displayDef.category === "TOOL" ? "bg-gradient-to-br from-slate-600 to-slate-800 border-slate-500/50" :
-        displayDef.category === "SURVIVAL" ? "bg-gradient-to-br from-green-700 to-green-900 border-green-600/50" :
-        displayDef.category === "SABOTAGE" ? "bg-gradient-to-br from-purple-800 to-purple-950 border-purple-700/50" :
-        "bg-gradient-to-br from-gray-600 to-gray-800 border-gray-500/50",
-
-        (adjacencyResult?.totalBuff || 0) > 0 && "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
-        item.locked && "grayscale opacity-90 border-red-500/50"
+        "absolute transition-shadow",
+        !viewOnly
+          ? "cursor-grab active:cursor-grabbing hover:z-30"
+          : "cursor-default",
+        isDragging
+          ? "opacity-50 z-50"
+          : displayDef.category === "CONTAINER"
+            ? "z-10"
+            : "z-20",
       )}
     >
-      <div style={{ rotate: `${item.rotation}deg` }} className="transition-transform duration-300">
-        {React.createElement((LucideIcons as any)[displayDef.icon] || LucideIcons.Box, {
-          className: clsx("text-parchment-100", w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8")
-        })}
+      {/* TRUE SHAPE RENDERING */}
+      {visualCells.map((cell: Coordinate, idx: number) => (
+        <div
+          key={`${idx}-${cell.x}-${cell.y}`}
+          className={clsx(
+            "absolute rounded-md shadow-lg border-2 transition-all duration-200",
+            isSelected &&
+              "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50",
+            isHighlighted &&
+              "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50",
+
+            displayDef.category === "ESSENTIAL"
+              ? "bg-gradient-to-br from-blue-700 to-blue-900 border-blue-500/50"
+              : displayDef.category === "WEAPON"
+                ? "bg-gradient-to-br from-red-800 to-red-950 border-red-600/50"
+                : displayDef.category === "TOOL"
+                  ? "bg-gradient-to-br from-slate-600 to-slate-800 border-slate-500/50"
+                  : displayDef.category === "SURVIVAL"
+                    ? "bg-gradient-to-br from-green-700 to-green-900 border-green-600/50"
+                    : displayDef.category === "SABOTAGE"
+                      ? "bg-gradient-to-br from-purple-800 to-purple-950 border-purple-700/50"
+                      : "bg-gradient-to-br from-gray-600 to-gray-800 border-gray-500/50",
+
+            (adjacencyResult?.totalBuff || 0) > 0 &&
+              "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
+            item.locked && "grayscale opacity-90 border-red-500/50",
+          )}
+          style={{
+            width: CELL_SIZE,
+            height: CELL_SIZE,
+            left: cell.x * (CELL_SIZE + GAP),
+            top: cell.y * (CELL_SIZE + GAP),
+          }}
+        />
+      ))}
+
+      {/* Content Container */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30">
+        <div
+          style={{ rotate: `${item.rotation}deg` }}
+          className="transition-transform duration-300"
+        >
+          {React.createElement(
+            (LucideIcons as any)[displayDef.icon] || LucideIcons.Box,
+            {
+              className: clsx(
+                "text-parchment-100",
+                w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8",
+              ),
+            },
+          )}
+        </div>
+
+        {(w > 1 || h > 1) && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-parchment-200 mt-1 drop-shadow-lg text-center px-1 line-clamp-1">
+            {itemDef.name}
+          </span>
+        )}
       </div>
 
-      {(w > 1 || h > 1) && (
-        <span className="text-[10px] font-bold uppercase tracking-wider text-parchment-200 mt-1">
-          {itemDef.name}
-        </span>
+      {item.locked && (
+        <div className="absolute top-1 right-1 text-red-500 z-40">
+          <LucideIcons.Lock size={12} />
+        </div>
       )}
-
-      {item.locked && <div className="absolute top-1 right-1 text-red-500"><LucideIcons.Lock size={12} /></div>}
 
       {cooldown > 0 && (
         <motion.div
@@ -144,11 +211,13 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         />
       )}
 
-      {adjacencyResult && (adjacencyResult.totalBuff || 0) > 0 && !item.locked && (
-        <div className="absolute -top-2 -right-2 bg-gold-500 text-wood-900 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white transform scale-100 animate-bounce-subtle z-30">
-          +{adjacencyResult.totalBuff}
-        </div>
-      )}
+      {adjacencyResult &&
+        (adjacencyResult.totalBuff || 0) > 0 &&
+        !item.locked && (
+          <div className="absolute -top-2 -right-2 bg-gold-500 text-wood-900 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white transform scale-100 animate-bounce-subtle z-40">
+            +{adjacencyResult.totalBuff}
+          </div>
+        )}
     </motion.div>
   )
 }

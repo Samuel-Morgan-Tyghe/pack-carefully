@@ -103,10 +103,10 @@ export const basicWeapons: Record<string, Item> = {
     category: "WEAPON",
     width: 3,
     height: 3,
-    // T-shape (horizontal head):
-    // [X][X][X]
-    // [ ][X][ ]
-    // [ ][X][ ]
+    // Large T-shape:
+    // [X][X][X] Head
+    // [ ][X][ ] Handle
+    // [ ][X][ ] Handle
     shape: [
       { x: 0, y: 0 },
       { x: 1, y: 0 },

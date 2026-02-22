@@ -13,10 +13,10 @@ import {
   $gridState,
   $itemsOnGrid,
   $localPlayerId,
-  getPixelCoords,
   SANDBOX_PLAYER_ID,
   checkCollision,
   checkSupport,
+  getPixelCoords,
   moveItem,
   placeItem,
   removeItem,
@@ -53,6 +53,10 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const { cellSize: CELL_SIZE, gap: GAP, rows, cols } = gridConfig
 
   const gridRef = useRef<HTMLDivElement>(null)
+
+  // DRAG SESSION ID: Incrementing this forces items to remount and clear transforms
+  const [dragSessionId, setDragSessionId] = useState(0)
+
   const [ghostPosition, setGhostPosition] = useState<{
     x: number
     y: number
@@ -61,7 +65,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     valid: boolean
   } | null>(null)
   const [isGhostValid, setIsGhostValid] = useState(true)
-  const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(null)
+  const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(
+    null,
+  )
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -75,7 +81,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
       if (width < 400) size = 28
       else if (width < 600) size = 32
       else if (width < 768) size = 36
-      
+
       $gridConfig.set({ ...$gridConfig.get(), cellSize: size })
     }
     updateCellSize()
@@ -91,7 +97,14 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const localPlayerId = useStore($localPlayerId)
   const activePreview = useStore($activePreview)
 
-  const canInteract = canInteractProp && !viewOnly && (ownerId === localPlayerId || localPlayerId === "solo" || !localPlayerId || ownerId === SANDBOX_PLAYER_ID) && localPlayerId !== "OBSERVER"
+  const canInteract =
+    canInteractProp &&
+    !viewOnly &&
+    (ownerId === localPlayerId ||
+      localPlayerId === "solo" ||
+      !localPlayerId ||
+      ownerId === SANDBOX_PLAYER_ID) &&
+    localPlayerId !== "OBSERVER"
 
   useEffect(() => {
     if (activePreview?.type === "instance") setSelectedItemId(activePreview.id)
@@ -102,7 +115,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     setPendingRotation(0)
   }, [])
 
-  const itemsOnGrid = (itemsProp || allItemsOnGrid.filter((i) => i.ownerId === ownerId)).sort((a, b) => {
+  const itemsOnGrid = (
+    itemsProp || allItemsOnGrid.filter((i) => i.ownerId === ownerId)
+  ).sort((a, b) => {
     const catA = ITEMS[a.itemId].category
     const catB = ITEMS[b.itemId].category
     if (catA === "CONTAINER" && catB !== "CONTAINER") return -1
@@ -114,8 +129,11 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     let baseItems = [...itemsOnGrid]
     const isDragging = !!(draggedInstanceId || externalDraggedItem)
     if (!isDragging || !ghostPosition?.valid) return baseItems
-    if (draggedInstanceId) baseItems = baseItems.filter((i) => i.instanceId !== draggedInstanceId)
-    const itemId = draggedInstanceId ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)?.itemId : externalDraggedItem
+    if (draggedInstanceId)
+      baseItems = baseItems.filter((i) => i.instanceId !== draggedInstanceId)
+    const itemId = draggedInstanceId
+      ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)?.itemId
+      : externalDraggedItem
 
     if (itemId) {
       baseItems.push({
@@ -123,21 +141,46 @@ const Inventory: React.FC<InventoryProps> = (props) => {
         itemId,
         x: ghostPosition.gridX,
         y: ghostPosition.gridY,
-        rotation: (draggedInstanceId ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)?.rotation : pendingRotation) || 0,
+        rotation:
+          (draggedInstanceId
+            ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)
+                ?.rotation
+            : pendingRotation) || 0,
         ownerId,
       } as InventoryItemInstance)
     }
     return baseItems
-  }, [itemsOnGrid, draggedInstanceId, externalDraggedItem, ghostPosition, pendingRotation, ownerId])
+  }, [
+    itemsOnGrid,
+    draggedInstanceId,
+    externalDraggedItem,
+    ghostPosition,
+    pendingRotation,
+    ownerId,
+  ])
 
-  const virtualResults = React.useMemo(() => getAdjacencyBonuses(virtualItems), [virtualItems])
-  const allStarredSquares = Object.values(virtualResults).flatMap((res: AdjacencyResult) => res.boostedSquares || [])
-  const starredKeys = new Set(allStarredSquares.map((s: { x: number; y: number }) => `${s.x},${s.y}`))
+  const virtualResults = React.useMemo(
+    () => getAdjacencyBonuses(virtualItems),
+    [virtualItems],
+  )
+  const allStarredSquares = Object.values(virtualResults).flatMap(
+    (res: AdjacencyResult) => res.boostedSquares || [],
+  )
+  const starredKeys = new Set(
+    allStarredSquares.map((s: { x: number; y: number }) => `${s.x},${s.y}`),
+  )
   const selectedResult = selectedItemId ? virtualResults[selectedItemId] : null
-  const draggedResult = draggedInstanceId || externalDraggedItem ? virtualResults[draggedInstanceId || "dragged-external"] : null
+  const draggedResult =
+    draggedInstanceId || externalDraggedItem
+      ? virtualResults[draggedInstanceId || "dragged-external"]
+      : null
   const displayResult = draggedResult || selectedResult
 
-  const snapToGrid = (point: { x: number; y: number }, itemId: string, rotation: number = 0) => {
+  const snapToGrid = (
+    point: { x: number; y: number },
+    itemId: string,
+    rotation = 0,
+  ) => {
     if (!gridRef.current) return { x: 0, y: 0, gridX: 0, gridY: 0 }
     const rect = gridRef.current.getBoundingClientRect()
     const xOffset = point.x - rect.left
@@ -146,8 +189,10 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     const itemDef = ITEMS[itemId]
     if (!itemDef) return { x: 0, y: 0, gridX: 0, gridY: 0 }
 
-    const w = rotation === 90 || rotation === 270 ? itemDef.height : itemDef.width
-    const h = rotation === 90 || rotation === 270 ? itemDef.width : itemDef.height
+    const w =
+      rotation === 90 || rotation === 270 ? itemDef.height : itemDef.width
+    const h =
+      rotation === 90 || rotation === 270 ? itemDef.width : itemDef.height
 
     const widthPx = w * CELL_SIZE + (w - 1) * GAP
     const heightPx = h * CELL_SIZE + (h - 1) * GAP
@@ -164,24 +209,61 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     }
   }
 
-  const calculateGhostValidity = (gx: number, gy: number, itemId: string, instanceId?: string, currentRot = 0) => {
+  const calculateGhostValidity = (
+    gx: number,
+    gy: number,
+    itemId: string,
+    instanceId?: string,
+    currentRot = 0,
+  ) => {
     const itemDef = ITEMS[itemId]
     if (!itemDef) return false
-    const w = currentRot === 90 || currentRot === 270 ? itemDef.height : itemDef.width
-    const h = currentRot === 90 || currentRot === 270 ? itemDef.width : itemDef.height
-    
-    if (checkCollision(gx, gy, w, h, itemsOnGrid, ownerId, instanceId, itemDef.category, itemId, currentRot as 0)) return false
-    if (itemDef.category !== "CONTAINER") return checkSupport(gx, gy, w, h, itemsOnGrid, ownerId, itemId, currentRot as 0)
+    const w =
+      currentRot === 90 || currentRot === 270 ? itemDef.height : itemDef.width
+    const h =
+      currentRot === 90 || currentRot === 270 ? itemDef.width : itemDef.height
+
+    if (
+      checkCollision(
+        gx,
+        gy,
+        w,
+        h,
+        itemsOnGrid,
+        ownerId,
+        instanceId,
+        itemDef.category,
+        itemId,
+        currentRot as 0,
+      )
+    )
+      return false
+    if (itemDef.category !== "CONTAINER")
+      return checkSupport(
+        gx,
+        gy,
+        w,
+        h,
+        itemsOnGrid,
+        ownerId,
+        itemId,
+        currentRot as 0,
+      )
     return true
   }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return
       if (!canInteract) return
       if (e.key === "Escape" && (draggedInstanceId || externalDraggedItem)) {
         setDraggedInstanceId(null)
         setGhostPosition(null)
+        setDragSessionId((s) => s + 1) // Reset on cancel
         $draggedItem.set(null)
         $activePreview.set(null)
         return
@@ -190,13 +272,19 @@ const Inventory: React.FC<InventoryProps> = (props) => {
         if (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "e") {
           e.preventDefault()
           if (selectedItemId) rotateItem(selectedItemId)
-          else setPendingRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270)
+          else
+            setPendingRotation(
+              (prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270,
+            )
           return
         }
         if (e.key.toLowerCase() === "q") {
           e.preventDefault()
           if (selectedItemId) rotateItemCounterClockwise(selectedItemId)
-          else setPendingRotation((prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)
+          else
+            setPendingRotation(
+              (prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270,
+            )
           return
         }
       }
@@ -219,24 +307,47 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedItemId, itemsOnGrid, draggedInstanceId, externalDraggedItem, canInteract])
+  }, [
+    selectedItemId,
+    itemsOnGrid,
+    draggedInstanceId,
+    externalDraggedItem,
+    canInteract,
+  ])
 
   const handleDragStart = (instanceId: string, _info: PanInfo) => {
     if (!canInteract) return
     setDraggedInstanceId(instanceId)
   }
 
-  const handleDrag = (_instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
+  const handleDrag = (
+    _instanceId: string,
+    itemId: string,
+    currentRot: number,
+    info: PanInfo,
+  ) => {
     if (!canInteract) return
     const { x, y, gridX, gridY } = snapToGrid(info.point, itemId, currentRot)
-    const valid = calculateGhostValidity(gridX, gridY, itemId, draggedInstanceId || undefined, currentRot)
+    const valid = calculateGhostValidity(
+      gridX,
+      gridY,
+      itemId,
+      draggedInstanceId || undefined,
+      currentRot,
+    )
     setIsGhostValid(valid)
     setGhostPosition({ x, y, gridX, gridY, valid })
   }
 
-  const handleDragEnd = (instanceId: string, itemId: string, currentRot: number, info: PanInfo) => {
+  const handleDragEnd = (
+    instanceId: string,
+    itemId: string,
+    currentRot: number,
+    info: PanInfo,
+  ) => {
     const itemDef = ITEMS[itemId]
     const { gridX, gridY } = snapToGrid(info.point, itemId, currentRot)
+
     if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
       moveItem(instanceId, gridX, gridY, currentRot as 0 | 90 | 180 | 270)
     } else {
@@ -248,6 +359,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
       setErrorMessage(`${itemDef.name} returned to shelf!`)
       setTimeout(() => setErrorMessage(null), 3000)
     }
+
+    // Increment session ID to force a key-based remount, clearing all drag transforms
+    setDragSessionId((s) => s + 1)
     setDraggedInstanceId(null)
     setGhostPosition(null)
   }
@@ -255,16 +369,36 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const handleDragOverExtern = (e: React.DragEvent) => {
     e.preventDefault()
     if (!canInteract || !externalDraggedItem) return
-    const { x, y, gridX, gridY } = snapToGrid({ x: e.clientX, y: e.clientY }, externalDraggedItem, pendingRotation)
-    const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem, undefined, pendingRotation)
+    const { x, y, gridX, gridY } = snapToGrid(
+      { x: e.clientX, y: e.clientY },
+      externalDraggedItem,
+      pendingRotation,
+    )
+    const valid = calculateGhostValidity(
+      gridX,
+      gridY,
+      externalDraggedItem,
+      undefined,
+      pendingRotation,
+    )
     setIsGhostValid(valid)
     setGhostPosition({ x, y, gridX, gridY, valid })
   }
 
   return (
     <div className="flex flex-col items-center w-full px-2 md:px-0">
-      {errorMessage && <div className="mb-4 px-4 py-3 bg-red-500/20 border-2 border-red-500 rounded-lg text-red-200 font-bold text-xs animate-in fade-in slide-in-from-top-2">⚠️ {errorMessage}</div>}
-      <div className={clsx("relative bg-wood-800/40 p-3 md:p-8 rounded-2xl shadow-bag border-4 border-wood-600 flex flex-col items-center select-none", className)}>
+      {errorMessage && (
+        <div className="mb-4 px-4 py-3 bg-red-500/20 border-2 border-red-500 rounded-lg text-red-200 font-bold text-xs animate-in fade-in slide-in-from-top-2">
+          ⚠️ {errorMessage}
+        </div>
+      )}
+      <div
+        className={clsx(
+          "relative bg-wood-800/40 p-3 md:p-8 rounded-2xl shadow-bag border-4 border-wood-600 flex flex-col items-center select-none",
+          className,
+        )}
+      >
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
         <div
           ref={gridRef}
           className="relative transition-all duration-500 touch-manipulation overflow-visible select-none"
@@ -281,33 +415,85 @@ const Inventory: React.FC<InventoryProps> = (props) => {
           onDragLeave={() => setGhostPosition(null)}
           onMouseMove={(e) => {
             if (externalDraggedItem && !draggedInstanceId && canInteract) {
-              const { x, y, gridX, gridY } = snapToGrid({ x: e.clientX, y: e.clientY }, externalDraggedItem, pendingRotation)
-              const valid = calculateGhostValidity(gridX, gridY, externalDraggedItem, undefined, pendingRotation)
+              const { x, y, gridX, gridY } = snapToGrid(
+                { x: e.clientX, y: e.clientY },
+                externalDraggedItem,
+                pendingRotation,
+              )
+              const valid = calculateGhostValidity(
+                gridX,
+                gridY,
+                externalDraggedItem,
+                undefined,
+                pendingRotation,
+              )
               setGhostPosition({ x, y, gridX, gridY, valid })
               setIsGhostValid(valid)
             }
           }}
           onMouseLeave={() => !draggedInstanceId && setGhostPosition(null)}
           onClick={(e) => {
-            if (!externalDraggedItem || !canInteract || draggedInstanceId) return
-            const { gridX, gridY } = snapToGrid({ x: e.clientX, y: e.clientY }, externalDraggedItem, pendingRotation)
-            if (calculateGhostValidity(gridX, gridY, externalDraggedItem, undefined, pendingRotation)) {
-              placeItem(externalDraggedItem, gridX, gridY, pendingRotation as 0 | 90 | 180 | 270, ownerId)
+            if (!externalDraggedItem || !canInteract || draggedInstanceId)
+              return
+            const { gridX, gridY } = snapToGrid(
+              { x: e.clientX, y: e.clientY },
+              externalDraggedItem,
+              pendingRotation,
+            )
+            if (
+              calculateGhostValidity(
+                gridX,
+                gridY,
+                externalDraggedItem,
+                undefined,
+                pendingRotation,
+              )
+            ) {
+              placeItem(
+                externalDraggedItem,
+                gridX,
+                gridY,
+                pendingRotation as 0 | 90 | 180 | 270,
+                ownerId,
+              )
+              setDragSessionId((s) => s + 1)
               $draggedItem.set(null)
               $activePreview.set(null)
             } else {
-              setErrorMessage(`${ITEMS[externalDraggedItem]?.name} returned to shelf!`)
+              setErrorMessage(
+                `${ITEMS[externalDraggedItem]?.name} returned to shelf!`,
+              )
               setTimeout(() => setErrorMessage(null), 2000)
             }
           }}
           onDrop={(e) => {
             e.preventDefault()
-            const itemId = e.dataTransfer.getData("itemId") || externalDraggedItem
+            const itemId =
+              e.dataTransfer.getData("itemId") || externalDraggedItem
             setGhostPosition(null)
             if (itemId && canInteract) {
-              const { gridX, gridY } = snapToGrid({ x: e.clientX, y: e.clientY }, itemId, pendingRotation)
-              if (calculateGhostValidity(gridX, gridY, itemId, undefined, pendingRotation)) {
-                placeItem(itemId, gridX, gridY, pendingRotation as 0 | 90 | 180 | 270, ownerId)
+              const { gridX, gridY } = snapToGrid(
+                { x: e.clientX, y: e.clientY },
+                itemId,
+                pendingRotation,
+              )
+              if (
+                calculateGhostValidity(
+                  gridX,
+                  gridY,
+                  itemId,
+                  undefined,
+                  pendingRotation,
+                )
+              ) {
+                placeItem(
+                  itemId,
+                  gridX,
+                  gridY,
+                  pendingRotation as 0 | 90 | 180 | 270,
+                  ownerId,
+                )
+                setDragSessionId((s) => s + 1)
                 $draggedItem.set(null)
                 $activePreview.set(null)
               } else {
@@ -321,24 +507,25 @@ const Inventory: React.FC<InventoryProps> = (props) => {
           {Object.values(gridState).map((cell) => {
             const coords = getPixelCoords(cell.x, cell.y)
             const isMe = cell.ownerId === ownerId
-            
             return (
-              <div 
-                key={`${cell.x},${cell.y}`} 
+              <div
+                key={`${cell.x},${cell.y}`}
                 data-x={cell.x}
                 data-y={cell.y}
                 data-is-bag={cell.isBag && isMe}
                 data-occupied-by={cell.occupiedBy}
                 className={clsx(
                   "absolute transition-all duration-300 pointer-events-none",
-                  cell.isBag && isMe ? "bg-wood-700/80 shadow-inner" : "bg-wood-900/5 border border-wood-600/10"
+                  cell.isBag && isMe
+                    ? "bg-wood-700/80 shadow-inner"
+                    : "bg-wood-900/5 border border-wood-600/10",
                 )}
-                style={{ 
-                  left: coords.x, 
-                  top: coords.y, 
-                  width: CELL_SIZE, 
+                style={{
+                  left: coords.x,
+                  top: coords.y,
+                  width: CELL_SIZE,
                   height: CELL_SIZE,
-                  borderRadius: cell.isBag && isMe ? "0" : "2px"
+                  borderRadius: cell.isBag && isMe ? "0" : "2px",
                 }}
               >
                 {cell.isBag && isMe && (
@@ -348,34 +535,92 @@ const Inventory: React.FC<InventoryProps> = (props) => {
             )
           })}
 
-          {!viewOnly && <BackpackGhost ghostPosition={ghostPosition} isGhostValid={isGhostValid} draggedInstanceId={draggedInstanceId} externalDraggedItem={externalDraggedItem} itemsOnGrid={itemsOnGrid} CELL_SIZE={CELL_SIZE} GAP={GAP} rotation={pendingRotation} />}
-          
+          {!viewOnly && (
+            <BackpackGhost
+              ghostPosition={ghostPosition}
+              isGhostValid={isGhostValid}
+              draggedInstanceId={draggedInstanceId}
+              externalDraggedItem={externalDraggedItem}
+              itemsOnGrid={itemsOnGrid}
+              CELL_SIZE={CELL_SIZE}
+              GAP={GAP}
+              rotation={pendingRotation}
+            />
+          )}
+
           {itemsOnGrid.map((item) => (
-            <BackpackItem key={item.instanceId} item={item} draggedInstanceId={draggedInstanceId} onDragStart={handleDragStart} onDrag={handleDrag} onDragEnd={handleDragEnd} CELL_SIZE={CELL_SIZE} GAP={GAP} isSelected={selectedItemId === item.instanceId} onSelect={() => !viewOnly && $activePreview.set({ type: "instance", id: item.instanceId })} adjacencyResult={virtualResults[item.instanceId]} viewOnly={viewOnly} cooldown={cooldowns[item.instanceId] || 0} />
+            <BackpackItem
+              key={`${item.instanceId}-${dragSessionId}`} // KEY RESET: Clears Framer Motion transforms
+              item={item}
+              draggedInstanceId={draggedInstanceId}
+              onDragStart={handleDragStart}
+              onDrag={handleDrag}
+              onDragEnd={handleDragEnd}
+              CELL_SIZE={CELL_SIZE}
+              GAP={GAP}
+              isSelected={selectedItemId === item.instanceId}
+              onSelect={() =>
+                !viewOnly &&
+                $activePreview.set({ type: "instance", id: item.instanceId })
+              }
+              adjacencyResult={virtualResults[item.instanceId]}
+              viewOnly={viewOnly}
+              cooldown={cooldowns[item.instanceId] || 0}
+            />
           ))}
 
-          {(selectedItemId || draggedInstanceId || externalDraggedItem) && !viewOnly && (
-            <div className="absolute inset-0 pointer-events-none z-50">
-              {Object.values(gridState).map((cell) => {
-                if (!cell.isBag || cell.ownerId !== ownerId) return null
-                
-                const key = `${cell.x},${cell.y}`
-                const isGlobalStar = starredKeys.has(key)
-                const activeSyn = displayResult?.activeSynergySquares.find((s) => s.x === cell.x && s.y === cell.y)
-                const potentialSyn = displayResult?.potentialSynergySquares.find((s) => s.x === cell.x && s.y === cell.y)
-                
-                if (isGlobalStar || activeSyn || potentialSyn) {
-                  const isFilled = isGlobalStar || !!activeSyn
-                  const iconName = activeSyn?.icon || potentialSyn?.icon || "Star"
-                  const Icon = (LucideIcons as any)[iconName] || LucideIcons.Star
-                  const coords = getPixelCoords(cell.x, cell.y)
-                  
-                  return <div key={`syn-overlay-${key}`} className={clsx("absolute flex items-center justify-center transition-all duration-300", isFilled ? "animate-bounce scale-110" : "opacity-40 scale-75")} style={{ left: coords.x, top: coords.y, width: CELL_SIZE, height: CELL_SIZE }}><Icon className={clsx("w-6 h-6", isFilled ? "text-gold-400 fill-gold-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]" : "text-gold-100")} /></div>
-                }
-                return null
-              })}
-            </div>
-          )}
+          {(selectedItemId || draggedInstanceId || externalDraggedItem) &&
+            !viewOnly && (
+              <div className="absolute inset-0 pointer-events-none z-50">
+                {Object.values(gridState).map((cell) => {
+                  if (!cell.isBag || cell.ownerId !== ownerId) return null
+                  const key = `${cell.x},${cell.y}`
+                  const isGlobalStar = starredKeys.has(key)
+                  const activeSyn = displayResult?.activeSynergySquares.find(
+                    (s) => s.x === cell.x && s.y === cell.y,
+                  )
+                  const potentialSyn =
+                    displayResult?.potentialSynergySquares.find(
+                      (s) => s.x === cell.x && s.y === cell.y,
+                    )
+                  if (isGlobalStar || activeSyn || potentialSyn) {
+                    const isFilled = isGlobalStar || !!activeSyn
+                    const iconName =
+                      activeSyn?.icon || potentialSyn?.icon || "Star"
+                    const Icon =
+                      (LucideIcons as any)[iconName] || LucideIcons.Star
+                    const coords = getPixelCoords(cell.x, cell.y)
+                    return (
+                      <div
+                        key={`syn-overlay-${key}`}
+                        className={clsx(
+                          "absolute flex items-center justify-center transition-all duration-300",
+                          isFilled
+                            ? "animate-bounce scale-110"
+                            : "opacity-40 scale-75",
+                        )}
+                        style={{
+                          left: coords.x,
+                          top: coords.y,
+                          width: CELL_SIZE,
+                          height: CELL_SIZE,
+                        }}
+                      >
+                        <Icon
+                          className={clsx(
+                            "w-6 h-6",
+                            isFilled
+                              ? "text-gold-400 fill-gold-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]"
+                              : "text-gold-100",
+                          )}
+                        />
+                      </div>
+                    )
+                  }
+                  return null
+                })}
+              </div>
+            )}
         </div>
       </div>
     </div>
