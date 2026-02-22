@@ -1,6 +1,8 @@
-import type { InventoryItemInstance, SynergyEffect } from "../types"
+import type { Container, InventoryItemInstance, SynergyEffect } from "../types"
 import { getAdjacencyBonuses } from "./adjacency"
+import { generateRandomContainers } from "./generators"
 import { ITEMS } from "./items"
+import { generateId } from "./utils"
 
 export interface CombatStats {
   damage: number
@@ -41,6 +43,7 @@ export interface CombatEntity {
   }[]
   name: string
   inventory: InventoryItemInstance[]
+  containers: Container[] // NEW: Entity-specific bag shape
 }
 
 export interface ItemCooldown {
@@ -68,6 +71,7 @@ export const createCombatEntity = (
   id: string,
   name: string,
   items: InventoryItemInstance[],
+  containers: Container[] = [], // Optional containers
 ): CombatEntity => {
   const { stats, itemsWithLiveStats } = calculatePlayerCombatInfo(items)
 
@@ -86,6 +90,7 @@ export const createCombatEntity = (
     synergies: [],
     onHitEffects: [],
     inventory: itemsWithLiveStats,
+    containers,
   }
 }
 
@@ -147,9 +152,13 @@ export const calculatePlayerCombatInfo = (
       if (bonus.multipliers.triggerSpeed)
         liveStats.triggerSpeed *= bonus.multipliers.triggerSpeed
       if (bonus.multipliers.energyCost)
-        liveStats.energyCost = Math.floor(liveStats.energyCost * bonus.multipliers.energyCost)
+        liveStats.energyCost = Math.floor(
+          liveStats.energyCost * bonus.multipliers.energyCost,
+        )
       if (bonus.multipliers.manaCost)
-        liveStats.manaCost = Math.floor(liveStats.manaCost * bonus.multipliers.manaCost)
+        liveStats.manaCost = Math.floor(
+          liveStats.manaCost * bonus.multipliers.manaCost,
+        )
     }
 
     // Accumulate global passive stats from ALL items (weapons can have passives too)
@@ -161,7 +170,7 @@ export const calculatePlayerCombatInfo = (
     totalStats.block += def.combatStats?.block || 0
     totalStats.healthRegen =
       (totalStats.healthRegen || 0) + (def.combatStats?.healthRegen || 0)
-    
+
     // Trigger Speed multiplier only accumulates from PASSIVE items (like bags/charms)
     if (def.triggerType === "PASSIVE" || !def.triggerType) {
       totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0
@@ -176,17 +185,28 @@ export const calculatePlayerCombatInfo = (
 /**
  * Helper to handle damage application, considering Block and defensive fallbacks.
  */
-const applyDamage = (victim: CombatEntity, damage: number, events: string[]) => {
+const applyDamage = (
+  victim: CombatEntity,
+  damage: number,
+  events: string[],
+) => {
   let remainingDmg = damage
 
   // 1. Emergency Plating: Reduce damage if Energy is 0
-  if (victim.energy < 1 && victim.inventory.some(i => i.itemId === "emergency_plating")) {
+  if (
+    victim.energy < 1 &&
+    victim.inventory.some((i) => i.itemId === "emergency_plating")
+  ) {
     remainingDmg = Math.max(0, remainingDmg - 5)
     events.push(`${victim.name}'s Emergency Plating mitigates 5 damage!`)
   }
 
   // 2. Mana Shield: Spend Mana to generate Block when hit
-  if (remainingDmg > 0 && victim.mana >= 5 && victim.inventory.some(i => i.itemId === "mana_shield")) {
+  if (
+    remainingDmg > 0 &&
+    victim.mana >= 5 &&
+    victim.inventory.some((i) => i.itemId === "mana_shield")
+  ) {
     victim.mana -= 5
     victim.block += 10
     events.push(`${victim.name}'s Mana Shield generates 10 Block!`)
@@ -201,11 +221,13 @@ const applyDamage = (victim: CombatEntity, damage: number, events: string[]) => 
 
   // 4. HP damage with Spirit Link fallback
   const hasSpiritLink = victim.inventory.some((i) => i.itemId === "spirit_link")
-  
+
   if (hasSpiritLink && victim.hp <= 1 && victim.mana > 0) {
     const manaDmg = remainingDmg
     victim.mana = Math.max(0, victim.mana - manaDmg)
-    events.push(`${victim.name}'s Soul Guard absorbs ${Math.floor(manaDmg)} damage!`)
+    events.push(
+      `${victim.name}'s Soul Guard absorbs ${Math.floor(manaDmg)} damage!`,
+    )
   } else {
     victim.hp -= remainingDmg
     if (victim.hp < 1 && hasSpiritLink && victim.mana > 0) {
@@ -250,23 +272,29 @@ export const processCombatTick = (
     const deltaSec = deltaMs / 1000
 
     // Aura of Thorns
-    if (inv.some(i => i.itemId === "aura_of_thorns")) {
-      entity.block += (statusCount * 2 * deltaSec)
+    if (inv.some((i) => i.itemId === "aura_of_thorns")) {
+      entity.block += statusCount * 2 * deltaSec
     }
 
     // Vitality Pulse
-    if (inv.some(i => i.itemId === "vitality_pulse")) {
-      entity.hp = Math.min(entity.maxHp, entity.hp + (statusCount * 1 * deltaSec))
+    if (inv.some((i) => i.itemId === "vitality_pulse")) {
+      entity.hp = Math.min(entity.maxHp, entity.hp + statusCount * 1 * deltaSec)
     }
 
     // Adrenaline
-    if (inv.some(i => i.itemId === "adrenaline")) {
-      entity.energy = Math.min(entity.maxEnergy, entity.energy + (statusCount * 2 * deltaSec))
+    if (inv.some((i) => i.itemId === "adrenaline")) {
+      entity.energy = Math.min(
+        entity.maxEnergy,
+        entity.energy + statusCount * 2 * deltaSec,
+      )
     }
 
     // Channeling
-    if (inv.some(i => i.itemId === "channeling")) {
-      entity.mana = Math.min(entity.maxMana, entity.mana + (statusCount * 1 * deltaSec))
+    if (inv.some((i) => i.itemId === "channeling")) {
+      entity.mana = Math.min(
+        entity.maxMana,
+        entity.mana + statusCount * 1 * deltaSec,
+      )
     }
   }
   processDynamicBridges(p)
@@ -329,14 +357,18 @@ export const processCombatTick = (
         let success = true
 
         if (entity.energy < energyCost) {
-          const hasArcaneBattery = entity.inventory.some(i => i.itemId === "arcane_battery")
-          const hasBloodMagic = entity.inventory.some(i => i.itemId === "blood_magic")
+          const hasArcaneBattery = entity.inventory.some(
+            (i) => i.itemId === "arcane_battery",
+          )
+          const hasBloodMagic = entity.inventory.some(
+            (i) => i.itemId === "blood_magic",
+          )
 
           if (hasArcaneBattery && entity.mana >= energyCost * 2) {
-            entity.mana -= (energyCost * 2)
+            entity.mana -= energyCost * 2
             energyCost = 0
             events.push(`${entity.name} uses Arcane Overflow!`)
-          } else if (hasBloodMagic && entity.hp > (entity.maxHp * 0.05) + 1) {
+          } else if (hasBloodMagic && entity.hp > entity.maxHp * 0.05 + 1) {
             const bloodCost = entity.maxHp * 0.05
             entity.hp -= bloodCost
             energyCost = 0
@@ -347,7 +379,7 @@ export const processCombatTick = (
         }
 
         if (success && entity.mana < manaCost) {
-           success = false
+          success = false
         }
 
         if (!success) return { ...cd, current: 0 }
@@ -358,16 +390,14 @@ export const processCombatTick = (
         if (def.triggerType === "ATTACK") {
           const dmg = liveStats.damage || 0
           applyDamage(target, dmg, events)
-          
-          if (entity.inventory.some(i => i.itemId === "vampiric_fangs")) {
+
+          if (entity.inventory.some((i) => i.itemId === "vampiric_fangs")) {
             const heal = dmg * 0.2
             entity.hp = Math.min(entity.maxHp, entity.hp + heal)
           }
 
           if (dmg > 0)
-            events.push(
-              `${entity.name} hits for ${Math.floor(dmg)}!`,
-            )
+            events.push(`${entity.name} hits for ${Math.floor(dmg)}!`)
         } else if (def.triggerType === "HEAL") {
           entity.hp = Math.min(entity.maxHp, entity.hp + (liveStats.heal || 0))
           events.push(`${entity.name} heals for ${liveStats.heal}!`)
@@ -460,28 +490,76 @@ export type EnemyType =
   | "EVASIVE"
   | "BOSS"
 
+/**
+ * Generates an enemy with a unique name, health, and its own randomized bag layout and items.
+ */
 export const generateEnemy = (
-  _type: EnemyType,
+  type: EnemyType,
   difficulty: number,
 ): CombatEntity => {
-  const enemyId = `enemy-${Math.random().toString(36).substr(2, 9)}`
+  const enemyId = generateId()
 
-  // Give enemy a basic weapon
-  const inventory: InventoryItemInstance[] = [
-    {
-      instanceId: "enemy-attack",
-      itemId: "dagger",
-      x: 0,
-      y: 0,
-      rotation: 0,
-      ownerId: enemyId,
+  // 1. Generate unique bag for the enemy
+  const containers = generateRandomContainers(enemyId)
+
+  // 2. Determine archetype items
+  const archetypes: Record<
+    EnemyType,
+    { name: string; items: string[]; hpScale: number }
+  > = {
+    AGGRESSIVE: {
+      name: "Savage Marauder",
+      items: ["dagger", "hatchet"],
+      hpScale: 1.0,
     },
-  ]
+    DEFENSIVE: {
+      name: "Shield Bearer",
+      items: ["wooden_shield", "dagger"],
+      hpScale: 1.5,
+    },
+    SWARM: {
+      name: "Rat King",
+      items: ["dagger", "dagger", "dagger"],
+      hpScale: 0.8,
+    },
+    EVASIVE: {
+      name: "Forest Stalker",
+      items: ["dagger", "wand_of_sparking"],
+      hpScale: 1.2,
+    },
+    BOSS: {
+      name: "The Golem",
+      items: ["warhammer", "wooden_shield", "emergency_plating"],
+      hpScale: 3.0,
+    },
+  }
 
-  const enemy = createCombatEntity(enemyId, "Enemy", inventory)
+  const arc = archetypes[type] || archetypes.AGGRESSIVE
+  const inventory: InventoryItemInstance[] = []
+
+  // 3. Simple greedy placement for enemy items in their bag
+  const bagCells = containers[0].cells
+  let cellIdx = 0
+
+  for (const itemId of arc.items) {
+    if (cellIdx < bagCells.length) {
+      const cell = bagCells[cellIdx]
+      inventory.push({
+        instanceId: generateId(),
+        itemId,
+        x: cell.x,
+        y: cell.y,
+        rotation: 0,
+        ownerId: enemyId,
+      })
+      cellIdx += 2 // Jump cells to avoid simple overlap
+    }
+  }
+
+  const enemy = createCombatEntity(enemyId, arc.name, inventory, containers)
 
   // Scale stats based on difficulty
-  enemy.hp = 50 + difficulty * 15
+  enemy.hp = Math.floor((50 + difficulty * 20) * arc.hpScale)
   enemy.maxHp = enemy.hp
   enemy.stats.damage += difficulty * 2
 

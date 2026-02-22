@@ -54,7 +54,7 @@ export interface SynergyResult {
       | "maxEnergy"
       | "energyRegen"
       | "triggerSpeed"
-      | "manaCost", 
+      | "manaCost",
       number
     >
   >
@@ -183,7 +183,7 @@ export interface InventoryItemInstance {
 }
 
 export interface DraftState {
-  availableItems: Record<string, Item[]> // PlayerID -> Personal Pool
+  availableItems: Record<string, string[]> // PlayerID -> Personal Pool (IDs only)
   selections: Record<string, string> // PlayerID -> ItemID (Secret)
   confirmed: string[] // PlayerIDs who have locked in their choice
   roundNumber: number // 1, 2, 3...

@@ -449,6 +449,7 @@ export const createCustomContainer = (
 
   if (players.every((p) => playersWithContainers.has(p.id))) {
     // All players ready -> Start Draft
+    console.log("[createCustomContainer] All players ready. Starting Draft.")
     setTimeout(() => {
       nextPhase()
     }, 1000) // Small delay for UX
@@ -457,10 +458,13 @@ export const createCustomContainer = (
 
 export const nextPhase = () => {
   const current = $phase.get()
+  console.log(`[nextPhase] current phase: ${current}`)
 
   if (current === "LOBBY") {
     startGame() // triggers BAG_BUILDING
   } else if (current === "BAG_BUILDING") {
+    startDraft() // Go to Draft after building
+  } else if (current === "DRAFT") {
     $phase.set("JOURNEY")
   } else if (current === "JOURNEY") {
     $phase.set("CAMPFIRE")
@@ -469,7 +473,7 @@ export const nextPhase = () => {
     if ($gameState.get().isGameOver) {
       $phase.set("LOBBY")
     } else {
-      $phase.set("BAG_BUILDING")
+      startDraft() // Start new day with Draft
     }
   }
 }
@@ -509,6 +513,26 @@ export const placeItem = (
   if (itemDef.category !== "CONTAINER") {
     if (!checkSupport(x, y, w, h, items, ownerId, itemId, rotation))
       return false
+  }
+
+  // DRAFT PHASE LOGIC: Enforce removal from draft pool
+  if ($phase.get() === "DRAFT") {
+    const draft = $draftState.get()
+    const personalPool = draft.availableItems[ownerId] || []
+    const draftItemIndex = personalPool.indexOf(itemId)
+
+    if (draftItemIndex >= 0) {
+      // Remove from pool
+      const newPool = [...personalPool]
+      newPool.splice(draftItemIndex, 1)
+      $draftState.set({
+        ...draft,
+        availableItems: {
+          ...draft.availableItems,
+          [ownerId]: newPool,
+        },
+      })
+    }
   }
 
   const newItem: InventoryItemInstance = {
@@ -945,20 +969,74 @@ export const revealDisguises = (targetPlayerId: string): number => {
   return revealedCount
 }
 
+export const startDraft = () => {
+  const players = $players.get()
+  const day = $gameState.get().day
+  console.log(`[startDraft] players count: ${players.length}, day: ${day}`)
+
+  // Generate Personal Pools based on Rarity Scaling
+  const availableItems: Record<string, string[]> = {}
+  const allItems = Object.values(ITEMS)
+
+  for (const p of players) {
+    const pool: string[] = []
+
+    // Helper to roll rarity
+    const rollRarity = (): "COMMON" | "UNCOMMON" | "RARE" | "LEGENDARY" => {
+      const roll = Math.random()
+      const uncommonWeight = Math.min(0.5, 0.1 + day * 0.08)
+      const rareWeight = Math.min(0.3, day * 0.06)
+      const legendaryWeight = day >= 4 ? 0.05 + (day - 4) * 0.05 : 0
+
+      if (roll < legendaryWeight) return "LEGENDARY"
+      if (roll < legendaryWeight + rareWeight) return "RARE"
+      if (roll < legendaryWeight + rareWeight + uncommonWeight)
+        return "UNCOMMON"
+      return "COMMON"
+    }
+
+    // Generate 8 random items for each player
+    for (let i = 0; i < 8; i++) {
+      const selectedRarity = rollRarity()
+      const filters = allItems.filter(
+        (item) =>
+          item.rarity === selectedRarity && item.category !== "SABOTAGE",
+      )
+      const finalPool =
+        filters.length > 0
+          ? filters
+          : allItems.filter((i) => i.rarity === "COMMON")
+      pool.push(finalPool[Math.floor(Math.random() * finalPool.length)].id)
+    }
+
+    availableItems[p.id] = pool
+  }
+
+  $draftState.set({
+    availableItems,
+    selections: {},
+    confirmed: [],
+    roundNumber: 1,
+  })
+
+  $phase.set("DRAFT")
+  console.log(
+    `[startDraft] phase set to DRAFT. availableItems keys: ${Object.keys(availableItems)}`,
+  )
+}
+
 export const returnItemToPool = (ownerId: string, itemId: string) => {
   if ($phase.get() === "DRAFT") {
     const draft = $draftState.get()
     const personalPool = draft.availableItems[ownerId] || []
-    const itemDef = ITEMS[itemId]
-    if (itemDef) {
-      $draftState.set({
-        ...draft,
-        availableItems: {
-          ...draft.availableItems,
-          [ownerId]: [...personalPool, itemDef],
-        },
-      })
-    }
+
+    $draftState.set({
+      ...draft,
+      availableItems: {
+        ...draft.availableItems,
+        [ownerId]: [...personalPool, itemId],
+      },
+    })
   }
 }
 

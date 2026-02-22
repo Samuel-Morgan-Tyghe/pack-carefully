@@ -16,6 +16,7 @@ import {
   SANDBOX_PLAYER_ID,
   checkCollision,
   checkSupport,
+  getItemCells,
   getPixelCoords,
   moveItem,
   placeItem,
@@ -25,7 +26,7 @@ import {
   rotateItemCounterClockwise,
   toggleLock,
 } from "../store/gameStore"
-import type { InventoryItemInstance } from "../types"
+import type { Container, InventoryItemInstance } from "../types"
 import BackpackGhost from "./game/BackpackGhost"
 import BackpackItem from "./game/BackpackItem"
 
@@ -33,6 +34,7 @@ interface InventoryProps {
   playerId?: string
   className?: string
   items?: InventoryItemInstance[]
+  containers?: Container[] // NEW: Optional containers prop
   canInteract?: boolean
   viewOnly?: boolean
   cooldowns?: Record<string, number>
@@ -43,13 +45,14 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     playerId,
     className,
     items: itemsProp,
+    containers: containersProp, // Use this if provided
     canInteract: canInteractProp = true,
     viewOnly = false,
     cooldowns = {},
   } = props
 
   const gridConfig = useStore($gridConfig)
-  const gridState = useStore($gridState)
+  const globalGridState = useStore($gridState)
   const { cellSize: CELL_SIZE, gap: GAP, rows, cols } = gridConfig
 
   const gridRef = useRef<HTMLDivElement>(null)
@@ -125,6 +128,49 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     return 0
   })
 
+  // LOCAL GRID STATE: If containersProp or itemsProp are provided, we calculate a local state
+  // instead of using the global one.
+  const gridState = useMemo(() => {
+    if (!containersProp && !itemsProp) return globalGridState
+
+    // Calculate a local grid state for this specific instance (e.g., an Enemy)
+    const state: Record<string, any> = {}
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        state[`${x},${y}`] = {
+          x,
+          y,
+          isBag: false,
+          ownerId: null,
+          occupiedBy: null,
+        }
+      }
+    }
+
+    const containers = containersProp || []
+    for (const container of containers) {
+      for (const cell of container.cells) {
+        const key = `${cell.x},${cell.y}`
+        if (state[key]) {
+          state[key].isBag = true
+          state[key].ownerId = container.ownerId
+        }
+      }
+    }
+
+    const items = itemsProp || []
+    for (const item of items) {
+      const cells = getItemCells(item.x, item.y, item.itemId, item.rotation)
+      for (const cell of cells) {
+        const key = `${cell.x},${cell.y}`
+        if (state[key]) {
+          state[key].occupiedBy = item.instanceId
+        }
+      }
+    }
+    return state
+  }, [containersProp, itemsProp, globalGridState, rows, cols])
+
   const virtualItems = useMemo(() => {
     let baseItems = [...itemsOnGrid]
     const isDragging = !!(draggedInstanceId || externalDraggedItem)
@@ -194,11 +240,12 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     const h =
       rotation === 90 || rotation === 270 ? itemDef.width : itemDef.height
 
-    const widthPx = w * CELL_SIZE + (w - 1) * GAP
-    const heightPx = h * CELL_SIZE + (h - 1) * GAP
-
-    const gridX = Math.round((xOffset - widthPx / 2) / (CELL_SIZE + GAP))
-    const gridY = Math.round((yOffset - heightPx / 2) / (CELL_SIZE + GAP))
+    const gridX = Math.round(
+      (xOffset - (w * (CELL_SIZE + GAP)) / 2) / (CELL_SIZE + GAP),
+    )
+    const gridY = Math.round(
+      (yOffset - (h * (CELL_SIZE + GAP)) / 2) / (CELL_SIZE + GAP),
+    )
 
     const coords = getPixelCoords(gridX, gridY)
 

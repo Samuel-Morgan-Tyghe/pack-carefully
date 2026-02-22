@@ -62,8 +62,8 @@ const PlayerBagEditor: React.FC<{
     const startX = 3
     const startY = 3
     const initial: Coordinate[] = []
-    for (let x = -1; x <= 1; x++) {
-      for (let y = -1; y <= 1; y++) {
+    for (let x = -1; x <= 2; x++) {
+      for (let y = -1; y <= 2; y++) {
         initial.push({ x: startX + x, y: startY + y })
       }
     }

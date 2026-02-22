@@ -80,9 +80,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
       dragMomentum={false}
       dragElastic={0}
       whileDrag={{ zIndex: 100, scale: 1.02 }}
-      // TRANSFORM ONLY: Bind animation directly to grid coordinates.
-      // If store doesn't update, it snaps back to original coords.
-      // If store updates, it snaps to new coords.
       animate={{
         x: coords.x,
         y: coords.y,
@@ -93,10 +90,10 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
         position: "absolute",
         width: w * CELL_SIZE + (w - 1) * GAP,
         height: h * CELL_SIZE + (h - 1) * GAP,
-        // No left/top used for primary positioning
         left: 0,
         top: 0,
-        pointerEvents: viewOnly ? "none" : "auto",
+        // ALLOW POINTER EVENTS even in viewOnly so tooltips work
+        pointerEvents: "auto",
       }}
       data-tooltip-id="item-tooltip"
       data-item-id={item.itemId}

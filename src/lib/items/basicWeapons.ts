@@ -99,7 +99,7 @@ export const basicWeapons: Record<string, Item> = {
   warhammer: {
     id: "warhammer",
     name: "Warhammer",
-    description: "Devastating but slow. 40 DPS.",
+    description: "Devastating but slow. ~27 DPS.",
     category: "WEAPON",
     width: 3,
     height: 3,
@@ -118,8 +118,8 @@ export const basicWeapons: Record<string, Item> = {
     rarity: "RARE",
     triggerType: "ATTACK",
     combatStats: {
-      damage: 120,
-      energyCost: 60,
+      damage: 80, // Reduced from 120 to prevent 1HKOs
+      energyCost: 40, // Adjusted from 60
       baseCooldownMs: 3000,
     },
   },

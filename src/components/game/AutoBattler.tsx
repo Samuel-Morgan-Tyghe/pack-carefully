@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
+import { Tooltip } from "react-tooltip"
 import type {
   CombatEntity,
   CombatLogEntry,
@@ -25,11 +26,20 @@ import {
   processCombatTick,
 } from "../../lib/combat"
 import { ITEMS } from "../../lib/items"
-import { $itemsOnGrid } from "../../store/gameStore"
+import {
+  $containers,
+  $gameState,
+  $itemsOnGrid,
+  $localPlayerId,
+} from "../../store/gameStore"
 import Inventory from "../Inventory"
 
 const AutoBattler: React.FC = () => {
   const items = useStore($itemsOnGrid)
+  const containers = useStore($containers)
+  const localPlayerId = useStore($localPlayerId)
+  const gameState = useStore($gameState)
+  const day = gameState.day
 
   const [player, setPlayer] = useState<CombatEntity | null>(null)
   const [enemy, setEnemy] = useState<CombatEntity | null>(null)
@@ -53,7 +63,17 @@ const AutoBattler: React.FC = () => {
 
   // Initialize Combat on Mount or Item Change
   useEffect(() => {
-    const newPlayer = createCombatEntity("hero", "Hero", items)
+    const playerItems = items.filter((i) => i.ownerId === localPlayerId)
+    const playerContainers = containers.filter(
+      (c) => c.ownerId === localPlayerId,
+    )
+
+    const newPlayer = createCombatEntity(
+      localPlayerId || "hero",
+      "Hero",
+      playerItems,
+      playerContainers,
+    )
     setPlayer(newPlayer)
 
     const pCooldowns: ItemCooldown[] = newPlayer.inventory
@@ -70,9 +90,16 @@ const AutoBattler: React.FC = () => {
       })
     setPlayerCooldowns(pCooldowns)
 
-    const types: EnemyType[] = ["AGGRESSIVE", "DEFENSIVE", "SWARM", "EVASIVE"]
-    const type = types[Math.floor(Math.random() * types.length)]
-    const newEnemy = generateEnemy(type, 1)
+    // BOSS only on Day 5
+    let type: EnemyType
+    if (day >= 5) {
+      type = "BOSS"
+    } else {
+      const types: EnemyType[] = ["AGGRESSIVE", "DEFENSIVE", "SWARM", "EVASIVE"]
+      type = types[Math.floor(Math.random() * types.length)]
+    }
+
+    const newEnemy = generateEnemy(type, day)
     setEnemy(newEnemy)
 
     const eCooldowns: ItemCooldown[] = newEnemy.inventory
@@ -92,7 +119,7 @@ const AutoBattler: React.FC = () => {
     setCombatLog([])
     setGameResult(null)
     setIsFighting(false)
-  }, [items])
+  }, [items, containers, localPlayerId, day])
 
   const startCombat = () => {
     setElapsedTime(0)
@@ -153,7 +180,7 @@ const AutoBattler: React.FC = () => {
             ...result.events.map((msg) => ({
               round: 0,
               message: msg,
-              type: msg.includes("Hero")
+              type: msg.includes(current.player?.name || "Hero")
                 ? ("DAMAGE" as const)
                 : ("INFO" as const),
             })),
@@ -177,7 +204,7 @@ const AutoBattler: React.FC = () => {
 
           <div className="flex justify-between items-center relative z-10">
             <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2 drop-shadow-md">
-              <span className="text-blue-400">HERO</span>
+              <span className="text-blue-400">{player.name}</span>
               <div className="flex gap-1">
                 {player.statuses.map((s, i) => (
                   <StatusBadge key={`${s.type}-${i}`} status={s} />
@@ -198,6 +225,7 @@ const AutoBattler: React.FC = () => {
           <HealthBar
             current={player.hp}
             max={player.maxHp}
+            block={player.block}
             color="bg-blue-600"
           />
           <div className="grid grid-cols-2 gap-2">
@@ -210,28 +238,34 @@ const AutoBattler: React.FC = () => {
               icon={<Sword size={14} className="text-red-400" />}
               value={player.stats.damage}
               label="DMG"
+              tooltip="Total damage output per trigger of your weapons."
             />
             <StatBox
               icon={<Shield size={14} className="text-blue-400" />}
               value={Math.round(player.block)}
               label="BLK"
+              tooltip="Current damage absorption. Block decays over time."
             />
             <StatBox
               icon={<Battery size={14} className="text-amber-400" />}
               value={`${Math.round(player.stats.energyRegen)}/s`}
               label="NRG"
+              tooltip="Energy regeneration rate per second."
             />
             <StatBox
               icon={<Zap size={14} className="text-purple-400" />}
               value={`${player.stats.triggerSpeed.toFixed(1)}x`}
               label="SPD"
+              tooltip="Trigger speed multiplier for all items."
             />
           </div>
 
           <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
             <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
               <Inventory
+                playerId={player.id}
                 items={player.inventory}
+                containers={player.containers}
                 viewOnly={true}
                 cooldowns={Object.fromEntries(
                   playerCooldowns.map((cd) => [
@@ -325,11 +359,11 @@ const AutoBattler: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 bg-black/60 border-2 border-wood-700/50 rounded-2xl p-3 flex flex-col min-h-[160px] shadow-inner overflow-hidden">
+          <div className="flex-1 bg-black/60 border-2 border-wood-700/50 rounded-2xl p-3 flex flex-col min-h-[160px] shadow-inner overflow-y-auto">
             <div className="text-center text-[10px] font-black text-wood-500 uppercase tracking-widest mb-3">
               Reports
             </div>
-            <div className="flex-1 space-y-2 flex flex-col justify-end">
+            <div className="flex-1 space-y-2 flex flex-col justify-end ">
               <AnimatePresence initial={false}>
                 {combatLog.slice(-5).map((entry, idx) => (
                   <motion.div
@@ -377,46 +411,50 @@ const AutoBattler: React.FC = () => {
             </h2>
           </div>
 
-          <HealthBar current={enemy.hp} max={enemy.maxHp} color="bg-red-600" />
+          <HealthBar
+            current={enemy.hp}
+            max={enemy.maxHp}
+            block={enemy.block}
+            color="bg-red-600"
+          />
           <div className="grid grid-cols-2 gap-2">
             <EnergyBar current={enemy.energy} max={enemy.maxEnergy} />
             <ManaBar current={enemy.mana} max={enemy.maxMana} />
           </div>
 
-          <div className="bg-red-900/20 p-3 rounded-xl border border-red-900/30 flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="bg-red-600 p-2 rounded-full">
-                <Sword size={20} className="text-white" />
-              </div>
-              <div>
-                <div className="text-[10px] text-red-300 font-bold uppercase tracking-widest">
-                  Power
-                </div>
-                <div className="text-2xl font-black text-white">
-                  {enemy.stats.damage}
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">
-                Next Move
-              </div>
-              <div className="w-32 h-2 bg-slate-900 border border-slate-700 rounded-full overflow-hidden">
-                {enemyCooldowns.map((cd) => (
-                  <motion.div
-                    key={cd.instanceId}
-                    className="h-full bg-yellow-500"
-                    animate={{ width: `${(1 - cd.current / cd.max) * 100}%` }}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
+            <StatBox
+              icon={<Sword size={14} className="text-red-400" />}
+              value={enemy.stats.damage}
+              label="DMG"
+              tooltip="Total damage output per trigger of enemy weapons."
+            />
+            <StatBox
+              icon={<Shield size={14} className="text-blue-400" />}
+              value={Math.round(enemy.block)}
+              label="BLK"
+              tooltip="Current damage absorption for the enemy."
+            />
+            <StatBox
+              icon={<Battery size={14} className="text-amber-400" />}
+              value={`${Math.round(enemy.stats.energyRegen)}/s`}
+              label="NRG"
+              tooltip="Enemy energy regeneration rate."
+            />
+            <StatBox
+              icon={<Zap size={14} className="text-purple-400" />}
+              value={`${enemy.stats.triggerSpeed.toFixed(1)}x`}
+              label="SPD"
+              tooltip="Enemy trigger speed multiplier."
+            />
           </div>
 
           <div className="flex-1 flex items-center justify-center p-2 min-h-0">
             <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-90">
               <Inventory
+                playerId={enemy.id}
                 items={enemy.inventory}
+                containers={enemy.containers}
                 viewOnly={true}
                 cooldowns={Object.fromEntries(
                   enemyCooldowns.map((cd) => [
@@ -430,6 +468,8 @@ const AutoBattler: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <Tooltip id="combat-tooltip" />
     </div>
   )
 }
@@ -438,13 +478,27 @@ const AutoBattler: React.FC = () => {
 const HealthBar = ({
   current,
   max,
+  block,
   color,
-}: { current: number; max: number; color: string }) => (
-  <div className="w-full bg-slate-900 h-6 rounded-full overflow-hidden border border-slate-600 relative shadow-inner">
+}: { current: number; max: number; block: number; color: string }) => (
+  <div
+    className="w-full bg-slate-900 h-6 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
+    data-tooltip-id="combat-tooltip"
+    data-tooltip-content={`HP: ${Math.round(current)}/${max}${block > 0 ? ` + Block: ${Math.round(block)}` : ""}`}
+  >
+    {/* Base Health */}
     <motion.div
       className={`h-full ${color}`}
       animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
     />
+    {/* Block Overlay */}
+    {block > 0 && (
+      <motion.div
+        className="absolute top-0 left-0 h-full bg-cyan-400/40 border-r-2 border-cyan-300"
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.min(100, (block / max) * 100)}%` }}
+      />
+    )}
     <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-bold text-white drop-shadow-md">
       <span>{Math.round(current)}</span>
       <span>{Math.round(max)}</span>
@@ -453,7 +507,11 @@ const HealthBar = ({
 )
 
 const EnergyBar = ({ current, max }: { current: number; max: number }) => (
-  <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner">
+  <div
+    className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
+    data-tooltip-id="combat-tooltip"
+    data-tooltip-content={`Energy: ${Math.round(current)}/${max}`}
+  >
     <motion.div
       className="h-full bg-indigo-600"
       animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
@@ -466,7 +524,11 @@ const EnergyBar = ({ current, max }: { current: number; max: number }) => (
 )
 
 const ManaBar = ({ current, max }: { current: number; max: number }) => (
-  <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner">
+  <div
+    className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
+    data-tooltip-id="combat-tooltip"
+    data-tooltip-content={`Mana: ${Math.round(current)}/${max}`}
+  >
     <motion.div
       className="h-full bg-cyan-600"
       animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
@@ -492,8 +554,18 @@ const StatBox = ({
   icon,
   value,
   label,
-}: { icon: React.ReactNode; value: number | string; label: string }) => (
-  <div className="bg-slate-900 p-2 rounded flex flex-col items-center border border-slate-700">
+  tooltip,
+}: {
+  icon: React.ReactNode
+  value: number | string
+  label: string
+  tooltip?: string
+}) => (
+  <div
+    className="bg-slate-900 p-2 rounded flex flex-col items-center border border-slate-700 hover:bg-slate-800 transition-colors"
+    data-tooltip-id="combat-tooltip"
+    data-tooltip-content={tooltip}
+  >
     <div className="mb-1">{icon}</div>
     <span className="text-lg font-black text-white">{value}</span>
     <span className="text-[10px] text-slate-500 uppercase tracking-wider">

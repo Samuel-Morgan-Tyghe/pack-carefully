@@ -44,7 +44,7 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
   const itemDef = ITEMS[itemId]
   if (!itemDef) return null
 
-  // Get the "True Shape" cells relative to gx, gy
+  // Get the "True Shape" cells relative to current grid position
   const trueCells = getItemCells(
     ghostPosition.gridX,
     ghostPosition.gridY,
@@ -52,7 +52,7 @@ const BackpackGhost: React.FC<BackpackGhostProps> = ({
     rot as 0 | 90 | 180 | 270,
   )
 
-  // Normalized cells relative to the ghost's top-left (ghostPosition.gridX, ghostPosition.gridY)
+  // Normalized cells relative to the ghost's top-left
   const visualCells = trueCells.map((c: Coordinate) => ({
     x: c.x - ghostPosition.gridX,
     y: c.y - ghostPosition.gridY,
