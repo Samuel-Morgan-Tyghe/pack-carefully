@@ -25,7 +25,7 @@ const GameLayout: React.FC = () => {
   const viewingPlayerId = useStore($viewingPlayerId)
 
   return (
-    <div className="h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-hidden">
+    <div className="h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-auto">
       {/* Background overlay for vignette */}
       <div className="fixed inset-0 pointer-events-none shadow-vignette z-0 mix-blend-multiply" />
 

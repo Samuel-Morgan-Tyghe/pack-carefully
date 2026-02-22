@@ -2,17 +2,17 @@ import clsx from "clsx"
 import { motion } from "framer-motion"
 import type { PanInfo } from "framer-motion"
 import * as LucideIcons from "lucide-react"
-import type React from "react"
+import React from "react"
 import type { AdjacencyResult } from "../../lib/adjacency"
 import { ITEMS } from "../../lib/items"
 import { playSound } from "../../lib/sounds"
-import { toggleLock } from "../../store/gameStore"
+import { toggleLock, getPixelCoords } from "../../store/gameStore"
 import type { InventoryItemInstance } from "../../types"
 
 interface BackpackItemProps {
   item: InventoryItemInstance
   draggedInstanceId: string | null
-  onDragStart: (id: string) => void
+  onDragStart: (id: string, info: PanInfo) => void
   onDrag: (id: string, itemId: string, rotation: number, info: PanInfo) => void
   onDragEnd: (
     instanceId: string,
@@ -26,8 +26,6 @@ interface BackpackItemProps {
   cooldown?: number // 0-100%
   isSelected?: boolean
   onSelect?: () => void
-  minX: number
-  minY: number
   adjacencyResult?: AdjacencyResult
   viewOnly?: boolean
 }
@@ -44,182 +42,113 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
   cooldown = 0,
   isSelected = false,
   onSelect,
-  minX,
-  minY,
   adjacencyResult,
   viewOnly = false,
 }) => {
-  const realItemDef = ITEMS[item.itemId]
+  const itemDef = ITEMS[item.itemId]
   const disguiseDef = item.disguiseItemId ? ITEMS[item.disguiseItemId] : null
-
-  const displayDef = disguiseDef || realItemDef
-  const itemDef = realItemDef // Used for dimensions/logic
+  const displayDef = disguiseDef || itemDef
+  
   const isDragging = draggedInstanceId === item.instanceId
-  const myBonus = adjacencyResult
   const canInteract = !viewOnly
 
-  // Dimensions
-  const w =
-    item.rotation === 90 || item.rotation === 270
-      ? itemDef.height
-      : itemDef.width
-  const h =
-    item.rotation === 90 || item.rotation === 270
-      ? itemDef.width
-      : itemDef.height
+  // Calculate dimensions based on rotation
+  const w = item.rotation === 90 || item.rotation === 270 ? itemDef.height : itemDef.width
+  const h = item.rotation === 90 || item.rotation === 270 ? itemDef.width : itemDef.height
 
-  const widthPx = w * CELL_SIZE + (w - 1) * GAP
-  const heightPx = h * CELL_SIZE + (h - 1) * GAP
+  // Use global coordinate lookup for the base transform
+  const coords = getPixelCoords(item.x, item.y)
 
   return (
     <motion.div
-      layout // Use layout animation for smooth sorting/shifts if we implement auto-sort
       drag={canInteract && !item.locked}
       dragMomentum={false}
-      dragElastic={0.1}
-      whileDrag={{
-        scale: 1.05,
-        zIndex: 100,
-        boxShadow:
-          "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)",
+      dragElastic={0}
+      whileDrag={{ zIndex: 100, scale: 1.02 }}
+      // Use x/y props for transform-based positioning
+      animate={{ 
+        x: coords.x, 
+        y: coords.y 
       }}
-      // Initial position
+      // Fast snap transition
+      transition={{ type: "spring", stiffness: 1000, damping: 50, mass: 1 }}
+      initial={false}
       style={{
         position: "absolute",
-        width: widthPx,
-        height: heightPx,
-        left: (item.x - minX) * (CELL_SIZE + GAP),
-        top: (item.y - minY) * (CELL_SIZE + GAP),
+        width: w * CELL_SIZE + (w - 1) * GAP,
+        height: h * CELL_SIZE + (h - 1) * GAP,
+        left: 0,
+        top: 0,
         pointerEvents: viewOnly ? "none" : "auto",
       }}
       data-tooltip-id="item-tooltip"
       data-item-id={item.itemId}
       data-instance-id={item.instanceId}
-      onDragStart={() => {
+      data-grid-x={item.x}
+      data-grid-y={item.y}
+      onDragStart={(_, info) => {
         if (canInteract && !item.locked) {
           playSound.pop()
-          onDragStart(item.instanceId)
+          onDragStart(item.instanceId, info)
         }
       }}
       onDrag={(_, info) =>
-        canInteract &&
-        !item.locked &&
-        onDrag(item.instanceId, item.itemId, item.rotation, info)
+        canInteract && !item.locked && onDrag(item.instanceId, item.itemId, item.rotation, info)
       }
       onDragEnd={(_, info) =>
-        canInteract &&
-        !item.locked &&
-        onDragEnd(item.instanceId, item.itemId, item.rotation, info)
+        canInteract && !item.locked && onDragEnd(item.instanceId, item.itemId, item.rotation, info)
       }
       onClick={(e) => {
         if (!canInteract) return
-        if (e.shiftKey) {
-          toggleLock(item.instanceId)
-        } else if (!isDragging) {
-          // Select the item
-          onSelect?.()
-        }
+        if (e.shiftKey) toggleLock(item.instanceId)
+        else if (!isDragging) onSelect?.()
       }}
       className={clsx(
-        "absolute transition-all duration-200",
-        !viewOnly
-          ? "cursor-grab active:cursor-grabbing hover:z-30"
-          : "cursor-default",
-        isDragging
-          ? "z-50 opacity-90"
-          : displayDef.category === "CONTAINER"
-            ? "z-10"
-            : "z-20",
-        isHighlighted &&
-          "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50 bg-green-900/20",
-        isSelected &&
-          "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50 shadow-[0_0_25px_rgba(59,130,246,0.8)] scale-[1.02]",
-        "rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touch-none",
-        // Base colors based on category
-        displayDef.category === "ESSENTIAL"
-          ? "bg-gradient-to-br from-blue-700 to-blue-900 border-blue-500/50"
-          : displayDef.category === "WEAPON"
-            ? "bg-gradient-to-br from-red-800 to-red-950 border-red-600/50"
-            : displayDef.category === "TOOL"
-              ? "bg-gradient-to-br from-slate-600 to-slate-800 border-slate-500/50"
-              : displayDef.category === "SURVIVAL"
-                ? "bg-gradient-to-br from-green-700 to-green-900 border-green-600/50"
-                : displayDef.category === "SABOTAGE"
-                  ? "bg-gradient-to-br from-purple-800 to-purple-950 border-purple-700/50"
-                  : "bg-gradient-to-br from-gray-600 to-gray-800 border-gray-500/50",
+        "absolute rounded-md shadow-lg border-2 flex flex-col items-center justify-center select-none touch-none transition-shadow",
+        !viewOnly ? "cursor-grab active:cursor-grabbing" : "cursor-default",
+        isDragging ? "opacity-50" : displayDef.category === "CONTAINER" ? "z-10" : "z-20",
+        isSelected && "ring-4 ring-blue-400 ring-offset-2 ring-offset-black/50",
+        isHighlighted && "ring-4 ring-green-400 ring-offset-2 ring-offset-black/50",
+        
+        displayDef.category === "ESSENTIAL" ? "bg-gradient-to-br from-blue-700 to-blue-900 border-blue-500/50" :
+        displayDef.category === "WEAPON" ? "bg-gradient-to-br from-red-800 to-red-950 border-red-600/50" :
+        displayDef.category === "TOOL" ? "bg-gradient-to-br from-slate-600 to-slate-800 border-slate-500/50" :
+        displayDef.category === "SURVIVAL" ? "bg-gradient-to-br from-green-700 to-green-900 border-green-600/50" :
+        displayDef.category === "SABOTAGE" ? "bg-gradient-to-br from-purple-800 to-purple-950 border-purple-700/50" :
+        "bg-gradient-to-br from-gray-600 to-gray-800 border-gray-500/50",
 
-        // Active Adjacency Glow
-        (myBonus?.totalBuff || 0) > 0 &&
-          "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
-
-        // Locked Visual
-        item.locked &&
-          "grayscale opacity-90 border-red-500/50 ring-2 ring-red-900/40",
+        (adjacencyResult?.totalBuff || 0) > 0 && "shadow-[0_0_15px_rgba(234,179,8,0.5)] border-gold-400 ring-1 ring-gold-500",
+        item.locked && "grayscale opacity-90 border-red-500/50"
       )}
     >
-      {/* Icon */}
-      {(() => {
-        const IconComponent =
-          (LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>)[
-            displayDef.icon
-          ] || LucideIcons.Box
-        return (
-          <div
-            style={{ rotate: `${item.rotation}deg` }}
-            className="transition-transform duration-300"
-          >
-            <IconComponent
-              className={clsx(
-                "text-parchment-100",
-                w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8",
-                item.locked && "text-red-400/50",
-              )}
-            />
-          </div>
-        )
-      })()}
+      <div style={{ rotate: `${item.rotation}deg` }} className="transition-transform duration-300">
+        {React.createElement((LucideIcons as any)[displayDef.icon] || LucideIcons.Box, {
+          className: clsx("text-parchment-100", w === 1 && h === 1 ? "w-6 h-6" : "w-8 h-8")
+        })}
+      </div>
 
-      {/* Show Name if space allows */}
       {(w > 1 || h > 1) && (
-        <span className="text-[10px] font-bold uppercase tracking-wider text-parchment-200 mt-1 pointer-events-none">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-parchment-200 mt-1">
           {itemDef.name}
         </span>
       )}
 
-      {/* Lock Icon Overlay */}
-      {item.locked && (
-        <div className="absolute top-1 right-1 text-red-500">
-          <LucideIcons.Lock size={12} />
-        </div>
-      )}
+      {item.locked && <div className="absolute top-1 right-1 text-red-500"><LucideIcons.Lock size={12} /></div>}
 
-      {/* Cooldown Overlay */}
       {cooldown > 0 && (
         <motion.div
-          className="absolute bottom-0 left-0 right-0 bg-gray-900/60 z-20 pointer-events-none"
+          className="absolute bottom-0 left-0 right-0 bg-gray-900/60 z-20 pointer-events-none rounded-b-[4px]"
           initial={{ height: "0%" }}
           animate={{ height: `${cooldown}%` }}
           transition={{ duration: 0.1 }}
         />
       )}
 
-      {/* Adjacency Badge (Additive) */}
-      {myBonus && (myBonus.totalBuff || 0) > 0 && !item.locked && (
-        <div className="absolute -top-2 -right-2 bg-gold-500 text-wood-900 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white transform scale-100 animate-bounce-subtle z-20">
-          +{myBonus.totalBuff}
+      {adjacencyResult && (adjacencyResult.totalBuff || 0) > 0 && !item.locked && (
+        <div className="absolute -top-2 -right-2 bg-gold-500 text-wood-900 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-white transform scale-100 animate-bounce-subtle z-30">
+          +{adjacencyResult.totalBuff}
         </div>
       )}
-
-      {/* Multiplier Badge */}
-      {myBonus &&
-        Object.keys(myBonus.multipliers).length > 0 &&
-        !item.locked && (
-          <div className="absolute -bottom-2 -left-2 bg-blue-500 text-white font-bold text-[8px] px-1 py-0.5 rounded shadow-lg border border-white z-20">
-            {Object.entries(myBonus.multipliers)
-              .map(([stat, val]) => `x${val} ${stat.slice(0, 3)}`)
-              .join(", ")}
-          </div>
-        )}
     </motion.div>
   )
 }

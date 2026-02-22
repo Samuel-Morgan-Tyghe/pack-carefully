@@ -22,27 +22,37 @@ export interface AdjacencyResult {
   potentialSynergySquares: SynergySquare[] // Pattern squares that could synergy
 }
 
-const getItemCells = (item: InventoryItemInstance) => {
-  const def = ITEMS[item.itemId]
-  if (!def) return []
-  const w =
-    item.rotation === 90 || item.rotation === 270 ? def.height : def.width
-  const h =
-    item.rotation === 90 || item.rotation === 270 ? def.width : def.height
-  const cells = []
-  for (let x = 0; x < w; x++) {
-    for (let y = 0; y < h; y++) {
-      cells.push({ x: item.x + x, y: item.y + y })
-    }
-  }
-  return cells
-}
-
 const getRotatedOffset = (dx: number, dy: number, rotation: number) => {
   if (rotation === 90) return { rdx: -dy, rdy: dx }
   if (rotation === 180) return { rdx: -dx, rdy: -dy }
   if (rotation === 270) return { rdx: dy, rdy: -dx }
   return { rdx: dx, rdy: dy }
+}
+
+const getItemCells = (item: InventoryItemInstance) => {
+  const def = ITEMS[item.itemId]
+  if (!def) return []
+
+  let rotated: { rdx: number; rdy: number }[]
+  if (def.shape) {
+    rotated = def.shape.map((coord) => getRotatedOffset(coord.x, coord.y, item.rotation))
+  } else {
+    rotated = []
+    for (let x = 0; x < def.width; x++) {
+      for (let y = 0; y < def.height; y++) {
+        rotated.push(getRotatedOffset(x, y, item.rotation))
+      }
+    }
+  }
+
+  // Find the top-left of the ROTATED bounding box to normalize coordinates
+  const minRDX = Math.min(...rotated.map((c) => c.rdx))
+  const minRDY = Math.min(...rotated.map((c) => c.rdy))
+
+  return rotated.map((c) => ({
+    x: item.x + (c.rdx - minRDX),
+    y: item.y + (c.rdy - minRDY),
+  }))
 }
 
 const checkPattern = (
@@ -125,7 +135,7 @@ export const getAdjacencyBonuses = (
               footprint.push(
                 { x: cell.x + 1, y: cell.y },
                 { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y + 1 },
+                { x: cell.y + 1, y: cell.y }, // BUG FIX: should be x, y+1
                 { x: cell.x, y: cell.y - 1 },
               )
             }

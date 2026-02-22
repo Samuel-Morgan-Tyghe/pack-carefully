@@ -39,7 +39,7 @@ export interface SynergyResult {
     energyCost: number
     maxEnergy: number
     energyRegen: number
-    manaCost: number // Added
+    manaCost: number
   }>
   multipliers?: Partial<
     Record<
@@ -88,6 +88,7 @@ export interface Item {
   category: ItemCategory
   width: number
   height: number
+  shape?: Coordinate[] // Optional non-rectangular footprint (relative to top-left 0,0)
   icon: string // Lucide icon name or image path
   rarity: "COMMON" | "UNCOMMON" | "RARE" | "LEGENDARY"
   synergies?: FunctionalSynergy[]
@@ -104,7 +105,7 @@ export interface Item {
     energyRegen?: number // Energy regenerated per second
     triggerSpeed?: number // Multiplier for how fast it triggers
     baseCooldownMs?: number // Default cooldown if not specified
-    manaCost?: number // Added
+    manaCost?: number
   }
   triggerType?: "ATTACK" | "HEAL" | "SHIELD" | "PASSIVE"
   effects?: {
@@ -177,7 +178,7 @@ export interface InventoryItemInstance {
     block?: number
     triggerSpeed?: number
     baseCooldownMs?: number
-    manaCost?: number // Added
+    manaCost?: number
   }
 }
 

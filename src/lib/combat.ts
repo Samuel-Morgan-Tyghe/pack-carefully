@@ -152,16 +152,18 @@ export const calculatePlayerCombatInfo = (
         liveStats.manaCost = Math.floor(liveStats.manaCost * bonus.multipliers.manaCost)
     }
 
-    // Accumulate global passive stats
+    // Accumulate global passive stats from ALL items (weapons can have passives too)
+    totalStats.maxHp += def.combatStats?.maxHp || 0
+    totalStats.maxEnergy += def.combatStats?.maxEnergy || 0
+    totalStats.energyRegen += def.combatStats?.energyRegen || 0
+    totalStats.maxMana += def.combatStats?.maxMana || 0
+    totalStats.manaRegen += def.combatStats?.manaRegen || 0
+    totalStats.block += def.combatStats?.block || 0
+    totalStats.healthRegen =
+      (totalStats.healthRegen || 0) + (def.combatStats?.healthRegen || 0)
+    
+    // Trigger Speed multiplier only accumulates from PASSIVE items (like bags/charms)
     if (def.triggerType === "PASSIVE" || !def.triggerType) {
-      totalStats.maxHp += def.combatStats?.maxHp || 0
-      totalStats.maxEnergy += def.combatStats?.maxEnergy || 0
-      totalStats.energyRegen += def.combatStats?.energyRegen || 0
-      totalStats.maxMana += def.combatStats?.maxMana || 0
-      totalStats.manaRegen += def.combatStats?.manaRegen || 0
-      totalStats.block += def.combatStats?.block || 0
-      totalStats.healthRegen =
-        (totalStats.healthRegen || 0) + (def.combatStats?.healthRegen || 0)
       totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0
     }
 

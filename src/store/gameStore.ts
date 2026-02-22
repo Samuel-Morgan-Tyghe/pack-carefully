@@ -1,4 +1,4 @@
-import { atom } from "nanostores"
+import { atom, computed } from "nanostores"
 import { generateRandomContainers } from "../lib/generators"
 import { GRID_SIZE, ITEMS } from "../lib/items"
 import { generateId } from "../lib/utils"
@@ -25,6 +25,67 @@ export const $activePreview = atom<{
   type: "instance" | "definition"
   id: string
 } | null>(null)
+
+// Grid Configuration
+export const $gridConfig = atom({
+  cellSize: 40,
+  gap: 2,
+  rows: GRID_SIZE,
+  cols: GRID_SIZE,
+})
+
+/**
+ * Human-readable Grid State
+ * Maps every single cell index to its metadata (Is it a bag? Who owns it? What's the coord?)
+ */
+export const $gridState = computed([$containers, $itemsOnGrid, $gridConfig], (containers, items, config) => {
+  const state: Record<string, { 
+    x: number, 
+    y: number, 
+    isBag: boolean, 
+    ownerId: string | null, 
+    occupiedBy: string | null 
+  }> = {}
+
+  for (let y = 0; y < config.rows; y++) {
+    for (let x = 0; x < config.cols; x++) {
+      const key = `${x},${y}`
+      state[key] = { x, y, isBag: false, ownerId: null, occupiedBy: null }
+    }
+  }
+
+  // Mark Bag Cells
+  for (const container of containers) {
+    for (const cell of container.cells) {
+      const key = `${cell.x},${cell.y}`
+      if (state[key]) {
+        state[key].isBag = true
+        state[key].ownerId = container.ownerId
+      }
+    }
+  }
+
+  // Mark Occupied Cells (True Shape)
+  for (const item of items) {
+    const cells = getItemCells(item.x, item.y, item.itemId, item.rotation)
+    for (const cell of cells) {
+      const key = `${cell.x},${cell.y}`
+      if (state[key]) {
+        state[key].occupiedBy = item.instanceId
+      }
+    }
+  }
+
+  return state
+})
+
+export const getPixelCoords = (gx: number, gy: number) => {
+  const { cellSize, gap } = $gridConfig.get()
+  return {
+    x: gx * (cellSize + gap),
+    y: gy * (cellSize + gap),
+  }
+}
 
 // Multiplayer Identity & Sync
 export const $localPlayerId = atom<
@@ -139,6 +200,44 @@ $gameState.listen((val) => broadcast("GAME_STATE_UPDATE", val))
 $draftState.listen((val) => broadcast("DRAFT_STATE_UPDATE", val))
 $draggedItem.listen((val) => broadcast("DRAGGED_ITEM_UPDATE", val))
 
+// Helper to get cells occupied by an item
+export const getItemCells = (
+  x: number,
+  y: number,
+  itemId: string,
+  rotation: 0 | 90 | 180 | 270,
+) => {
+  const def = ITEMS[itemId]
+  if (!def) return []
+
+  const getRotatedOffset = (dx: number, dy: number, rot: number) => {
+    if (rot === 90) return { rdx: -dy, rdy: dx }
+    if (rot === 180) return { rdx: -dx, rdy: -dy }
+    if (rot === 270) return { rdx: dy, rdy: -dx }
+    return { rdx: dx, rdy: dy }
+  }
+
+  let rotated: { rdx: number; rdy: number }[]
+  if (def.shape) {
+    rotated = def.shape.map((coord) => getRotatedOffset(coord.x, coord.y, rotation))
+  } else {
+    rotated = []
+    for (let dx = 0; dx < def.width; dx++) {
+      for (let dy = 0; dy < def.height; dy++) {
+        rotated.push(getRotatedOffset(dx, dy, rotation))
+      }
+    }
+  }
+
+  const minRDX = Math.min(...rotated.map((c) => c.rdx))
+  const minRDY = Math.min(...rotated.map((c) => c.rdy))
+
+  return rotated.map((c) => ({
+    x: x + (c.rdx - minRDX),
+    y: y + (c.rdy - minRDY),
+  }))
+}
+
 // Derived state example (if needed) or Actions
 // Helper for collision
 export const checkCollision = (
@@ -150,48 +249,46 @@ export const checkCollision = (
   ownerId: string,
   excludeInstanceId?: string,
   category?: ItemCategory,
+  itemId?: string, // Optional: if provided, use shape logic
+  rotation: 0 | 90 | 180 | 270 = 0,
 ): boolean => {
-  if (x < 0 || y < 0 || x + width > GRID_SIZE || y + height > GRID_SIZE)
-    return true
+  // Use cell-based check if itemId is provided
+  const cellsA = itemId
+    ? getItemCells(x, y, itemId, rotation)
+    : [] 
+
+  // Bounds check
+  if (itemId) {
+    if (cellsA.some(c => c.x < 0 || c.y < 0 || c.x >= GRID_SIZE || c.y >= GRID_SIZE)) return true
+  } else {
+    if (x < 0 || y < 0 || x + width > GRID_SIZE || y + height > GRID_SIZE) return true
+  }
 
   const isContainer = category === "CONTAINER"
 
   for (const item of items) {
     if (item.instanceId === excludeInstanceId) continue
 
-    // In FINALE, all items collide regardless of owner
     const isFinale = $phase.get() === "FINALE"
     if (!isFinale && item.ownerId !== ownerId) continue
 
     const existingItemDef = ITEMS[item.itemId]
     const isExistingContainer = existingItemDef.category === "CONTAINER"
 
-    // Layer Check:
-    // Containers only collide with Containers
-    // Gear only collides with Gear
     if (isContainer !== isExistingContainer) continue
 
-    const existingW =
-      item.rotation === 90 || item.rotation === 270
-        ? existingItemDef.height
-        : existingItemDef.width
-    const existingH =
-      item.rotation === 90 || item.rotation === 270
-        ? existingItemDef.width
-        : existingItemDef.height
+    const cellsB = getItemCells(item.x, item.y, item.itemId, item.rotation)
 
-    if (
-      x < item.x + existingW &&
-      x + width > item.x &&
-      y < item.y + existingH &&
-      y + height > item.y
-    ) {
-      return true
+    // Cell vs Cell collision
+    if (itemId) {
+      if (cellsA.some(ca => cellsB.some(cb => ca.x === cb.x && ca.y === cb.y))) return true
+    } else {
+      // Legacy rect vs cell
+      const w = rotation === 90 || rotation === 270 ? height : width
+      const h = rotation === 90 || rotation === 270 ? width : height
+      if (cellsB.some(cb => cb.x >= x && cb.x < x + w && cb.y >= y && cb.y < y + h)) return true
     }
   }
-
-  // 2. Base Container Check - Containers can now overlap base backpack for extension
-  // We removed the nesting block to allow easier placement.
 
   return false
 }
@@ -204,19 +301,17 @@ export const checkSupport = (
   height: number,
   items: InventoryItemInstance[],
   ownerId: string,
+  itemId?: string,
+  rotation: 0 | 90 | 180 | 270 = 0,
 ): boolean => {
   // In FINALE, everything floats
   if ($phase.get() === "FINALE") return true
 
   const containers = $containers.get().filter((c) => c.ownerId === ownerId)
-
-  // Get all valid cells for this player
   const validCells = new Set<string>()
 
-  // 1. Base Containers (Backpacks)
   for (const c of containers) {
     for (const cell of c.cells) {
-      // Check if cell is disabled
       const isDisabled = c.disabledCells?.some(
         (dc) => dc.x === cell.x && dc.y === cell.y,
       )
@@ -226,30 +321,30 @@ export const checkSupport = (
     }
   }
 
-  // 2. Container Items (Pouches, Fanny Packs, etc)
-  // They act as valid ground for other items!
   for (const item of items) {
     if (item.ownerId === ownerId) {
       const def = ITEMS[item.itemId]
       if (def && def.category === "CONTAINER") {
-        const w =
-          item.rotation === 90 || item.rotation === 270 ? def.height : def.width
-        const h =
-          item.rotation === 90 || item.rotation === 270 ? def.width : def.height
-
-        for (let dx = 0; dx < w; dx++) {
-          for (let dy = 0; dy < h; dy++) {
-            validCells.add(`${item.x + dx},${item.y + dy}`)
-          }
+        const cells = getItemCells(item.x, item.y, item.itemId, item.rotation)
+        for (const cell of cells) {
+          validCells.add(`${cell.x},${cell.y}`)
         }
       }
     }
   }
 
-  // Check if every cell of the item matches a valid container cell
-  for (let cx = x; cx < x + width; cx++) {
-    for (let cy = y; cy < y + height; cy++) {
-      if (!validCells.has(`${cx},${cy}`)) return false
+  const cellsA = itemId 
+    ? getItemCells(x, y, itemId, rotation)
+    : [] 
+
+  if (itemId) {
+    return cellsA.every(c => validCells.has(`${c.x},${c.y}`))
+  } else {
+    // Legacy rect check
+    for (let cx = x; cx < x + width; cx++) {
+      for (let cy = y; cy < y + height; cy++) {
+        if (!validCells.has(`${cx},${cy}`)) return false
+      }
     }
   }
   return true
@@ -376,12 +471,12 @@ export const placeItem = (
   const h = rotation === 90 || rotation === 270 ? itemDef.width : itemDef.height
 
   // Check Collision (Blocking)
-  if (checkCollision(x, y, w, h, items, ownerId, undefined, itemDef.category))
+  if (checkCollision(x, y, w, h, items, ownerId, undefined, itemDef.category, itemId, rotation))
     return false
 
   // Check Support (If not a container, must be inside containers)
   if (itemDef.category !== "CONTAINER") {
-    if (!checkSupport(x, y, w, h, items, ownerId)) return false
+    if (!checkSupport(x, y, w, h, items, ownerId, itemId, rotation)) return false
   }
 
   const newItem: InventoryItemInstance = {
@@ -428,14 +523,16 @@ export const addRandomLoot = (
         targetOwnerId,
         undefined,
         itemDef.category,
+        itemId,
+        rot as 0
       )
     ) {
       // Check Support
       if (
         itemDef.category === "CONTAINER" ||
-        checkSupport(x, y, itemDef.width, itemDef.height, items, targetOwnerId)
+        checkSupport(x, y, itemDef.width, itemDef.height, items, targetOwnerId, itemId, rot as 0)
       ) {
-        return placeItem(itemId, x, y, rot, targetOwnerId)
+        return placeItem(itemId, x, y, rot as 0, targetOwnerId)
       }
     }
   }
@@ -460,7 +557,8 @@ export const moveItem = (
 
   if (item.locked) return false // Cannot move locked items
 
-  if (checkCollision(x, y, w, h, items, item.ownerId, instanceId)) return false
+  if (checkCollision(x, y, w, h, items, item.ownerId, instanceId, itemDef.category, item.itemId, finalRot)) return false
+  if (itemDef.category !== "CONTAINER" && !checkSupport(x, y, w, h, items, item.ownerId, item.itemId, finalRot)) return false
 
   $itemsOnGrid.set(
     items.map((i) =>
@@ -476,6 +574,15 @@ export const rotateItem = (instanceId: string) => {
   if (!item || item.locked) return // Cannot rotate locked items
 
   const newRot = ((item.rotation + 90) % 360) as 0 | 90 | 180 | 270
+  
+  // Check if rotation is valid at current position
+  const itemDef = ITEMS[item.itemId]
+  const w = newRot === 90 || newRot === 270 ? itemDef.height : itemDef.width
+  const h = newRot === 90 || newRot === 270 ? itemDef.width : itemDef.height
+
+  if (checkCollision(item.x, item.y, w, h, items, item.ownerId, instanceId, itemDef.category, item.itemId, newRot)) return
+  if (itemDef.category !== "CONTAINER" && !checkSupport(item.x, item.y, w, h, items, item.ownerId, item.itemId, newRot)) return
+
   moveItem(instanceId, item.x, item.y, newRot)
 }
 
@@ -502,6 +609,15 @@ export const rotateItemCounterClockwise = (instanceId: string) => {
   if (!item || item.locked) return
 
   const newRot = ((item.rotation - 90 + 360) % 360) as 0 | 90 | 180 | 270
+  
+  // Check if rotation is valid
+  const itemDef = ITEMS[item.itemId]
+  const w = newRot === 90 || newRot === 270 ? itemDef.height : itemDef.width
+  const h = newRot === 90 || newRot === 270 ? itemDef.width : itemDef.height
+
+  if (checkCollision(item.x, item.y, w, h, items, item.ownerId, instanceId, itemDef.category, item.itemId, newRot)) return
+  if (itemDef.category !== "CONTAINER" && !checkSupport(item.x, item.y, w, h, items, item.ownerId, item.itemId, newRot)) return
+
   moveItem(instanceId, item.x, item.y, newRot)
 }
 
@@ -667,11 +783,13 @@ export const rummageInventory = (targetPlayerId: string): boolean => {
         targetPlayerId,
         undefined,
         def.category,
+        itemToMessUp.itemId,
+        rot
       )
     ) {
       if (
         def.category === "CONTAINER" ||
-        checkSupport(x, y, w, h, otherItems, targetPlayerId)
+        checkSupport(x, y, w, h, otherItems, targetPlayerId, itemToMessUp.itemId, rot)
       ) {
         moveItem(itemToMessUp.instanceId, x, y, rot)
         return true
