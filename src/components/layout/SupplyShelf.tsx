@@ -18,17 +18,20 @@ const SupplyShelf: React.FC = () => {
     return ids.map((id) => ITEMS[id]).filter(Boolean) as Item[]
   }, [draftPool, localPlayerId])
 
-  const CATEGORIES = useMemo(
-    () => [...new Set(items.map((i) => i.category))],
-    [items],
-  )
+  const CATEGORIES = useMemo(() => {
+    const baseCats = [...new Set(items.map((i) => i.category))]
+    return ["ALL", ...baseCats]
+  }, [items])
 
-  const [activeTab, setActiveTab] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string>("ALL")
 
-  // Auto-select first available category if current one is empty or null
-  const currentTab = activeTab || CATEGORIES[0]
+  // Auto-reset tab if current one disappears (except ALL)
+  const currentTab = CATEGORIES.includes(activeTab) ? activeTab : "ALL"
 
-  const activeItems = items.filter((i) => i.category === currentTab)
+  const activeItems = useMemo(() => {
+    if (currentTab === "ALL") return items
+    return items.filter((i) => i.category === currentTab)
+  }, [items, currentTab])
 
   return (
     <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden select-none">
@@ -46,23 +49,28 @@ const SupplyShelf: React.FC = () => {
       {/* Category Tabs */}
       <div className="flex md:flex-wrap gap-1 overflow-x-auto pb-1 scrollbar-none shrink-0 border-b border-wood-700">
         {CATEGORIES.map((cat) => {
-          const count = items.filter((i) => i.category === cat).length
+          const count =
+            cat === "ALL"
+              ? items.length
+              : items.filter((i) => i.category === cat).length
           if (count === 0 && cat !== currentTab) return null
 
           const iconName =
-            cat === "WEAPON"
-              ? "Swords"
-              : cat === "TOOL"
-                ? "Hammer"
-                : cat === "ESSENTIAL"
-                  ? "Package"
-                  : cat === "SURVIVAL"
-                    ? "Heart"
-                    : cat === "COMFORT"
-                      ? "Bed"
-                      : cat === "CONTAINER"
-                        ? "Square"
-                        : "Skull"
+            cat === "ALL"
+              ? "LayoutGrid"
+              : cat === "WEAPON"
+                ? "Swords"
+                : cat === "TOOL"
+                  ? "Hammer"
+                  : cat === "ESSENTIAL"
+                    ? "Package"
+                    : cat === "SURVIVAL"
+                      ? "Heart"
+                      : cat === "COMFORT"
+                        ? "Bed"
+                        : cat === "CONTAINER"
+                          ? "Square"
+                          : "Skull"
 
           const Icon =
             (
@@ -94,9 +102,7 @@ const SupplyShelf: React.FC = () => {
 
       {/* Shelf Content - Fixed Category */}
       <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full animate-in fade-in slide-in-from-left-2">
-        {currentTab && (
-          <ShelfCategory category={currentTab} items={activeItems} />
-        )}
+        <ShelfCategory items={activeItems} />
       </div>
     </section>
   )

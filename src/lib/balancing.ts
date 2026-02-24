@@ -1,25 +1,31 @@
+import { DEFAULT_BLOCK_DECAY, DEFAULT_VULNERABILITY_FACTOR } from "./constants"
+
 /**
  * PACK CAREFULLY: BALANCING UTILITIES
  *
- * Target Ratios:
- * COMMON: 10 DPS / 35 EPS (or MPS)
- * UNCOMMON: 18 DPS / 60 EPS
- * RARE: 30 DPS / 100 EPS
- *
- * Rules: energyCost <= 100, manaCost <= 100
+ * Target Ratios (Efficiency Era):
+ * COMMON: 6.0 DPS / 20.0 EPS (or MPS)
+ * UNCOMMON: 10.0 DPS / 35.0 EPS
+ * RARE: 18.0 DPS / 60.0 EPS
  */
 
 interface WeaponBalanceParams {
   dps: number
-  eps?: number // Energy Per Second
-  mps?: number // Mana Per Second
+  eps?: number
+  mps?: number
   baseCooldown?: number
   energyCost?: number
   manaCost?: number
 }
 
+interface BlockBalanceParams {
+  targetEps: number // Sustainable EPS (Below 15.0 Regen)
+  baseCooldown: number
+  vulnerabilityFactor?: number
+}
+
 /**
- * Calculates weapon stats based on target DPS and a primary resource rate (EPS or MPS).
+ * Calculates weapon stats based on target DPS and resource rates.
  */
 export const calcWeaponStats = ({
   dps,
@@ -29,8 +35,7 @@ export const calcWeaponStats = ({
   energyCost,
   manaCost,
 }: WeaponBalanceParams) => {
-  // Use either EPS or MPS as the primary resource rate
-  const targetRate = eps || mps || 35.0
+  const targetRate = eps || mps || 20.0
 
   let finalCD = baseCooldown || 1.0
   let finalResource = energyCost ?? manaCost ?? finalCD * targetRate
@@ -44,7 +49,6 @@ export const calcWeaponStats = ({
     finalCD = baseCooldown
   }
 
-  // Cap logic: Ensure resource usage does not exceed 100
   if (finalResource > 100) {
     const ratio = finalResource / 100
     finalResource = 100
@@ -61,9 +65,28 @@ export const calcWeaponStats = ({
   }
 }
 
+/**
+ * Calculates block stats with forced vulnerability windows.
+ */
+export const calcBlockStats = ({
+  targetEps,
+  baseCooldown,
+  vulnerabilityFactor = DEFAULT_VULNERABILITY_FACTOR,
+}: BlockBalanceParams) => {
+  const energyCost = Number((baseCooldown * targetEps).toFixed(1))
+  const protectedTime = baseCooldown * (1 - vulnerabilityFactor)
+  const blockValue = Math.floor(protectedTime * DEFAULT_BLOCK_DECAY)
+
+  return {
+    block: blockValue,
+    energyCost: energyCost,
+    baseCooldown: baseCooldown,
+  }
+}
+
 export const TIER_TARGETS = {
-  COMMON: { dps: 10, eps: 35, mps: 35 },
-  UNCOMMON: { dps: 18, eps: 60, mps: 60 },
-  RARE: { dps: 30, eps: 100, mps: 100 },
-  LEGENDARY: { dps: 45, eps: 150, mps: 150 },
+  COMMON: { dps: 6.0, eps: 20.0, mps: 20.0, blockEps: 4.0 },
+  UNCOMMON: { dps: 10.0, eps: 35.0, mps: 35.0, blockEps: 6.0 },
+  RARE: { dps: 18.0, eps: 60.0, mps: 60.0, blockEps: 10.0 },
+  LEGENDARY: { dps: 30.0, eps: 100.0, mps: 100.0, blockEps: 15.0 },
 }

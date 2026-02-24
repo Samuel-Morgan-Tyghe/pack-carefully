@@ -1,12 +1,12 @@
 import type { Item } from "../types"
 import { basicBlock } from "./items/basicBlock"
 import { basicSupport } from "./items/basicSupport"
-import { basicTools } from "./items/basicTools"
 import { basicWeapons } from "./items/basicWeapons"
+import { boosters } from "./items/booster"
 import { bridgeItems } from "./items/bridgeItems"
 
 export const ITEMS: Record<string, Item> = {
-  ...basicTools,
+  ...boosters,
   ...basicWeapons,
   ...basicBlock,
   ...basicSupport,

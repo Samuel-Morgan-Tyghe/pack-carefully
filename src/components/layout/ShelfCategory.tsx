@@ -4,19 +4,18 @@ import ShelfItem from "./ShelfItem"
 import type { Item } from "../../types"
 
 interface ShelfCategoryProps {
-  category: string
   items: Item[]
 }
 
 export const ShelfCategory: React.FC<ShelfCategoryProps> = ({ items }) => {
-  console.log("🚀 ~ ShelfCategory ~ items:", items)
   if (items.length === 0) return null
 
   return (
     <div className="pb-4">
       <div className="grid grid-cols-3 gap-2">
-        {items.map((item) => (
-          <ShelfItem key={item.id} item={item} />
+        {items.map((item, index) => (
+          /* FIX: Use index in key to handle duplicate item IDs in draft pool */
+          <ShelfItem key={`${item.id}-${index}`} item={item} />
         ))}
       </div>
     </div>

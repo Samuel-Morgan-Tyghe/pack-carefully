@@ -1,4 +1,5 @@
 import { atom, computed } from "nanostores"
+import { DEFAULT_BLOCK_DECAY } from "../lib/constants"
 import { generateRandomContainers } from "../lib/generators"
 import { GRID_SIZE, ITEMS } from "../lib/items"
 import { generateId } from "../lib/utils"
@@ -21,6 +22,7 @@ export const $containers = atom<Container[]>([])
 export const $currentPlayerId = atom<string | null>(null)
 export const $itemsOnGrid = atom<InventoryItemInstance[]>([])
 export const $draggedItem = atom<string | null>(null)
+export const $dragSessionId = atom<number>(0)
 export const $activePreview = atom<{
   type: "instance" | "definition"
   id: string
@@ -186,6 +188,7 @@ export const $gameState = atom<GameState>({
   selectedPath: null,
   pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
   lastEncounterResult: null,
+  blockDecayRate: DEFAULT_BLOCK_DECAY, // Global block decay per second
 })
 
 // Draft State moved to types
@@ -774,6 +777,7 @@ export const resetGame = () => {
     selectedPath: null,
     pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
     lastEncounterResult: null,
+    blockDecayRate: DEFAULT_BLOCK_DECAY,
   })
 }
 

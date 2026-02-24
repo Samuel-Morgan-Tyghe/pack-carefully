@@ -1,12 +1,12 @@
 import type { Item } from "../../types"
 import { ITEMS } from "../items"
 
-export const basicTools: Record<string, Item> = {
+export const boosters: Record<string, Item> = {
   attack_booster: {
     category: "TOOL",
     width: 1,
     height: 1,
-    rarity: "COMMON",
+    rarity: "RARE",
     id: "attack_booster",
     name: "Attack Booster",
     description: "Increases the damage of adjacent weapons by 30%.",
@@ -29,7 +29,7 @@ export const basicTools: Record<string, Item> = {
     category: "TOOL",
     width: 1,
     height: 1,
-    rarity: "COMMON",
+    rarity: "RARE",
     id: "energy_booster",
     name: "Energy Booster",
     description: "Increases maximum energy by 20.",
@@ -42,7 +42,7 @@ export const basicTools: Record<string, Item> = {
     category: "TOOL",
     width: 1,
     height: 1,
-    rarity: "COMMON",
+    rarity: "RARE",
     id: "defense_booster",
     name: "Defense Booster",
     description: "Increases the block of adjacent armor or shields by 30%.",
@@ -70,7 +70,7 @@ export const basicTools: Record<string, Item> = {
     category: "TOOL",
     width: 1,
     height: 1,
-    rarity: "COMMON",
+    rarity: "RARE",
     id: "health_booster",
     name: "Health Booster",
     description: "Increases maximum HP by 20.",
@@ -83,7 +83,7 @@ export const basicTools: Record<string, Item> = {
     category: "TOOL",
     width: 1,
     height: 1,
-    rarity: "COMMON",
+    rarity: "RARE",
     id: "mana_booster",
     name: "Mana Booster",
     description: "Increases maximum mana by 10.",

@@ -12,8 +12,8 @@ export const basicSupport: Record<string, Item> = {
     rarity: "UNCOMMON",
     triggerType: "HEAL",
     combatStats: {
-      heal: 20,
-      energyCost: 40,
+      heal: 30,
+      energyCost: 60,
       baseCooldown: 6.0,
     },
   },
@@ -29,7 +29,7 @@ export const basicSupport: Record<string, Item> = {
     triggerType: "PASSIVE",
     combatStats: {
       maxEnergy: 30,
-      energyRegen: 3,
+      energyRegen: 5, // Buffed to match new 15 regen meta
     },
   },
   water_canteen: {
@@ -44,7 +44,7 @@ export const basicSupport: Record<string, Item> = {
     triggerType: "PASSIVE",
     combatStats: {
       maxMana: 15,
-      manaRegen: 1,
+      manaRegen: 2, // Buffed to match 5 mana regen meta
     },
   },
 }

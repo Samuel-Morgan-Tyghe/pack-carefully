@@ -9,6 +9,7 @@ import { ITEMS } from "../lib/items"
 import {
   $activePreview,
   $currentPlayerId,
+  $dragSessionId,
   $draggedItem,
   $gridConfig,
   $gridState,
@@ -54,12 +55,10 @@ const Inventory: React.FC<InventoryProps> = (props) => {
 
   const gridConfig = useStore($gridConfig)
   const globalGridState = useStore($gridState)
+  const dragSessionId = useStore($dragSessionId)
   const { cellSize: CELL_SIZE, gap: GAP, rows, cols } = gridConfig
 
   const gridRef = useRef<HTMLDivElement>(null)
-
-  // DRAG SESSION ID: Incrementing this forces items to remount and clear transforms
-  const [dragSessionId, setDragSessionId] = useState(0)
 
   const [ghostPosition, setGhostPosition] = useState<{
     x: number
@@ -316,28 +315,33 @@ const Inventory: React.FC<InventoryProps> = (props) => {
       if (e.key === "Escape" && (draggedInstanceId || externalDraggedItem)) {
         setDraggedInstanceId(null)
         setGhostPosition(null)
-        setDragSessionId((s) => s + 1) // Reset on cancel
+        $dragSessionId.set($dragSessionId.get() + 1) // Reset on cancel
         $draggedItem.set(null)
         $activePreview.set(null)
         return
       }
-      if (externalDraggedItem) {
+      if (draggedInstanceId || externalDraggedItem) {
         if (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "e") {
           e.preventDefault()
-          if (selectedItemId) rotateItem(selectedItemId)
-          else
+          if (draggedInstanceId) rotateItem(draggedInstanceId)
+
+          // ALWAYS update pendingRotation if an external item is active
+          if (externalDraggedItem) {
             setPendingRotation(
               (prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270,
             )
+          }
           return
         }
         if (e.key.toLowerCase() === "q") {
           e.preventDefault()
-          if (selectedItemId) rotateItemCounterClockwise(selectedItemId)
-          else
+          if (draggedInstanceId) rotateItemCounterClockwise(draggedInstanceId)
+
+          if (externalDraggedItem) {
             setPendingRotation(
               (prev) => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270,
             )
+          }
           return
         }
       }
@@ -374,18 +378,26 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   }
 
   const handleDrag = (
-    _instanceId: string,
+    instanceId: string,
     itemId: string,
-    currentRot: number,
+    _passedRot: number,
     info: PanInfo,
   ) => {
     if (!canInteract) return
+
+    // LOOKUP LATEST ROTATION: Use store for grid items, or state for shelf items
+    let currentRot = pendingRotation
+    if (instanceId) {
+      const item = itemsOnGrid.find((i) => i.instanceId === instanceId)
+      if (item) currentRot = item.rotation
+    }
+
     const { x, y, gridX, gridY } = snapToGrid(info.point, itemId, currentRot)
     const valid = calculateGhostValidity(
       gridX,
       gridY,
       itemId,
-      draggedInstanceId || undefined,
+      instanceId || undefined,
       currentRot,
     )
     setIsGhostValid(valid)
@@ -395,10 +407,18 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const handleDragEnd = (
     instanceId: string,
     itemId: string,
-    currentRot: number,
+    _passedRot: number,
     info: PanInfo,
   ) => {
     const itemDef = ITEMS[itemId]
+
+    // LOOKUP LATEST ROTATION: Ignore the passed argument which may be stale
+    let currentRot = pendingRotation
+    if (instanceId) {
+      const item = itemsOnGrid.find((i) => i.instanceId === instanceId)
+      if (item) currentRot = item.rotation
+    }
+
     const { gridX, gridY } = snapToGrid(info.point, itemId, currentRot)
 
     if (calculateGhostValidity(gridX, gridY, itemId, instanceId, currentRot)) {
@@ -406,15 +426,15 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     } else {
       removeItem(instanceId)
       returnItemToPool(ownerId, itemId)
-      $draggedItem.set(itemId)
-      $activePreview.set({ type: "definition", id: itemId })
-      setPendingRotation(currentRot as 0 | 90 | 180 | 270)
+      // FIX: Don't keep it as a ghost, just return it to shelf
+      $draggedItem.set(null)
+      $activePreview.set(null)
       setErrorMessage(`${itemDef.name} returned to shelf!`)
       setTimeout(() => setErrorMessage(null), 3000)
     }
 
     // Increment session ID to force a key-based remount, clearing all drag transforms
-    setDragSessionId((s) => s + 1)
+    $dragSessionId.set($dragSessionId.get() + 1)
     setDraggedInstanceId(null)
     setGhostPosition(null)
   }
@@ -456,6 +476,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
           ref={gridRef}
           className="relative transition-all duration-500 touch-manipulation overflow-visible select-none"
           id="inventory-grid"
+          /* biome-ignore lint/a11y/useSemanticElements: Complex interactive grid surface */
           role="button"
           tabIndex={0}
           style={{
@@ -509,7 +530,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                 pendingRotation as 0 | 90 | 180 | 270,
                 ownerId,
               )
-              setDragSessionId((s) => s + 1)
+              $dragSessionId.set($dragSessionId.get() + 1)
               $draggedItem.set(null)
               $activePreview.set(null)
             } else {
@@ -546,8 +567,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                   pendingRotation as 0 | 90 | 180 | 270,
                   ownerId,
                 )
-                setDragSessionId((s) => s + 1)
+                $dragSessionId.set($dragSessionId.get() + 1)
                 $draggedItem.set(null)
+
                 $activePreview.set(null)
               } else {
                 setErrorMessage(`${ITEMS[itemId]?.name} returned to shelf!`)

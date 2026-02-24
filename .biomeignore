@@ -1,2 +1,4 @@
 dist
 src/lib/zzfx.ts
+node_modules
+.venv

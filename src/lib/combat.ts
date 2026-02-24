@@ -1,5 +1,7 @@
+import { $gameState } from "../store/gameStore"
 import type { Container, InventoryItemInstance, SynergyEffect } from "../types"
 import { getAdjacencyBonuses } from "./adjacency"
+import { DEFAULT_ENERGY_REGEN, DEFAULT_MANA_REGEN } from "./constants"
 import { generateRandomContainers } from "./generators"
 import { ITEMS } from "./items"
 import { generateId } from "./utils"
@@ -107,9 +109,9 @@ export const calculatePlayerCombatInfo = (
     maxHp: 100, // Base HP
     healthRegen: 0,
     maxMana: 100, // Balanced with HP and Energy
-    manaRegen: 3.3, // Baseline Regen (35 / 10ish)
+    manaRegen: DEFAULT_MANA_REGEN,
     maxEnergy: 100, // Base Energy
-    energyRegen: 11.6, // Adjusted for 35 EPS baseline
+    energyRegen: DEFAULT_ENERGY_REGEN,
     triggerSpeed: 1.0, // Default multiplier
   }
 
@@ -273,7 +275,7 @@ export const processCombatTick = (
   const deltaSec = deltaMs / 1000
 
   // Block Decay (Depletes over time)
-  const decayRate = 5
+  const decayRate = $gameState.get().blockDecayRate
   const decay = decayRate * deltaSec
   p.block = Math.max(0, p.block - decay)
   e.block = Math.max(0, e.block - decay)

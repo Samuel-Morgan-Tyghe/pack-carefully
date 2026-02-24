@@ -1,199 +1,165 @@
 import { useStore } from "@nanostores/react"
 import clsx from "clsx"
 import * as LucideIcons from "lucide-react"
-import React from "react"
-import {
-  $activePreview,
-  $draggedItem,
-  $localPlayerId,
-  $phase,
-  $viewingPlayerId,
-  SANDBOX_PLAYER_ID,
-} from "../../store/gameStore"
+import type React from "react"
+import { $activePreview, $draggedItem } from "../../store/gameStore"
+import type { Item } from "../../types"
 
 interface ShelfItemProps {
-  item: {
-    id: string
-    name: string
-    width: number
-    height: number
-    icon: string
-  }
-}
-
-interface ShelfItemProps {
-  item: {
-    id: string
-    name: string
-    width: number
-    height: number
-    icon: string
-  }
+  item: Item
 }
 
 const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
-  const itemRef = React.useRef<HTMLButtonElement>(null)
+  const draggedItem = useStore($draggedItem)
+  const isDragging = draggedItem === item.id
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("itemId", item.id)
-    e.dataTransfer.effectAllowed = "copy"
     $draggedItem.set(item.id)
-
-    // Custom Drag Image - Scaled to new grid size (40px)
-    const dragEl = document.createElement("div")
-    const CELL_SIZE = 40
-    const GAP = 2
-    dragEl.style.width = `${item.width * CELL_SIZE + (item.width - 1) * GAP}px`
-    dragEl.style.height = `${item.height * CELL_SIZE + (item.height - 1) * GAP}px`
-    dragEl.style.backgroundColor = "#F5E6CA"
-    dragEl.style.backgroundImage =
-      'url("https://www.transparenttextures.com/patterns/paper.png")'
-    dragEl.style.border = "2px solid #8D6E63"
-    dragEl.style.borderRadius = "0.25rem"
-    dragEl.style.position = "absolute"
-    dragEl.style.top = "-9999px"
-    dragEl.style.display = "flex"
-    dragEl.style.alignItems = "center"
-    dragEl.style.justifyContent = "center"
-    dragEl.innerHTML = `<div style="font-size: 10px; color: #2D1B12; font-weight: bold;">${item.name}</div>`
-
-    document.body.appendChild(dragEl)
-    e.dataTransfer.setDragImage(dragEl, CELL_SIZE / 2, CELL_SIZE / 2)
-    setTimeout(() => {
-      document.body.removeChild(dragEl)
-    }, 0)
+    $activePreview.set({ type: "definition", id: item.id })
   }
 
   const handleDragEnd = () => {
     $draggedItem.set(null)
   }
 
-  const viewingPlayerId = useStore($viewingPlayerId)
-  const localPlayerId = useStore($localPlayerId)
-  const phase = useStore($phase)
-  const isMe =
-    viewingPlayerId === localPlayerId ||
-    phase === "SANDBOX" ||
-    viewingPlayerId === SANDBOX_PLAYER_ID
+  const handleMouseEnter = () => {
+    $activePreview.set({ type: "definition", id: item.id })
+  }
 
-  const draggedItem = useStore($draggedItem)
-  const isSelected = draggedItem === item.id
-  const activePreview = useStore($activePreview)
-  const isDetailSelected =
-    activePreview?.type === "definition" && activePreview.id === item.id
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (draggedItem === item.id) {
+      $draggedItem.set(null)
+    } else {
+      $draggedItem.set(item.id)
+      $activePreview.set({ type: "definition", id: item.id })
+    }
+  }
 
-  // Grid cell size for the mini preview
-  const MINI_CELL = 16
-  const MINI_GAP = 1
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      if (draggedItem === item.id) {
+        $draggedItem.set(null)
+      } else {
+        $draggedItem.set(item.id)
+        $activePreview.set({ type: "definition", id: item.id })
+      }
+    }
+  }
+
+  const Icon = (LucideIcons as any)[item.icon] || LucideIcons.Box
+
+  // RARITY COLORS
+  const rarityStyles = {
+    COMMON:
+      "bg-slate-800/80 border-slate-600 shadow-slate-950/20 text-slate-300",
+    UNCOMMON:
+      "bg-green-900/40 border-green-600/50 shadow-green-900/20 text-green-300",
+    RARE: "bg-blue-900/40 border-blue-600/50 shadow-blue-900/20 text-blue-300",
+    LEGENDARY:
+      "bg-gold-900/40 border-gold-500/50 shadow-gold-600/30 text-gold-300 animate-pulse-slow",
+  }
+
+  const activeRarity = rarityStyles[item.rarity || "COMMON"]
 
   return (
-    <div className="relative flex flex-col gap-1">
-      <button
-        ref={itemRef}
-        draggable={isMe}
-        onDragStart={(e) => isMe && handleDragStart(e)}
-        onDragEnd={handleDragEnd}
-        onClick={() => {
-          if (isMe) {
-            if (isSelected) {
-              $draggedItem.set(null)
-              $activePreview.set(null)
-            } else {
-              $draggedItem.set(item.id)
-              $activePreview.set({ type: "definition", id: item.id })
-            }
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            if (isMe) {
-              if (isSelected) {
-                $draggedItem.set(null)
-                $activePreview.set(null)
-              } else {
-                $draggedItem.set(item.id)
-                $activePreview.set({ type: "definition", id: item.id })
-              }
-            }
-          }
-        }}
-        type="button"
-        className={clsx(
-          "group relative aspect-square flex items-center justify-center rounded-lg transition-all cursor-grab active:cursor-grabbing hover:bg-wood-800/50 p-1",
-          isSelected || isDetailSelected
-            ? "ring-2 ring-gold-500 bg-gold-500/10 shadow-glow-gold"
-            : "border border-wood-700/50 bg-wood-950/30",
-        )}
-        style={{
-          width: "100%",
-          height: "100%",
-        }}
-        data-tooltip-id="item-tooltip"
-        data-item-id={item.id}
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onMouseEnter={handleMouseEnter}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      /* biome-ignore lint/a11y/useSemanticElements: Complex draggable item container */
+      role="button"
+      tabIndex={0}
+      data-tooltip-id="item-tooltip"
+      data-item-id={item.id}
+      className={clsx(
+        "group relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all cursor-grab active:cursor-grabbing",
+        "hover:scale-105 hover:z-20",
+        activeRarity,
+        draggedItem === item.id
+          ? "ring-2 ring-gold-500 ring-offset-1 ring-offset-wood-900 shadow-gold-500/20"
+          : "shadow-lg",
+        isDragging ? "opacity-40" : "opacity-100",
+      )}
+    >
+      {/* Mini Visual Shape Preview */}
+      <div
+        className="relative mb-1 pointer-events-none"
+        style={{ width: 32, height: 32 }}
       >
-        {/* Texture noise */}
-        <div className="absolute inset-0 bg-paper-texture opacity-5 pointer-events-none rounded-lg" />
-
-        {/* Shape Grid */}
-        <div
-          className="relative pointer-events-none"
-          style={{
-            width: item.width * MINI_CELL + (item.width - 1) * MINI_GAP,
-            height: item.height * MINI_CELL + (item.height - 1) * MINI_GAP,
-          }}
-        >
-          {/* Background cells */}
-          {Array.from({ length: item.width * item.height }).map((_, i) => {
-            const x = i % item.width
-            const y = Math.floor(i / item.width)
-            return (
+        {/* Render true shape in mini grid */}
+        {item.shape
+          ? item.shape.map((cell, i) => (
               <div
-                key={`cell-${x}-${y}`}
-                className="absolute bg-wood-700/40 rounded-sm border border-wood-800/50"
+                key={`${cell.x}-${cell.y}-${i}`}
+                className={clsx(
+                  "absolute rounded-sm border-[1px] border-white/10",
+                  item.rarity === "LEGENDARY"
+                    ? "bg-gold-500"
+                    : item.rarity === "RARE"
+                      ? "bg-blue-500"
+                      : item.rarity === "UNCOMMON"
+                        ? "bg-green-500"
+                        : "bg-slate-500",
+                )}
                 style={{
-                  width: MINI_CELL,
-                  height: MINI_CELL,
-                  left: x * (MINI_CELL + MINI_GAP),
-                  top: y * (MINI_CELL + MINI_GAP),
+                  width: 8,
+                  height: 8,
+                  left: cell.x * 8,
+                  top: cell.y * 8,
                 }}
               />
-            )
-          })}
-
-          {/* Icon Centered */}
-          <div className="absolute inset-0 flex items-center justify-center p-1 drop-shadow-md">
-            {React.createElement(
-              (
-                LucideIcons as unknown as Record<string, LucideIcons.LucideIcon>
-              )[item.icon] || LucideIcons.Package,
-              {
-                size: Math.min(item.width, item.height) >= 2 ? 18 : 12,
-                className: clsx(
-                  "transition-transform group-hover:scale-110",
-                  isDetailSelected || isSelected
-                    ? "text-gold-400"
-                    : "text-parchment-300",
-                ),
-              },
-            )}
-          </div>
-        </div>
-
-        {/* Lock icon if unavailable */}
-        {!isMe && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">
-            <LucideIcons.Lock size={12} className="text-wood-400" />
-          </div>
-        )}
-      </button>
-
-      <div className="text-[10px] text-center font-bold text-parchment-300 truncate px-1 group-hover:text-parchment-100 transition-colors">
-        {item.name}
+            ))
+          : /* Simple Rect Preview */
+            Array.from({ length: item.width * item.height }).map((_, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: Static grid preview
+                key={`rect-${i}`}
+                className={clsx(
+                  "absolute rounded-sm border-[1px] border-white/10",
+                  item.rarity === "LEGENDARY"
+                    ? "bg-gold-500"
+                    : item.rarity === "RARE"
+                      ? "bg-blue-500"
+                      : item.rarity === "UNCOMMON"
+                        ? "bg-green-500"
+                        : "bg-slate-500",
+                )}
+                style={{
+                  width: 8,
+                  height: 8,
+                  left: (i % item.width) * 8,
+                  top: Math.floor(i / item.width) * 8,
+                }}
+              />
+            ))}
       </div>
 
-      {/* Tooltip is managed globally by react-tooltip */}
+      <Icon size={16} className="mb-1" />
+      <span className="text-[8px] font-black uppercase tracking-tighter text-center line-clamp-1">
+        {item.name}
+      </span>
+
+      {/* Rarity Indicator Sparkle/Dot */}
+      <div
+        className={clsx(
+          "absolute top-1 right-1 w-1.5 h-1.5 rounded-full shadow-sm",
+          item.rarity === "LEGENDARY"
+            ? "bg-gold-400"
+            : item.rarity === "RARE"
+              ? "bg-blue-400"
+              : item.rarity === "UNCOMMON"
+                ? "bg-green-400"
+                : "bg-slate-500",
+        )}
+      />
     </div>
   )
 }
 
-export default React.memo(ShelfItem)
+export default ShelfItem

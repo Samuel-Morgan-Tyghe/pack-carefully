@@ -146,6 +146,7 @@ export interface GameState {
     difficulty: number
     message: string
   } | null
+  blockDecayRate: number
 }
 
 export interface Coordinate {
