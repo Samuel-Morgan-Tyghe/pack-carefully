@@ -15,9 +15,7 @@
     "knip": "knip"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
-      "biome check --apply"
-    ]
+    "src/**/*.{ts,tsx}": ["biome check --write"]
   },
   "dependencies": {
     "@nanostores/react": "^1.0.0",
