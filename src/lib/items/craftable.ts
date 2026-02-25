@@ -1,14 +1,37 @@
 import type { Item } from "../../types"
 
+const RUSTY_DAGGER_STATS = {
+  damage: 4,
+  baseCooldown: 1.0,
+  energyCost: 10,
+}
+
+const CRACKED_WAND_STATS = {
+  damage: 3,
+  manaCost: 8,
+  baseCooldown: 1.2,
+  manaRegen: 0.5,
+}
+
+const SCRAP_SHIELD_STATS = {
+  block: 8,
+  baseCooldown: 4.0,
+  energyCost: 5,
+}
+
 export const craftableItems: Record<string, Item> = {
   shard_spikes: {
     id: "shard_spikes",
     name: "Spike Shard",
-    description:
-      "A long, sharp fragment. Adds reactive spikes to your defense.",
+    description: "A jagged fragment. Adds reactive spikes to your defense.",
     category: "TOOL",
-    width: 1,
-    height: 3,
+    width: 2,
+    height: 2,
+    shape: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
     icon: "Zap",
     rarity: "COMMON",
     triggerType: "PASSIVE",
@@ -19,10 +42,15 @@ export const craftableItems: Record<string, Item> = {
   shard_block: {
     id: "shard_block",
     name: "Block Shard",
-    description: "A long, sturdy fragment. Adds minor block to your defense.",
+    description: "A sturdy fragment. Adds minor block to your defense.",
     category: "TOOL",
-    width: 1,
-    height: 3,
+    width: 2,
+    height: 2,
+    shape: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
     icon: "Square",
     rarity: "COMMON",
     triggerType: "PASSIVE",
@@ -40,11 +68,7 @@ export const craftableItems: Record<string, Item> = {
     icon: "Sword",
     rarity: "COMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 4,
-      baseCooldown: 1.0,
-      energyCost: 10,
-    },
+    combatStats: RUSTY_DAGGER_STATS,
   },
   cracked_wand: {
     id: "cracked_wand",
@@ -56,12 +80,7 @@ export const craftableItems: Record<string, Item> = {
     icon: "Zap",
     rarity: "COMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 3,
-      manaCost: 8,
-      baseCooldown: 1.2,
-      manaRegen: 0.5,
-    },
+    combatStats: CRACKED_WAND_STATS,
   },
   scrap_shield: {
     id: "scrap_shield",
@@ -73,16 +92,12 @@ export const craftableItems: Record<string, Item> = {
     icon: "Shield",
     rarity: "COMMON",
     triggerType: "SHIELD",
-    combatStats: {
-      block: 8,
-      baseCooldown: 4.0,
-      energyCost: 5,
-    },
+    combatStats: SCRAP_SHIELD_STATS,
   },
   spiked_shield: {
     id: "spiked_shield",
     name: "Spiked Shield",
-    description: "A large shield that bites back. Adds block and spikes.",
+    description: "A shield that bites back. Adds block and spikes.",
     category: "TOOL",
     width: 2,
     height: 2,
@@ -90,10 +105,9 @@ export const craftableItems: Record<string, Item> = {
     rarity: "UNCOMMON",
     triggerType: "SHIELD",
     combatStats: {
-      block: 15,
-      spikes: 8,
-      baseCooldown: 3.5,
-      energyCost: 15,
+      ...SCRAP_SHIELD_STATS,
+      block: SCRAP_SHIELD_STATS.block + 5, // +5 from Block Shard
+      spikes: 3, // From Spike Shard
     },
     recipe: {
       ingredients: ["shard_spikes", "shard_block", "scrap_shield"],
@@ -105,8 +119,13 @@ export const craftableItems: Record<string, Item> = {
     name: "Poison Shard",
     description: "A toxic fragment. Applies poison on hit.",
     category: "TOOL",
-    width: 1,
-    height: 3,
+    width: 2,
+    height: 2,
+    shape: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
     icon: "Skull",
     rarity: "COMMON",
     effects: [{ type: "POISON", value: 2 }],
@@ -116,8 +135,13 @@ export const craftableItems: Record<string, Item> = {
     name: "Fire Shard",
     description: "A burning fragment. Applies burn on hit.",
     category: "TOOL",
-    width: 1,
-    height: 3,
+    width: 2,
+    height: 2,
+    shape: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
     icon: "Flame",
     rarity: "COMMON",
     effects: [{ type: "FIRE", value: 2 }],
@@ -127,8 +151,13 @@ export const craftableItems: Record<string, Item> = {
     name: "Frost Shard",
     description: "A chilling fragment. Applies slow on hit.",
     category: "TOOL",
-    width: 1,
-    height: 3,
+    width: 2,
+    height: 2,
+    shape: [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+    ],
     icon: "Snowflake",
     rarity: "COMMON",
     effects: [{ type: "SLOW", value: 2 }],
@@ -144,11 +173,7 @@ export const craftableItems: Record<string, Item> = {
     icon: "Sword",
     rarity: "UNCOMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 10,
-      baseCooldown: 0.9,
-      energyCost: 12,
-    },
+    combatStats: RUSTY_DAGGER_STATS,
     effects: [{ type: "POISON", value: 4, chance: 100 }],
     recipe: {
       ingredients: ["rusty_dagger", "poison_shard"],
@@ -165,12 +190,7 @@ export const craftableItems: Record<string, Item> = {
     icon: "Zap",
     rarity: "UNCOMMON",
     triggerType: "ATTACK",
-    combatStats: {
-      damage: 8,
-      manaCost: 10,
-      baseCooldown: 1.1,
-      manaRegen: 1.5,
-    },
+    combatStats: CRACKED_WAND_STATS,
     effects: [{ type: "FIRE", value: 8, chance: 100 }],
     recipe: {
       ingredients: ["cracked_wand", "fire_shard"],
@@ -187,11 +207,7 @@ export const craftableItems: Record<string, Item> = {
     icon: "ShieldAlert",
     rarity: "UNCOMMON",
     triggerType: "SHIELD",
-    combatStats: {
-      block: 20,
-      baseCooldown: 3.8,
-      energyCost: 12,
-    },
+    combatStats: SCRAP_SHIELD_STATS,
     effects: [{ type: "SLOW", value: 3, chance: 100 }],
     recipe: {
       ingredients: ["scrap_shield", "frost_shard"],
