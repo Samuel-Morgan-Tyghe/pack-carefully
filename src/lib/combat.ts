@@ -17,6 +17,7 @@ export interface CombatStats {
   maxEnergy: number
   energyRegen: number
   triggerSpeed: number // Multiplier
+  spikes?: number
 }
 
 export interface StatusEffect {
@@ -126,6 +127,7 @@ export const calculatePlayerCombatInfo = (
       damage: def.combatStats?.damage || 0,
       block: def.combatStats?.block || 0,
       heal: def.combatStats?.heal || 0,
+      spikes: def.combatStats?.spikes || 0,
       energyCost: def.combatStats?.energyCost || 0,
       manaCost: def.combatStats?.manaCost || 0,
       triggerSpeed: def.combatStats?.triggerSpeed || 1.0,
@@ -137,6 +139,7 @@ export const calculatePlayerCombatInfo = (
       liveStats.damage += bonus.buffs.damage || 0
       liveStats.block += bonus.buffs.block || 0
       liveStats.heal += bonus.buffs.heal || 0
+      liveStats.spikes += bonus.buffs.spikes || 0
       liveStats.manaCost += bonus.buffs.manaCost || 0
       liveStats.energyCost += bonus.buffs.energyCost || 0
     }
@@ -205,8 +208,47 @@ const applyDamage = (
   victim: CombatEntity,
   damage: number,
   events: string[],
+  attacker?: CombatEntity,
 ) => {
   let remainingDmg = damage
+
+  // Reactive Effects (When victim is hit)
+  if (attacker && damage > 0) {
+    // 1. Reactive Spikes
+    // Find total spikes in victim's inventory/buffs
+    // Simple implementation: check items on grid
+    let totalSpikes = 0
+    for (const inst of victim.inventory) {
+      totalSpikes += inst.liveStats?.spikes || 0
+    }
+    if (totalSpikes > 0) {
+      // Attacker takes spike damage
+      attacker.hp -= totalSpikes
+      events.push(
+        `${attacker.name} takes ${totalSpikes} reactive spike damage!`,
+      )
+    }
+
+    // 2. Reactive Status Effects (e.g. Frostbound Shield applies SLOW when hit)
+    for (const inst of victim.inventory) {
+      const def = ITEMS[inst.itemId]
+      if (def?.triggerType === "SHIELD" && def.effects) {
+        for (const effect of def.effects) {
+          const roll = Math.random() * 100
+          if (roll <= (effect.chance ?? 100)) {
+            attacker.statuses.push({
+              type: effect.type,
+              value: effect.value,
+              sourceId: inst.instanceId,
+            })
+            events.push(
+              `${attacker.name} is chilled by ${victim.name}'s shield!`,
+            )
+          }
+        }
+      }
+    }
+  }
 
   // 1. Emergency Plating: Reduce damage if Energy is 0
   if (
@@ -328,19 +370,31 @@ export const processCombatTick = (
   p.mana = Math.min(p.maxMana, p.mana + p.stats.manaRegen * deltaSec)
   e.mana = Math.min(e.maxMana, e.mana + e.stats.manaRegen * deltaSec)
 
-  // Tick Poison
+  // Tick Status Effects (Every 2 seconds)
   if (
     Math.floor(elapsedTimeSec / 2) > Math.floor((elapsedTimeSec - deltaSec) / 2)
   ) {
+    // 1. POISON (Hits HP ONLY when Block is 0)
     const pPoison = p.statuses
       .filter((s) => s.type === "POISON")
       .reduce((sum, s) => sum + s.value, 0)
-    if (pPoison > 0) p.hp = Math.max(0, p.hp - pPoison)
+    if (pPoison > 0 && p.block <= 0) p.hp = Math.max(0, p.hp - pPoison)
 
     const ePoison = e.statuses
       .filter((s) => s.type === "POISON")
       .reduce((sum, s) => sum + s.value, 0)
-    if (ePoison > 0) e.hp = Math.max(0, e.hp - ePoison)
+    if (ePoison > 0 && e.block <= 0) e.hp = Math.max(0, e.hp - ePoison)
+
+    // 2. FIRE (Burns Block)
+    const pFire = p.statuses
+      .filter((s) => s.type === "FIRE")
+      .reduce((sum, s) => sum + s.value, 0)
+    if (pFire > 0) p.block = Math.max(0, p.block - pFire)
+
+    const eFire = e.statuses
+      .filter((s) => s.type === "FIRE")
+      .reduce((sum, s) => sum + s.value, 0)
+    if (eFire > 0) e.block = Math.max(0, e.block - eFire)
   }
 
   // Process Actions
@@ -354,7 +408,17 @@ export const processCombatTick = (
         (i) => i.instanceId === cd.instanceId,
       )
       const liveStats = instance?.liveStats
-      const triggerSpeed = liveStats?.triggerSpeed || 1.0
+      let triggerSpeed = liveStats?.triggerSpeed || 1.0
+
+      // SLOW logic: Each stack of SLOW reduces trigger speed by 5% (capped at 50%)
+      const slowStacks = entity.statuses
+        .filter((s) => s.type === "SLOW")
+        .reduce((sum, s) => sum + s.value, 0)
+      if (slowStacks > 0) {
+        const slowPenalty = Math.min(0.5, slowStacks * 0.05)
+        triggerSpeed *= 1 - slowPenalty
+      }
+
       const current = cd.current - deltaSec * triggerSpeed
 
       if (current <= 0) {
@@ -426,7 +490,16 @@ export const processCombatTick = (
 
         if (def.triggerType === "ATTACK") {
           const dmg = liveStats.damage || 0
-          applyDamage(target, dmg, events)
+          applyDamage(target, dmg, events, entity)
+
+          // Reactive Spikes logic (Target hits entity with spikes)
+          // Wait, this is called during the ENTITY'S attack.
+          // Spikes should happen when being hit.
+          // But spiked items usually apply a buff or carry a stat.
+          // Let's refine applyDamage to handle reactive spikes if needed,
+          // or just handle it here if it's "On Hit" spikes (offensive).
+          // User said: "on every attack by enemy it does the number of spike as damadge"
+          // This implies reactive spikes. I'll move reactive spikes to applyDamage.
 
           if (entity.inventory.some((i) => i.itemId === "vampiric_fangs")) {
             const heal = dmg * 0.2
@@ -435,12 +508,36 @@ export const processCombatTick = (
 
           if (dmg > 0)
             events.push(`${entity.name} hits for ${Math.floor(dmg)}!`)
+
+          // Apply Effects from item
+          if (def.effects) {
+            for (const effect of def.effects) {
+              const roll = Math.random() * 100
+              if (roll <= (effect.chance ?? 100)) {
+                target.statuses.push({
+                  type: effect.type,
+                  value: effect.value,
+                  sourceId: cd.instanceId,
+                })
+                events.push(`${target.name} is afflicted with ${effect.type}!`)
+              }
+            }
+          }
         } else if (def.triggerType === "HEAL") {
           entity.hp = Math.min(entity.maxHp, entity.hp + (liveStats.heal || 0))
           events.push(`${entity.name} heals for ${liveStats.heal}!`)
         } else if (def.triggerType === "SHIELD") {
           entity.block += liveStats.block || 0
           events.push(`${entity.name} adds ${liveStats.block} block!`)
+
+          // Apply defensive effects (like Frost Shard on shield)
+          if (def.effects) {
+            // For simplicity, we'll assume defensive effects apply to the attacker?
+            // No, usually it's "On Hit". Let's stick to offensive effects for now,
+            // or handle "On Block" effects specifically.
+            // Frostbound Shield user said: "Applies Chilled (Minor trigger speed reduction) on enemy"
+            // This implies reactive. I'll add reactive effect handling to applyDamage.
+          }
         }
 
         return {

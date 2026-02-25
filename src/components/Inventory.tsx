@@ -8,6 +8,7 @@ import { calculatePlayerCombatInfo } from "../lib/combat"
 import { ITEMS } from "../lib/items/items"
 import {
   $activePreview,
+  $craftingHighlights,
   $currentPlayerId,
   $dragSessionId,
   $draggedItem,
@@ -99,6 +100,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const allItemsOnGrid = useStore($itemsOnGrid)
   const localPlayerId = useStore($localPlayerId)
   const activePreview = useStore($activePreview)
+  const craftingHighlights = useStore($craftingHighlights)
 
   const canInteract =
     canInteractProp &&
@@ -641,6 +643,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                 onDragEnd={handleDragEnd}
                 CELL_SIZE={CELL_SIZE}
                 GAP={GAP}
+                isHighlighted={craftingHighlights.includes(item.instanceId)}
                 isSelected={selectedItemId === item.instanceId}
                 onSelect={() =>
                   !viewOnly &&

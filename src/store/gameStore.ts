@@ -27,6 +27,7 @@ export const $activePreview = atom<{
   type: "instance" | "definition"
   id: string
 } | null>(null)
+export const $craftingHighlights = atom<string[]>([]) // IDs (instanceId or itemId) to highlight
 
 // Grid Configuration
 export const $gridConfig = atom({
@@ -981,6 +982,9 @@ export const startDraft = () => {
   // Generate Personal Pools based on Rarity Scaling
   const availableItems: Record<string, string[]> = {}
   const allItems = Object.values(ITEMS)
+  const craftingResults = new Set(
+    allItems.filter((i) => i.recipe).map((i) => i.recipe?.result),
+  )
 
   for (const p of players) {
     const pool: string[] = []
@@ -1004,7 +1008,9 @@ export const startDraft = () => {
       const selectedRarity = rollRarity()
       const filters = allItems.filter(
         (item) =>
-          item.rarity === selectedRarity && item.category !== "SABOTAGE",
+          item.rarity === selectedRarity &&
+          item.category !== "SABOTAGE" &&
+          !craftingResults.has(item.id),
       )
       const finalPool =
         filters.length > 0
@@ -1101,4 +1107,60 @@ if (typeof window !== "undefined") {
 
 export const clearSandboxGrid = () => {
   $itemsOnGrid.set([])
+}
+
+export const craftItem = async (playerId: string) => {
+  const shelf = $draftState.get().availableItems[playerId] || []
+  const bag = $itemsOnGrid.get().filter((i) => i.ownerId === playerId)
+
+  // Use the crafting logic to find matches
+  const { findPossibleCraft } = await import("../lib/crafting")
+  const match = findPossibleCraft(shelf, bag)
+
+  if (!match) return
+
+  const { matchedSources, recipe } = match
+
+  // 1. Consume Shelf Items
+  const shelfItemsToConsume = matchedSources.filter((s) => s.type === "shelf")
+  if (shelfItemsToConsume.length > 0) {
+    const currentDraft = $draftState.get()
+    const newPool = [...currentDraft.availableItems[playerId]]
+    for (const source of shelfItemsToConsume) {
+      const idx = newPool.indexOf(source.itemId)
+      if (idx !== -1) newPool.splice(idx, 1)
+    }
+    $draftState.set({
+      ...currentDraft,
+      availableItems: {
+        ...currentDraft.availableItems,
+        [playerId]: newPool,
+      },
+    })
+  }
+
+  // 2. Consume Bag Items
+  const bagItemsToConsume = matchedSources.filter((s) => s.type === "bag")
+  if (bagItemsToConsume.length > 0) {
+    const instanceIdsToRemove = new Set(bagItemsToConsume.map((s) => s.id))
+    $itemsOnGrid.set(
+      $itemsOnGrid.get().filter((i) => !instanceIdsToRemove.has(i.instanceId)),
+    )
+  }
+
+  // 3. Add Result
+  // For now, results go to the SHELF (Draft Pool) so the player can place them.
+  // Alternatively, we could try to place them in the bag if there's space.
+  const currentDraft = $draftState.get()
+  const newPool = [
+    ...(currentDraft.availableItems[playerId] || []),
+    recipe.result,
+  ]
+  $draftState.set({
+    ...currentDraft,
+    availableItems: {
+      ...currentDraft.availableItems,
+      [playerId]: newPool,
+    },
+  })
 }

@@ -31,6 +31,7 @@ export interface SynergyResult {
   buffs?: Partial<{
     damage: number
     block: number
+    spikes: number
     heal: number
     healthRegen: number
     maxHp: number
@@ -95,6 +96,7 @@ export interface Item {
   combatStats?: {
     damage?: number
     block?: number // Active mitigation (Shield HP)
+    spikes?: number // Reactive damage
     heal?: number
     healthRegen?: number
     maxHp?: number
@@ -177,6 +179,7 @@ export interface InventoryItemInstance {
     energyCost?: number
     heal?: number
     block?: number
+    spikes?: number
     triggerSpeed?: number
     baseCooldown?: number // In SECONDS
     manaCost?: number

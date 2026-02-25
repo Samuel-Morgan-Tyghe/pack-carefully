@@ -6,6 +6,8 @@ import { boosters } from "./booster"
 import { bridgeItems } from "./bridgeItems"
 import { healthItems } from "./healthItems"
 
+import { craftableItems } from "./craftable"
+
 export const ITEMS: Record<string, Item> = {
   ...boosters,
   ...basicWeapons,
@@ -13,6 +15,7 @@ export const ITEMS: Record<string, Item> = {
   ...basicSupport,
   ...bridgeItems,
   ...healthItems,
+  ...craftableItems,
 }
 
 export const GRID_SIZE = 8

@@ -2,7 +2,11 @@ import { useStore } from "@nanostores/react"
 import clsx from "clsx"
 import * as LucideIcons from "lucide-react"
 import type React from "react"
-import { $activePreview, $draggedItem } from "../../store/gameStore"
+import {
+  $activePreview,
+  $craftingHighlights,
+  $draggedItem,
+} from "../../store/gameStore"
 import type { Item } from "../../types"
 
 interface ShelfItemProps {
@@ -11,7 +15,9 @@ interface ShelfItemProps {
 
 const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
   const draggedItem = useStore($draggedItem)
+  const craftingHighlights = useStore($craftingHighlights)
   const isDragging = draggedItem === item.id
+  const isHighlighted = craftingHighlights.includes(item.id)
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData("itemId", item.id)
@@ -83,7 +89,9 @@ const ShelfItem: React.FC<ShelfItemProps> = ({ item }) => {
         activeRarity,
         draggedItem === item.id
           ? "ring-2 ring-gold-500 ring-offset-1 ring-offset-wood-900 shadow-gold-500/20"
-          : "shadow-lg",
+          : isHighlighted
+            ? "ring-4 ring-green-400 ring-offset-2 ring-offset-wood-900 shadow-green-500/30"
+            : "shadow-lg",
         isDragging ? "opacity-40" : "opacity-100",
       )}
     >
