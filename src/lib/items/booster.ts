@@ -92,4 +92,27 @@ export const boosters: Record<string, Item> = {
       maxMana: 10,
     },
   },
+  energy_capacitor: {
+    category: "TOOL",
+    width: 1,
+    height: 1,
+    rarity: "RARE",
+    id: "energy_capacitor",
+    name: "Energy Capacitor",
+    description: "Reduces the energy cost of adjacent items by 25%.",
+    icon: "Zap",
+    synergies: [
+      {
+        pattern: "ADJACENT",
+        description: "Efficient Energy (-25% Energy Cost)",
+        targetIsSelf: false,
+        apply: (_, target) => {
+          if (ITEMS[target.itemId]?.combatStats?.energyCost) {
+            return { multipliers: { energyCost: 0.75 } }
+          }
+          return {}
+        },
+      },
+    ],
+  },
 }
