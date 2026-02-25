@@ -5,11 +5,16 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+
   body {
     /* Fallback/Direct color to avoid @apply race conditions */
     background-color: #2d1b12;
     color: #f5f5f5;
-    @apply font-sans select-none; /* Keep standard utilities */
+    @apply font-sans select-none overflow-x-hidden; /* Keep standard utilities */
 
     background-image: url("https://images.unsplash.com/photo-1621360841013-c768371e93cf?q=80&w=2574&auto=format&fit=crop"); /* Dark wood texture */
     background-size: cover;

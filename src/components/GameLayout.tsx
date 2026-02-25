@@ -25,7 +25,7 @@ const GameLayout: React.FC = () => {
   const viewingPlayerId = useStore($viewingPlayerId)
 
   return (
-    <div className="h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-auto">
+    <div className="min-h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-auto">
       {/* Background overlay for vignette */}
       <div className="fixed inset-0 pointer-events-none shadow-vignette z-0 mix-blend-multiply" />
 
@@ -40,7 +40,7 @@ const GameLayout: React.FC = () => {
           <GameHUD />
 
           {/* Main Content Area - Split screen on desktop, Top-Bottom on mobile */}
-          <main className="flex-1 flex w-full relative z-10 pt-12 md:pt-16 pb-2 px-1 md:px-4 gap-2 flex-col md:flex-row max-w-[1600px] mx-auto overflow-hidden">
+          <main className="flex-1 flex w-full relative z-10 pt-12 md:pt-16 pb-2 px-1 md:px-4 gap-2 flex-col md:flex-row max-w-[1600px] mx-auto md:overflow-hidden">
             {/* Items Shelf - Fixed width on desktop, Auto height on mobile */}
             {phase === "DRAFT" && (
               <div className="w-full md:w-64 shrink-0 flex flex-col overflow-hidden">
@@ -49,10 +49,10 @@ const GameLayout: React.FC = () => {
             )}
 
             {/* Inventory Section */}
-            <section className="flex-1 flex flex-col justify-center items-center w-full relative min-w-0 overflow-hidden">
+            <section className="flex-1 flex flex-col justify-center items-center w-full relative min-w-0 md:overflow-hidden">
               {phase === "BAG_BUILDING" && <BagBuilder />}
 
-              <div className="w-full h-full flex flex-col justify-center items-center overflow-hidden">
+              <div className="w-full h-full flex flex-col justify-center items-center md:overflow-hidden">
                 {phase === "DRAFT" && (
                   <Inventory
                     playerId={viewingPlayerId || undefined}

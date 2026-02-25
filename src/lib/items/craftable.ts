@@ -106,8 +106,8 @@ export const craftableItems: Record<string, Item> = {
     triggerType: "SHIELD",
     combatStats: {
       ...SCRAP_SHIELD_STATS,
-      block: SCRAP_SHIELD_STATS.block + 5, // +5 from Block Shard
-      spikes: 3, // From Spike Shard
+      block: SCRAP_SHIELD_STATS.block,
+      spikes: 3,
     },
     recipe: {
       ingredients: ["shard_spikes", "shard_block", "scrap_shield"],
