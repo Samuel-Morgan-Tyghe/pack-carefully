@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react"
 import clsx from "clsx"
 import type React from "react"
 import { useState } from "react"
-import { GRID_SIZE } from "../../lib/items"
+import { GRID_SIZE } from "../../lib/items/items"
 import {
   $containers,
   $localPlayerId,

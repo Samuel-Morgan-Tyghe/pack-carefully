@@ -1,5 +1,5 @@
 import type { Item } from "../../types"
-import { ITEMS } from "../items"
+import { ITEMS } from "./items"
 
 export const boosters: Record<string, Item> = {
   attack_booster: {

@@ -3,7 +3,7 @@ import type { Container, InventoryItemInstance, SynergyEffect } from "../types"
 import { getAdjacencyBonuses } from "./adjacency"
 import { DEFAULT_ENERGY_REGEN, DEFAULT_MANA_REGEN } from "./constants"
 import { generateRandomContainers } from "./generators"
-import { ITEMS } from "./items"
+import { ITEMS } from "./items/items"
 import { generateId } from "./utils"
 
 export interface CombatStats {

@@ -3,7 +3,7 @@ import clsx from "clsx"
 import * as LucideIcons from "lucide-react"
 import React from "react"
 import { getAdjacencyBonuses } from "../../lib/adjacency"
-import { ITEMS } from "../../lib/items"
+import { ITEMS } from "../../lib/items/items"
 import { $itemsOnGrid } from "../../store/gameStore"
 
 interface ItemTooltipProps {

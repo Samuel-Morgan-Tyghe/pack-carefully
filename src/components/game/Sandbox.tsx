@@ -2,15 +2,15 @@ import clsx from "clsx"
 import * as LucideIcons from "lucide-react"
 import type React from "react"
 import { useState } from "react"
-import { ITEMS } from "../../lib/items"
+import { ITEMS } from "../../lib/items/items"
 import {
   SANDBOX_PLAYER_ID,
   clearSandboxGrid,
   leaveSandbox,
 } from "../../store/gameStore"
+import type { Item } from "../../types"
 import Inventory from "../Inventory"
 import ShelfItem from "../layout/ShelfItem"
-import type { Item } from "../../types"
 
 const Sandbox: React.FC = () => {
   const CATEGORIES = [

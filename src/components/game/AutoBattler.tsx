@@ -27,7 +27,7 @@ import {
   generateEnemy,
   processCombatTick,
 } from "../../lib/combat"
-import { ITEMS } from "../../lib/items"
+import { ITEMS } from "../../lib/items/items"
 import {
   $containers,
   $gameState,

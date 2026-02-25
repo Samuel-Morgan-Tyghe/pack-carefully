@@ -1,22 +1,6 @@
 import type { Item } from "../../types"
 
 export const basicSupport: Record<string, Item> = {
-  medkit: {
-    id: "medkit",
-    name: "Medkit",
-    description: "Heals for a small amount. High energy cost.",
-    category: "SURVIVAL",
-    width: 2,
-    height: 1,
-    icon: "Heart",
-    rarity: "UNCOMMON",
-    triggerType: "HEAL",
-    combatStats: {
-      heal: 30,
-      energyCost: 60,
-      baseCooldown: 6.0,
-    },
-  },
   battery_pack: {
     id: "battery_pack",
     name: "Battery Pack",

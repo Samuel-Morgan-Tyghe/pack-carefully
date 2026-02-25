@@ -1,5 +1,5 @@
 import type { Container, Coordinate } from "../types"
-import { GRID_SIZE } from "./items"
+import { GRID_SIZE } from "./items/items"
 import { generateId } from "./utils"
 
 // Standard Tetromino definitions (normalized to 0,0) for invalidation
@@ -55,7 +55,7 @@ export const generateRandomContainers = (ownerId: string): Container[] => {
 // --- LOOT GENERATION ---
 
 import type { Item } from "../types"
-import { ITEMS } from "./items"
+import { ITEMS } from "./items/items"
 
 export interface ScavengeEvent {
   id: string

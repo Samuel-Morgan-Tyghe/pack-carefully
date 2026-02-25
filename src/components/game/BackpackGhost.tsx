@@ -1,5 +1,5 @@
 import type React from "react"
-import { ITEMS } from "../../lib/items"
+import { ITEMS } from "../../lib/items/items"
 import { cn } from "../../lib/utils"
 import { getItemCells } from "../../store/gameStore"
 import type { Coordinate, InventoryItemInstance } from "../../types"

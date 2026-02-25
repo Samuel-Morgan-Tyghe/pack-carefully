@@ -3,7 +3,7 @@ import type {
   InventoryItemInstance,
   SynergyResult,
 } from "../types"
-import { GRID_SIZE, ITEMS } from "./items"
+import { GRID_SIZE, ITEMS } from "./items/items"
 
 export interface SynergySquare {
   x: number
@@ -35,7 +35,9 @@ const getItemCells = (item: InventoryItemInstance) => {
 
   let rotated: { rdx: number; rdy: number }[]
   if (def.shape) {
-    rotated = def.shape.map((coord) => getRotatedOffset(coord.x, coord.y, item.rotation))
+    rotated = def.shape.map((coord) =>
+      getRotatedOffset(coord.x, coord.y, item.rotation),
+    )
   } else {
     rotated = []
     for (let x = 0; x < def.width; x++) {

@@ -1,11 +1,12 @@
 import type { Item } from "../../types"
-import { ITEMS } from "../items"
+import { ITEMS } from "./items"
 
 export const bridgeItems: Record<string, Item> = {
   blood_magic: {
     id: "blood_magic",
     name: "Blood Magic",
-    description: "Enables Blood Trigger: When out of energy, items use 5% Max HP as cost.",
+    description:
+      "Enables Blood Trigger: When out of energy, items use 5% Max HP as cost.",
     category: "SABOTAGE",
     width: 1,
     height: 1,
@@ -16,7 +17,8 @@ export const bridgeItems: Record<string, Item> = {
   spirit_link: {
     id: "spirit_link",
     name: "Spirit Link",
-    description: "Enables Soul Guard: When at 1 HP, incoming damage is subtracted from Mana.",
+    description:
+      "Enables Soul Guard: When at 1 HP, incoming damage is subtracted from Mana.",
     category: "SURVIVAL",
     width: 1,
     height: 1,
@@ -27,7 +29,8 @@ export const bridgeItems: Record<string, Item> = {
   arcane_battery: {
     id: "arcane_battery",
     name: "Arcane Battery",
-    description: "When out of energy, Mana is consumed at a 2:1 ratio to power items.",
+    description:
+      "When out of energy, Mana is consumed at a 2:1 ratio to power items.",
     category: "TOOL",
     width: 1,
     height: 1,
@@ -49,7 +52,8 @@ export const bridgeItems: Record<string, Item> = {
   retribution: {
     id: "retribution",
     name: "Retribution",
-    description: "Adjacent weapons gain bonus damage equal to 20% of their base Block.",
+    description:
+      "Adjacent weapons gain bonus damage equal to 20% of their base Block.",
     category: "TOOL",
     width: 1,
     height: 1,
@@ -61,20 +65,24 @@ export const bridgeItems: Record<string, Item> = {
         description: "Retribution (+20% Target Block as DMG)",
         targetIsSelf: false,
         apply: (_, target) => {
-          const targetDef = ITEMS[target.itemId];
-          if (targetDef?.category === "WEAPON" || (targetDef?.combatStats?.block || 0) > 0) {
-             const block = targetDef.combatStats?.block || 0;
-             return { buffs: { damage: Math.floor(block * 0.2) } };
+          const targetDef = ITEMS[target.itemId]
+          if (
+            targetDef?.category === "WEAPON" ||
+            (targetDef?.combatStats?.block || 0) > 0
+          ) {
+            const block = targetDef.combatStats?.block || 0
+            return { buffs: { damage: Math.floor(block * 0.2) } }
           }
-          return {};
-        }
-      }
-    ]
+          return {}
+        },
+      },
+    ],
   },
   overdrive: {
     id: "overdrive",
     name: "Overdrive",
-    description: "Adjacent weapons trigger 50% faster but cost 100% more energy.",
+    description:
+      "Adjacent weapons trigger 50% faster but cost 100% more energy.",
     category: "SABOTAGE",
     width: 1,
     height: 1,
@@ -87,17 +95,17 @@ export const bridgeItems: Record<string, Item> = {
         targetIsSelf: false,
         apply: (_, target) => {
           if (ITEMS[target.itemId]?.category === "WEAPON") {
-            return { 
-              multipliers: { 
+            return {
+              multipliers: {
                 triggerSpeed: 1.5,
-                energyCost: 2.0 
-              } 
-            };
+                energyCost: 2.0,
+              },
+            }
           }
-          return {};
-        }
-      }
-    ]
+          return {}
+        },
+      },
+    ],
   },
   arcane_blade: {
     id: "arcane_blade",
@@ -114,23 +122,24 @@ export const bridgeItems: Record<string, Item> = {
         description: "Arcane Blade (Energy -> Mana)",
         targetIsSelf: false,
         apply: (_, target) => {
-          const targetDef = ITEMS[target.itemId];
+          const targetDef = ITEMS[target.itemId]
           if (targetDef?.category === "WEAPON") {
-             const energy = targetDef.combatStats?.energyCost || 0;
-             return { 
-                buffs: { manaCost: energy },
-                multipliers: { energyCost: 0 } 
-             };
+            const energy = targetDef.combatStats?.energyCost || 0
+            return {
+              buffs: { manaCost: energy },
+              multipliers: { energyCost: 0 },
+            }
           }
-          return {};
-        }
-      }
-    ]
+          return {}
+        },
+      },
+    ],
   },
   aura_of_thorns: {
     id: "aura_of_thorns",
     name: "Aura of Thorns",
-    description: "Gain +2 Block every second for every status effect active on you.",
+    description:
+      "Gain +2 Block every second for every status effect active on you.",
     category: "TOOL",
     width: 1,
     height: 1,
@@ -192,5 +201,5 @@ export const bridgeItems: Record<string, Item> = {
     icon: "Droplets",
     rarity: "RARE",
     triggerType: "PASSIVE",
-  }
+  },
 }

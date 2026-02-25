@@ -5,7 +5,7 @@ import * as LucideIcons from "lucide-react"
 import React, { useRef, useState, useEffect, useMemo } from "react"
 import { type AdjacencyResult, getAdjacencyBonuses } from "../lib/adjacency"
 import { calculatePlayerCombatInfo } from "../lib/combat"
-import { ITEMS } from "../lib/items"
+import { ITEMS } from "../lib/items/items"
 import {
   $activePreview,
   $currentPlayerId,

@@ -1,7 +1,7 @@
 import { atom, computed } from "nanostores"
 import { DEFAULT_BLOCK_DECAY } from "../lib/constants"
 import { generateRandomContainers } from "../lib/generators"
-import { GRID_SIZE, ITEMS } from "../lib/items"
+import { GRID_SIZE, ITEMS } from "../lib/items/items"
 import { generateId } from "../lib/utils"
 import type {
   Container,
