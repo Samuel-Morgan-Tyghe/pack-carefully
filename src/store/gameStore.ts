@@ -22,6 +22,7 @@ export const $containers = atom<Container[]>([])
 export const $currentPlayerId = atom<string | null>(null)
 export const $itemsOnGrid = atom<InventoryItemInstance[]>([])
 export const $draggedItem = atom<string | null>(null)
+export const $draggedInstanceId = atom<string | null>(null)
 export const $dragSessionId = atom<number>(0)
 export const $activePreview = atom<{
   type: "instance" | "definition"

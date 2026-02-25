@@ -38,7 +38,7 @@ const JourneySelection: React.FC = () => {
         or stick together for safety?
       </p>
 
-      <div className="flex gap-8 w-full max-w-5xl">
+      <div className="flex flex-col md:gap-8 w-full max-w-5xl gap-4">
         {/* LEFT PATH */}
         <div className="flex-1 bg-red-900/20 border-2 border-red-900/50 rounded-xl p-6 relative hover:bg-red-900/30 transition-colors">
           <div className="absolute top-4 left-4">
@@ -85,23 +85,25 @@ const JourneySelection: React.FC = () => {
         </div>
 
         {/* MIDDLE (Undecided) */}
-        <div className="w-48 flex flex-col items-center justify-center">
-          <div className="w-1 h-32 bg-slate-700 mb-4" />
+        <div className="w-full md:w-48 flex flex-col items-center justify-center">
+          <div className="hidden md:block w-1 h-32 bg-slate-700 mb-4" />
           <div className="bg-slate-800 p-4 rounded-lg w-full text-center">
             <h4 className="text-xs uppercase font-bold text-slate-500 mb-2">
               Undecided
             </h4>
-            {undecidedPlayers.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-center gap-2 mb-2"
-              >
-                <div className={`w-6 h-6 rounded-full ${p.avatarColor}`} />
-                <span className="text-sm">{p.name}</span>
-              </div>
-            ))}
+            <div className="flex flex-wrap justify-center gap-2">
+              {undecidedPlayers.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-center gap-2"
+                >
+                  <div className={`w-6 h-6 rounded-full ${p.avatarColor}`} />
+                  <span className="text-sm">{p.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="w-1 h-32 bg-slate-700 mt-4" />
+          <div className="hidden md:block w-1 h-32 bg-slate-700 mt-4" />
         </div>
 
         {/* RIGHT PATH */}

@@ -30,10 +30,10 @@ const BagBuilder: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-wood-900 z-50 flex flex-col items-center justify-center p-4">
-      <h2 className="text-2xl md:text-3xl font-display text-parchment-100 mb-2 md:mb-4 tracking-widest text-center">
+      <h2 className="text-xl md:text-3xl font-display text-parchment-100 mb-1 md:mb-4 tracking-widest text-center">
         CONSTRUCT YOUR PACK
       </h2>
-      <p className="text-parchment-200/70 mb-4 md:mb-8 text-center max-w-2xl text-xs sm:text-base">
+      <p className="text-parchment-200/70 mb-2 md:mb-8 text-center max-w-2xl text-[10px] sm:text-base px-4">
         Design your inventory shape. You have {MAX_CAPACITY} slots.
         <br />
         <span className="text-[10px] md:text-sm italic opacity-50">
@@ -113,8 +113,8 @@ const PlayerBagEditor: React.FC<{
             !isMe && "pointer-events-none opacity-50",
           )}
           style={{
-            gridTemplateColumns: `repeat(${GRID_SIZE}, 24px)`,
-            gridTemplateRows: `repeat(${GRID_SIZE}, 24px)`,
+            gridTemplateColumns: `repeat(${GRID_SIZE}, clamp(18px, 5vw, 24px))`,
+            gridTemplateRows: `repeat(${GRID_SIZE}, clamp(18px, 5vw, 24px))`,
           }}
         >
           {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
@@ -129,7 +129,7 @@ const PlayerBagEditor: React.FC<{
                 onMouseDown={() => isMe && toggleCell(x, y)}
                 title={`Toggle cell ${x},${y}`}
                 className={clsx(
-                  "w-6 h-6 p-0 m-0 min-w-0 min-h-0 aspect-square rounded-sm transition-colors border outline-none",
+                  "w-full h-full aspect-square rounded-sm transition-colors border outline-none",
                   "flex items-center justify-center", // For safety
                   isSelected
                     ? isMe

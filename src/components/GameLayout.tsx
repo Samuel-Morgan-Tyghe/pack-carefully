@@ -40,7 +40,7 @@ const GameLayout: React.FC = () => {
           <GameHUD />
 
           {/* Main Content Area - Split screen on desktop, Top-Bottom on mobile */}
-          <main className="flex-1 flex w-full relative z-10 pt-16 pb-2 px-1 md:px-4 gap-2 flex-col md:flex-row max-w-[1600px] mx-auto overflow-hidden">
+          <main className="flex-1 flex w-full relative z-10 pt-12 md:pt-16 pb-2 px-1 md:px-4 gap-2 flex-col md:flex-row max-w-[1600px] mx-auto overflow-hidden">
             {/* Items Shelf - Fixed width on desktop, Auto height on mobile */}
             {phase === "DRAFT" && (
               <div className="w-full md:w-64 shrink-0 flex flex-col overflow-hidden">

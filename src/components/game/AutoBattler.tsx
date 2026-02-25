@@ -284,7 +284,7 @@ const AutoBattler: React.FC = () => {
           </div>
 
           <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
-            <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
+            <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
               <Inventory
                 playerId={player.id}
                 items={player.inventory}
@@ -304,9 +304,9 @@ const AutoBattler: React.FC = () => {
 
         {/* CENTER HUB */}
         <div className="lg:w-80 flex flex-col gap-4 shrink-0">
-          <div className="h-24 flex items-center justify-center relative">
+          <div className="h-16 md:h-24 flex items-center justify-center relative shrink-0">
             <div className="absolute inset-0 bg-gold-600/10 blur-3xl rounded-full" />
-            <div className="relative text-5xl font-black text-gold-500 italic">
+            <div className="relative text-3xl md:text-5xl font-black text-gold-500 italic">
               VS
             </div>
           </div>
@@ -491,7 +491,7 @@ const AutoBattler: React.FC = () => {
           </div>
 
           <div className="flex-1 flex items-center justify-center p-2 min-h-0">
-            <div className="scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-90">
+            <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-90">
               <Inventory
                 playerId={enemy.id}
                 items={enemy.inventory}

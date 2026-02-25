@@ -41,22 +41,24 @@ const GameHUD: React.FC = () => {
       </div>
 
       {/* Top Center: Player Navigation & Observer Switcher */}
-      <div className="fixed top-2 left-2 sm:left-1/2 sm:-translate-x-1/2 md:top-4 z-[60] flex flex-col items-center gap-2">
+      <div className="fixed top-1 left-1 sm:left-1/2 sm:-translate-x-1/2 md:top-4 z-[60] flex flex-col items-center gap-1 sm:gap-2">
         {/* Phase Bar */}
-        <div className="bg-wood-900/95 border-2 border-wood-600 rounded-full px-4 py-1 shadow-xl backdrop-blur-sm flex items-center gap-3">
-          {["LOBBY", "BAG_BUILDING", "DRAFT", "JOURNEY", "CAMPFIRE"].map(
-            (p) => (
-              <div
-                key={p}
-                className={clsx(
-                  "text-[8px] md:text-[9px] font-bold tracking-widest uppercase font-display transition-all duration-300",
-                  phase === p ? "text-gold-400 scale-105" : "text-wood-500/50",
-                )}
-              >
-                {p}
-              </div>
-            ),
-          )}
+        <div className="bg-wood-900/95 border-2 border-wood-600 rounded-full px-2 sm:px-4 py-1 shadow-xl backdrop-blur-sm flex items-center gap-1.5 sm:gap-3">
+          {["LOBBY", "BAG", "DRAFT", "JOURNEY", "CAMP"].map((p) => (
+            <div
+              key={p}
+              className={clsx(
+                "text-[7px] md:text-[9px] font-bold tracking-widest uppercase font-display transition-all duration-300",
+                phase === p ||
+                  (p === "BAG" && phase === "BAG_BUILDING") ||
+                  (p === "CAMP" && phase === "CAMPFIRE")
+                  ? "text-gold-400 scale-105"
+                  : "text-wood-500/50",
+              )}
+            >
+              {p}
+            </div>
+          ))}
         </div>
 
         {/* Player Switcher (Observation Bar) */}
@@ -120,23 +122,23 @@ const GameHUD: React.FC = () => {
       </div>
 
       {/* Top Right: Actions & Stats - Compact on mobile */}
-      <div className="fixed top-2 right-2 md:top-4 md:right-6 z-50 flex items-center gap-2 md:gap-6 flex-col sm:flex-row">
+      <div className="fixed top-1 right-1 md:top-4 md:right-6 z-50 flex items-center gap-1.5 md:gap-6">
         {/* Stats */}
-        <div className="flex items-center gap-2 md:gap-4 bg-wood-900/90 px-2 md:px-4 py-1 md:py-2 rounded-lg border border-wood-600 shadow-lg backdrop-blur-sm">
+        <div className="flex items-center gap-1.5 md:gap-4 bg-wood-900/90 px-1.5 md:px-4 py-1 md:py-2 rounded-lg border border-wood-600 shadow-lg backdrop-blur-sm">
           <div className="flex flex-col items-end">
-            <span className="text-[8px] md:text-[10px] text-wood-400 uppercase font-bold tracking-widest">
+            <span className="text-[7px] md:text-[10px] text-wood-400 uppercase font-bold tracking-widest">
               Day
             </span>
-            <span className="text-sm md:text-xl font-display font-bold text-parchment-100">
+            <span className="text-xs md:text-xl font-display font-bold text-parchment-100">
               {gameState.day}/5
             </span>
           </div>
-          <div className="w-px h-6 md:h-8 bg-wood-700 mx-1 md:mx-2" />
-          <div className="flex flex-col items-end min-w-[60px] md:min-w-[100px]">
-            <span className="text-[8px] md:text-[10px] text-wood-400 uppercase font-bold tracking-widest mb-0.5 md:mb-1">
-              Morale
+          <div className="w-px h-5 md:h-8 bg-wood-700 mx-0.5 md:mx-2" />
+          <div className="flex flex-col items-end min-w-[40px] md:min-w-[100px]">
+            <span className="text-[7px] md:text-[10px] text-wood-400 uppercase font-bold tracking-widest mb-0.5">
+              HP
             </span>
-            <div className="w-full h-1.5 md:h-2 bg-wood-800 rounded-full overflow-hidden border border-wood-600">
+            <div className="w-full h-1 md:h-2 bg-wood-800 rounded-full overflow-hidden border border-wood-600">
               <div
                 className={clsx(
                   "h-full transition-all duration-500",
@@ -155,9 +157,9 @@ const GameHUD: React.FC = () => {
         <button
           type="button"
           onClick={nextPhase}
-          className="px-3 md:px-6 py-1 md:py-2 bg-forest-700/90 border-2 border-forest-500 rounded-lg hover:bg-forest-600 text-parchment-100 text-[10px] md:text-xs uppercase font-bold tracking-wider shadow-lg hover:shadow-xl hover:scale-105 pointer-events-auto transition-all backdrop-blur-sm"
+          className="px-2 md:px-6 py-1 md:py-2 bg-forest-700/90 border-2 border-forest-500 rounded-lg hover:bg-forest-600 text-parchment-100 text-[8px] md:text-xs uppercase font-bold tracking-wider shadow-lg hover:shadow-xl hover:scale-105 pointer-events-auto transition-all backdrop-blur-sm"
         >
-          Next Phase
+          {phase === "DRAFT" ? "Ready" : "Next"}
         </button>
       </div>
     </>

@@ -21,13 +21,13 @@ const WelcomeScreen: React.FC = () => {
     <div className="w-full h-full flex flex-col justify-center items-center relative z-20">
       {/* Title Section */}
       <div className="text-center animate-in fade-in duration-700 w-full px-4">
-        <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-parchment-100 to-parchment-500 mb-6 drop-shadow-lg font-display uppercase tracking-widest leading-none text-balance">
+        <h1 className="text-4xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-parchment-100 to-parchment-500 mb-4 md:mb-6 drop-shadow-lg font-display uppercase tracking-widest leading-none text-balance">
           Pack
           <br />
           Carefully
         </h1>
 
-        <p className="text-lg md:text-2xl text-gold-500 max-w-lg mx-auto font-serif italic mb-12 border-t border-b border-wood-600 py-4 bg-wood-900/30">
+        <p className="text-sm md:text-2xl text-gold-500 max-w-lg mx-auto font-serif italic mb-6 md:mb-12 border-t border-b border-wood-600 py-3 md:py-4 bg-wood-900/30 px-4">
           "The journey is long, the pack is heavy.
           <br />
           Choose your companions wisely."

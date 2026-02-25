@@ -34,9 +34,9 @@ const SupplyShelf: React.FC = () => {
   }, [items, currentTab])
 
   return (
-    <section className="h-full bg-wood-900/90 border-r-2 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden select-none">
-      {/* Supply Header - Compact */}
-      <div className="flex justify-between items-center border-b border-wood-700 pb-1 shrink-0">
+    <section className="h-full bg-wood-900/90 border-b-2 md:border-b-0 md:border-r-4 border-wood-700 shadow-2xl p-2 md:p-3 flex flex-row md:flex-col gap-2 relative z-10 backdrop-blur-sm overflow-hidden select-none">
+      {/* Supply Header - Compact - Hidden on mobile if horizontal */}
+      <div className="hidden md:flex justify-between items-center border-b border-wood-700 pb-1 shrink-0">
         <h3 className="font-display font-bold text-sm md:text-lg text-gold-500 drop-shadow-sm flex items-center gap-1.5">
           <LucideIcons.Package size={16} />
           Supplies
@@ -47,7 +47,7 @@ const SupplyShelf: React.FC = () => {
       </div>
 
       {/* Category Tabs */}
-      <div className="flex md:flex-wrap gap-1 overflow-x-auto pb-1 scrollbar-none shrink-0 border-b border-wood-700">
+      <div className="flex flex-col md:flex-row md:flex-wrap gap-1 overflow-y-auto md:overflow-x-auto pb-1 scrollbar-none shrink-0 border-r md:border-r-0 md:border-b border-wood-700 pr-1 md:pr-0">
         {CATEGORIES.map((cat) => {
           const count =
             cat === "ALL"
@@ -101,8 +101,10 @@ const SupplyShelf: React.FC = () => {
       </div>
 
       {/* Shelf Content - Fixed Category */}
-      <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full animate-in fade-in slide-in-from-left-2">
-        <ShelfCategory items={activeItems} />
+      <div className="flex-1 overflow-x-auto md:overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-wood-600 scrollbar-track-wood-900 min-h-0 w-full animate-in fade-in slide-in-from-left-2">
+        <div className="flex flex-row md:flex-col gap-2 h-full">
+          <ShelfCategory items={activeItems} />
+        </div>
       </div>
     </section>
   )

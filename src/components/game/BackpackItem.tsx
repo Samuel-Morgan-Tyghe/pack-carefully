@@ -6,7 +6,13 @@ import React from "react"
 import type { AdjacencyResult } from "../../lib/adjacency"
 import { ITEMS } from "../../lib/items/items"
 import { playSound } from "../../lib/sounds"
-import { getItemCells, getPixelCoords, toggleLock } from "../../store/gameStore"
+import {
+  $draggedInstanceId,
+  $draggedItem,
+  getItemCells,
+  getPixelCoords,
+  toggleLock,
+} from "../../store/gameStore"
 import type { Coordinate, InventoryItemInstance } from "../../types"
 
 interface BackpackItemProps {
@@ -119,8 +125,14 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
       }
       onClick={(e) => {
         if (!canInteract) return
-        if (e.shiftKey) toggleLock(item.instanceId)
-        else if (!isDragging) onSelect?.()
+        if (e.shiftKey) {
+          toggleLock(item.instanceId)
+        } else if (!isDragging) {
+          // Tap-to-Place: Pick up if nothing is being dragged
+          onSelect?.()
+          $draggedInstanceId.set(item.instanceId)
+          $draggedItem.set(item.itemId)
+        }
       }}
       className={clsx(
         "absolute transition-shadow",

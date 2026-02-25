@@ -11,6 +11,7 @@ import {
   $craftingHighlights,
   $currentPlayerId,
   $dragSessionId,
+  $draggedInstanceId,
   $draggedItem,
   $gridConfig,
   $gridState,
@@ -101,6 +102,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   const localPlayerId = useStore($localPlayerId)
   const activePreview = useStore($activePreview)
   const craftingHighlights = useStore($craftingHighlights)
+  const externalInstanceId = useStore($draggedInstanceId)
 
   const canInteract =
     canInteractProp &&
@@ -179,19 +181,24 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     if (!isDragging || !ghostPosition?.valid) return baseItems
     if (draggedInstanceId)
       baseItems = baseItems.filter((i) => i.instanceId !== draggedInstanceId)
-    const itemId = draggedInstanceId
-      ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)?.itemId
-      : externalDraggedItem
+    const itemId =
+      draggedInstanceId || externalInstanceId
+        ? itemsOnGrid.find(
+            (i) => i.instanceId === (draggedInstanceId || externalInstanceId),
+          )?.itemId
+        : externalDraggedItem
 
     if (itemId) {
+      const activeInstanceId =
+        draggedInstanceId || externalInstanceId || "dragged-external"
       baseItems.push({
-        instanceId: draggedInstanceId || "dragged-external",
+        instanceId: activeInstanceId,
         itemId,
         x: ghostPosition.gridX,
         y: ghostPosition.gridY,
         rotation:
-          (draggedInstanceId
-            ? itemsOnGrid.find((i) => i.instanceId === draggedInstanceId)
+          (activeInstanceId !== "dragged-external"
+            ? itemsOnGrid.find((i) => i.instanceId === activeInstanceId)
                 ?.rotation
             : pendingRotation) || 0,
         ownerId,
@@ -201,6 +208,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
   }, [
     itemsOnGrid,
     draggedInstanceId,
+    externalInstanceId,
     externalDraggedItem,
     ghostPosition,
     pendingRotation,
@@ -509,37 +517,59 @@ const Inventory: React.FC<InventoryProps> = (props) => {
           }}
           onMouseLeave={() => !draggedInstanceId && setGhostPosition(null)}
           onClick={(e) => {
-            if (!externalDraggedItem || !canInteract || draggedInstanceId)
-              return
+            if (!canInteract || draggedInstanceId) return
+            const activeItemId = externalDraggedItem
+            const activeInstanceId = externalInstanceId
+
+            if (!activeItemId && !activeInstanceId) return
+
             const { gridX, gridY } = snapToGrid(
               { x: e.clientX, y: e.clientY },
-              externalDraggedItem,
+              activeItemId ||
+                itemsOnGrid.find((i) => i.instanceId === activeInstanceId)
+                  ?.itemId ||
+                "",
               pendingRotation,
             )
-            if (
-              calculateGhostValidity(
-                gridX,
-                gridY,
-                externalDraggedItem,
-                undefined,
-                pendingRotation,
-              )
-            ) {
-              placeItem(
-                externalDraggedItem,
-                gridX,
-                gridY,
-                pendingRotation as 0 | 90 | 180 | 270,
-                ownerId,
-              )
-              $dragSessionId.set($dragSessionId.get() + 1)
-              $draggedItem.set(null)
-              $activePreview.set(null)
-            } else {
-              setErrorMessage(
-                `${ITEMS[externalDraggedItem]?.name} returned to shelf!`,
-              )
-              setTimeout(() => setErrorMessage(null), 2000)
+
+            if (activeInstanceId) {
+              // Internal move placement
+              if (
+                calculateGhostValidity(
+                  gridX,
+                  gridY,
+                  itemsOnGrid.find((i) => i.instanceId === activeInstanceId)
+                    ?.itemId || "",
+                  activeInstanceId,
+                  pendingRotation,
+                )
+              ) {
+                moveItem(activeInstanceId, gridX, gridY, pendingRotation as any)
+                $draggedInstanceId.set(null)
+                $draggedItem.set(null)
+                $dragSessionId.set($dragSessionId.get() + 1)
+              }
+            } else if (activeItemId) {
+              // External placement
+              if (
+                calculateGhostValidity(
+                  gridX,
+                  gridY,
+                  activeItemId,
+                  undefined,
+                  pendingRotation,
+                )
+              ) {
+                placeItem(
+                  activeItemId,
+                  gridX,
+                  gridY,
+                  pendingRotation as any,
+                  ownerId,
+                )
+                $draggedItem.set(null)
+                $dragSessionId.set($dragSessionId.get() + 1)
+              }
             }
           }}
           onDrop={(e) => {
@@ -625,36 +655,41 @@ const Inventory: React.FC<InventoryProps> = (props) => {
             />
           )}
 
-          {itemsOnGrid.map((baseItem) => {
-            // Find the version with live stats (DPS/EPS)
-            const item =
-              liveVirtualItems.find(
-                (li: InventoryItemInstance) =>
-                  li.instanceId === baseItem.instanceId,
-              ) || baseItem
+          {itemsOnGrid
+            .filter((i) => i.instanceId !== externalInstanceId)
+            .map((baseItem) => {
+              // Find the version with live stats (DPS/EPS)
+              const item =
+                liveVirtualItems.find(
+                  (li: InventoryItemInstance) =>
+                    li.instanceId === baseItem.instanceId,
+                ) || baseItem
 
-            return (
-              <BackpackItem
-                key={`${item.instanceId}-${dragSessionId}`}
-                item={item}
-                draggedInstanceId={draggedInstanceId}
-                onDragStart={handleDragStart}
-                onDrag={handleDrag}
-                onDragEnd={handleDragEnd}
-                CELL_SIZE={CELL_SIZE}
-                GAP={GAP}
-                isHighlighted={craftingHighlights.includes(item.instanceId)}
-                isSelected={selectedItemId === item.instanceId}
-                onSelect={() =>
-                  !viewOnly &&
-                  $activePreview.set({ type: "instance", id: item.instanceId })
-                }
-                adjacencyResult={virtualResults[item.instanceId]}
-                viewOnly={viewOnly}
-                cooldown={cooldowns[item.instanceId] || 0}
-              />
-            )
-          })}
+              return (
+                <BackpackItem
+                  key={`${item.instanceId}-${dragSessionId}`}
+                  item={item}
+                  draggedInstanceId={draggedInstanceId}
+                  onDragStart={handleDragStart}
+                  onDrag={handleDrag}
+                  onDragEnd={handleDragEnd}
+                  CELL_SIZE={CELL_SIZE}
+                  GAP={GAP}
+                  isHighlighted={craftingHighlights.includes(item.instanceId)}
+                  isSelected={selectedItemId === item.instanceId}
+                  onSelect={() =>
+                    !viewOnly &&
+                    $activePreview.set({
+                      type: "instance",
+                      id: item.instanceId,
+                    })
+                  }
+                  adjacencyResult={virtualResults[item.instanceId]}
+                  viewOnly={viewOnly}
+                  cooldown={cooldowns[item.instanceId] || 0}
+                />
+              )
+            })}
 
           {(selectedItemId || draggedInstanceId || externalDraggedItem) &&
             !viewOnly && (
@@ -709,6 +744,31 @@ const Inventory: React.FC<InventoryProps> = (props) => {
               </div>
             )}
         </div>
+
+        {/* Mobile Control Bar - Appears when "holding" an item via tap */}
+        {(externalDraggedItem || externalInstanceId) && (
+          <div className="mt-4 flex gap-4 animate-in slide-in-from-bottom-2 duration-300">
+            <button
+              type="button"
+              onClick={() => {
+                setPendingRotation((prev) => ((prev + 90) % 360) as any)
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg"
+            >
+              <LucideIcons.RotateCw size={20} /> Rotate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                $draggedItem.set(null)
+                $draggedInstanceId.set(null)
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg"
+            >
+              <LucideIcons.X size={20} /> Cancel
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
