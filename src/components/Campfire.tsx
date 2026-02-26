@@ -8,8 +8,8 @@ import {
   $currentPlayerId,
   $gameState,
   $players,
-  advanceDay,
   healMorale,
+  nextPhase,
   revealDisguises,
   rummageInventory,
 } from "../store/gameStore"
@@ -54,7 +54,7 @@ const Campfire: React.FC = () => {
 
   const handleSleep = () => {
     healMorale(10)
-    advanceDay()
+    nextPhase()
   }
 
   return (

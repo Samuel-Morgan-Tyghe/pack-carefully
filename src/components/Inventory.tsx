@@ -76,6 +76,9 @@ const Inventory: React.FC<InventoryProps> = (props) => {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [hoveredInstanceId, setHoveredInstanceId] = useState<string | null>(
+    null,
+  )
   const [pendingRotation, setPendingRotation] = useState<0 | 90 | 180 | 270>(0)
 
   // Sync global grid config
@@ -231,11 +234,14 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     allStarredSquares.map((s: { x: number; y: number }) => `${s.x},${s.y}`),
   )
   const selectedResult = selectedItemId ? virtualResults[selectedItemId] : null
+  const hoveredResult = hoveredInstanceId
+    ? virtualResults[hoveredInstanceId]
+    : null
   const draggedResult =
     draggedInstanceId || externalDraggedItem
       ? virtualResults[draggedInstanceId || "dragged-external"]
       : null
-  const displayResult = draggedResult || selectedResult
+  const displayResult = draggedResult || hoveredResult || selectedResult
 
   const snapToGrid = (
     point: { x: number; y: number },
@@ -684,6 +690,8 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                       id: item.instanceId,
                     })
                   }
+                  onHoverStart={() => setHoveredInstanceId(item.instanceId)}
+                  onHoverEnd={() => setHoveredInstanceId(null)}
                   adjacencyResult={virtualResults[item.instanceId]}
                   viewOnly={viewOnly}
                   cooldown={cooldowns[item.instanceId] || 0}
@@ -691,58 +699,60 @@ const Inventory: React.FC<InventoryProps> = (props) => {
               )
             })}
 
-          {(selectedItemId || draggedInstanceId || externalDraggedItem) &&
-            !viewOnly && (
-              <div className="absolute inset-0 pointer-events-none z-50">
-                {Object.values(gridState).map((cell) => {
-                  if (!cell.isBag || cell.ownerId !== ownerId) return null
-                  const key = `${cell.x},${cell.y}`
-                  const isGlobalStar = starredKeys.has(key)
-                  const activeSyn = displayResult?.activeSynergySquares.find(
+          {(selectedItemId ||
+            draggedInstanceId ||
+            externalDraggedItem ||
+            hoveredInstanceId) && (
+            <div className="absolute inset-0 pointer-events-none z-50">
+              {Object.values(gridState).map((cell) => {
+                if (!cell.isBag || cell.ownerId !== ownerId) return null
+                const key = `${cell.x},${cell.y}`
+                const isGlobalStar = starredKeys.has(key)
+                const activeSyn = displayResult?.activeSynergySquares.find(
+                  (s) => s.x === cell.x && s.y === cell.y,
+                )
+                const potentialSyn =
+                  displayResult?.potentialSynergySquares.find(
                     (s) => s.x === cell.x && s.y === cell.y,
                   )
-                  const potentialSyn =
-                    displayResult?.potentialSynergySquares.find(
-                      (s) => s.x === cell.x && s.y === cell.y,
-                    )
-                  if (isGlobalStar || activeSyn || potentialSyn) {
-                    const isFilled = isGlobalStar || !!activeSyn
-                    const iconName =
-                      activeSyn?.icon || potentialSyn?.icon || "Star"
-                    const Icon =
-                      (LucideIcons as any)[iconName] || LucideIcons.Star
-                    const coords = getPixelCoords(cell.x, cell.y)
-                    return (
-                      <div
-                        key={`syn-overlay-${key}`}
+                if (isGlobalStar || activeSyn || potentialSyn) {
+                  const isFilled = isGlobalStar || !!activeSyn
+                  const iconName =
+                    activeSyn?.icon || potentialSyn?.icon || "Star"
+                  const Icon =
+                    (LucideIcons as any)[iconName] || LucideIcons.Star
+                  const coords = getPixelCoords(cell.x, cell.y)
+                  return (
+                    <div
+                      key={`syn-overlay-${key}`}
+                      className={clsx(
+                        "absolute flex items-center justify-center transition-all duration-300",
+                        isFilled
+                          ? "animate-bounce scale-110"
+                          : "opacity-40 scale-75",
+                      )}
+                      style={{
+                        left: coords.x,
+                        top: coords.y,
+                        width: CELL_SIZE,
+                        height: CELL_SIZE,
+                      }}
+                    >
+                      <Icon
                         className={clsx(
-                          "absolute flex items-center justify-center transition-all duration-300",
+                          "w-6 h-6",
                           isFilled
-                            ? "animate-bounce scale-110"
-                            : "opacity-40 scale-75",
+                            ? "text-gold-400 fill-gold-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]"
+                            : "text-gold-100",
                         )}
-                        style={{
-                          left: coords.x,
-                          top: coords.y,
-                          width: CELL_SIZE,
-                          height: CELL_SIZE,
-                        }}
-                      >
-                        <Icon
-                          className={clsx(
-                            "w-6 h-6",
-                            isFilled
-                              ? "text-gold-400 fill-gold-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]"
-                              : "text-gold-100",
-                          )}
-                        />
-                      </div>
-                    )
-                  }
-                  return null
-                })}
-              </div>
-            )}
+                      />
+                    </div>
+                  )
+                }
+                return null
+              })}
+            </div>
+          )}
         </div>
 
         {/* Mobile Control Bar - Appears when "holding" an item via tap */}

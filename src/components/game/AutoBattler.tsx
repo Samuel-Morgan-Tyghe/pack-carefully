@@ -25,6 +25,7 @@ import type {
 import {
   createCombatEntity,
   generateEnemy,
+  groupStatusEffects,
   processCombatTick,
 } from "../../lib/combat"
 import { ITEMS } from "../../lib/items/items"
@@ -214,6 +215,8 @@ const AutoBattler: React.FC = () => {
     }
   }, [isFighting, gameResult, elapsedTime, tickSpeed, isPaused])
 
+  const [showSummary, setShowSummary] = useState(false)
+
   if (!player || !enemy) return <div>Loading Combat...</div>
 
   return (
@@ -229,7 +232,7 @@ const AutoBattler: React.FC = () => {
             <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2 drop-shadow-md">
               <span className="text-blue-400">{player.name}</span>
               <div className="flex gap-1">
-                {player.statuses.map((s, i) => (
+                {groupStatusEffects(player.statuses).map((s, i) => (
                   <StatusBadge key={`${s.type}-${i}`} status={s} />
                 ))}
               </div>
@@ -250,8 +253,10 @@ const AutoBattler: React.FC = () => {
             max={player.maxHp}
             block={player.block}
             color="bg-blue-600"
+            side="player"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <BuffHUD entity={player} />
+          <div className="grid grid-cols-2 gap-2 mt-2">
             <EnergyBar current={player.energy} max={player.maxEnergy} />
             <ManaBar current={player.mana} max={player.maxMana} />
           </div>
@@ -358,19 +363,32 @@ const AutoBattler: React.FC = () => {
                 <motion.div
                   key="result"
                   className={clsx(
-                    "p-6 rounded-2xl border-4 text-center shadow-2xl",
+                    "p-6 rounded-2xl border-4 text-center shadow-2xl relative overflow-hidden",
                     gameResult === "WIN"
                       ? "bg-green-950/40 border-green-500 text-green-400"
                       : "bg-red-950/40 border-red-500 text-red-400",
                   )}
                 >
-                  {gameResult === "WIN" ? (
-                    <Trophy className="mx-auto mb-2 text-gold-500" size={32} />
-                  ) : (
-                    <Skull className="mx-auto mb-2 text-red-500" size={32} />
-                  )}
-                  <div className="text-4xl font-black tracking-tighter">
-                    {gameResult === "WIN" ? "VICTORY!" : "DEFEATED"}
+                  <div className="relative z-10">
+                    {gameResult === "WIN" ? (
+                      <Trophy
+                        className="mx-auto mb-2 text-gold-500"
+                        size={32}
+                      />
+                    ) : (
+                      <Skull className="mx-auto mb-2 text-red-500" size={32} />
+                    )}
+                    <div className="text-4xl font-black tracking-tighter mb-4">
+                      {gameResult === "WIN" ? "VICTORY!" : "DEFEATED"}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSummary(true)}
+                      className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg font-bold text-sm tracking-widest uppercase transition-all"
+                    >
+                      View Battle Log
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -404,20 +422,21 @@ const AutoBattler: React.FC = () => {
             <div className="text-center text-[10px] font-black text-wood-500 uppercase tracking-widest mb-3">
               Reports
             </div>
-            <div className="flex-1 space-y-2 flex flex-col justify-end ">
+            <div className="flex-1 space-y-1 overflow-y-auto pr-2 custom-scrollbar max-h-[240px]">
               <AnimatePresence initial={false}>
-                {combatLog.slice(-5).map((entry, idx) => (
+                {combatLog.map((entry, idx) => (
                   <motion.div
                     key={`${idx}-${entry.message}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     className={clsx(
-                      "text-[11px] p-2 rounded-lg border",
+                      "text-[11px] py-1 border-b border-white/5 last:border-0",
                       entry.type === "DAMAGE"
-                        ? "border-blue-500/30 bg-blue-500/10 text-blue-200"
-                        : "border-red-500/30 bg-red-500/10 text-red-200",
+                        ? "text-blue-300"
+                        : "text-red-300",
                     )}
                   >
+                    <span className="opacity-40 mr-2 font-mono">{idx + 1}</span>
                     {entry.message}
                   </motion.div>
                 ))}
@@ -444,7 +463,7 @@ const AutoBattler: React.FC = () => {
             </div>
             <h2 className="text-xl md:text-2xl font-black text-red-500 flex items-center gap-2 drop-shadow-md">
               <div className="flex gap-1">
-                {enemy.statuses.map((s, i) => (
+                {groupStatusEffects(enemy.statuses).map((s, i) => (
                   <StatusBadge key={`${s.type}-${i}`} status={s} />
                 ))}
               </div>
@@ -457,8 +476,10 @@ const AutoBattler: React.FC = () => {
             max={enemy.maxHp}
             block={enemy.block}
             color="bg-red-600"
+            side="enemy"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <BuffHUD entity={enemy} />
+          <div className="grid grid-cols-2 gap-2 mt-2">
             <EnergyBar current={enemy.energy} max={enemy.maxEnergy} />
             <ManaBar current={enemy.mana} max={enemy.maxMana} />
           </div>
@@ -511,6 +532,13 @@ const AutoBattler: React.FC = () => {
       </div>
 
       <Tooltip id="combat-tooltip" />
+      {showSummary && (
+        <BattleSummary
+          player={player}
+          enemy={enemy}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   )
 }
@@ -521,7 +549,14 @@ const HealthBar = ({
   max,
   block,
   color,
-}: { current: number; max: number; block: number; color: string }) => (
+  side = "player",
+}: {
+  current: number
+  max: number
+  block: number
+  color: string
+  side?: "player" | "enemy"
+}) => (
   <div
     className="w-full bg-slate-900 h-6 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
     data-tooltip-id="combat-tooltip"
@@ -529,20 +564,24 @@ const HealthBar = ({
   >
     {/* Base Health */}
     <motion.div
-      className={`h-full ${color}`}
+      className={clsx("h-full absolute top-0", color)}
+      style={{ [side === "player" ? "left" : "right"]: 0 }}
       animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
     />
     {/* Block Overlay */}
     {block > 0 && (
       <motion.div
-        className="absolute top-0 left-0 h-full bg-cyan-400/40 border-r-2 border-cyan-300"
+        className={clsx(
+          "absolute top-0 h-full bg-cyan-400/40 border-cyan-300",
+          side === "player" ? "left-0 border-r-2" : "right-0 border-l-2",
+        )}
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(100, (block / max) * 100)}%` }}
       />
     )}
-    <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-bold text-white drop-shadow-md">
-      <span>{Math.round(current)}</span>
-      <span>{Math.round(max)}</span>
+    <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-bold text-white drop-shadow-md z-10">
+      <span>{side === "player" ? Math.round(current) : Math.round(max)}</span>
+      <span>{side === "player" ? Math.round(max) : Math.round(current)}</span>
     </div>
   </div>
 )
@@ -585,11 +624,31 @@ const ManaBar = ({ current, max }: { current: number; max: number }) => (
 
 const StatusBadge = ({
   status,
-}: { status: { type: string; value: number } }) => (
-  <span className="text-[10px] px-1.5 py-0.5 rounded border bg-slate-800 border-slate-600 text-slate-300">
-    {status.type}
-  </span>
-)
+}: { status: { type: string; value: number } }) => {
+  const colors: Record<string, string> = {
+    POISON: "border-green-500 text-green-400 bg-green-950/40",
+    FIRE: "border-orange-500 text-orange-400 bg-orange-950/40",
+    STUN: "border-yellow-500 text-yellow-400 bg-yellow-950/40",
+    SLOW: "border-blue-400 text-blue-300 bg-blue-950/40",
+    BLEED: "border-red-600 text-red-500 bg-red-950/40",
+  }
+
+  return (
+    <div
+      className={clsx(
+        "text-[10px] px-1.5 py-0.5 rounded border font-black uppercase flex items-center gap-1 shadow-sm",
+        colors[status.type] || "border-slate-600 text-slate-300 bg-slate-800",
+      )}
+    >
+      <span>{status.type}</span>
+      {status.value > 1 && (
+        <span className="bg-white/20 px-1 rounded-sm text-[8px]">
+          {status.value}
+        </span>
+      )}
+    </div>
+  )
+}
 
 const StatBox = ({
   icon,
@@ -611,6 +670,208 @@ const StatBox = ({
     <span className="text-lg font-black text-white">{value}</span>
     <span className="text-[10px] text-slate-500 uppercase tracking-wider">
       {label}
+    </span>
+  </div>
+)
+
+const BuffHUD = ({ entity }: { entity: CombatEntity }) => {
+  const grouped = groupStatusEffects(entity.statuses)
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1 empty:hidden">
+      {grouped.map((s) => (
+        <StatusBadge key={s.type} status={s} />
+      ))}
+    </div>
+  )
+}
+
+const BattleSummary = ({
+  player,
+  enemy,
+  onClose,
+}: {
+  player: CombatEntity
+  enemy: CombatEntity
+  onClose: () => void
+}) => {
+  const allPlayerStats = Object.values(player.battleStats)
+  const allEnemyStats = Object.values(enemy.battleStats)
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-wood-900 border-4 border-wood-700 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+      >
+        <div className="p-6 border-b-2 border-wood-700 flex justify-between items-center bg-wood-800/50">
+          <h2 className="text-3xl font-black text-gold-500 uppercase tracking-tighter">
+            Battle Summary
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-parchment-400"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="bg-blue-950/20 p-6 rounded-2xl border-2 border-blue-900/30">
+              <h3 className="text-xl font-bold text-blue-400 mb-4 uppercase tracking-widest border-b border-blue-900/30 pb-2">
+                Offensive Stats
+              </h3>
+              <div className="space-y-3">
+                <SummaryStat
+                  label="Total Damage"
+                  value={allPlayerStats.reduce((s, i) => s + i.damageDealt, 0)}
+                  color="text-red-400"
+                />
+                <SummaryStat
+                  label="Average DPS"
+                  value={(
+                    allPlayerStats.reduce((s, i) => s + i.damageDealt, 0) / 10
+                  ).toFixed(1)}
+                  color="text-orange-400"
+                />
+                <SummaryStat
+                  label="Enemy Damage"
+                  value={allEnemyStats.reduce((s, i) => s + i.damageDealt, 0)}
+                  color="text-red-600"
+                />
+              </div>
+            </div>
+
+            <div className="bg-cyan-950/20 p-6 rounded-2xl border-2 border-cyan-900/30">
+              <h3 className="text-xl font-bold text-cyan-400 mb-4 uppercase tracking-widest border-b border-cyan-900/30 pb-2">
+                Defensive Stats
+              </h3>
+              <div className="space-y-3">
+                <SummaryStat
+                  label="Total Block"
+                  value={allPlayerStats.reduce(
+                    (s, i) => s + i.blockGenerated,
+                    0,
+                  )}
+                  color="text-cyan-400"
+                />
+                <SummaryStat
+                  label="Damage Mitigated"
+                  value={allPlayerStats.reduce(
+                    (s, i) => s + i.damageMitigated,
+                    0,
+                  )}
+                  color="text-indigo-400"
+                />
+                <SummaryStat
+                  label="Heals Received"
+                  value={allPlayerStats.reduce((s, i) => s + i.healsDone, 0)}
+                  color="text-green-400"
+                />
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-2xl font-black text-parchment-200 mb-6 uppercase tracking-tighter">
+            Item Performance
+          </h3>
+          <div className="grid gap-4">
+            {player.inventory
+              .filter((inst) => player.battleStats[inst.instanceId])
+              .map((inst) => {
+                const stats = player.battleStats[inst.instanceId]
+                const def = ITEMS[inst.itemId]
+                return (
+                  <div
+                    key={inst.instanceId}
+                    className="flex bg-wood-800/40 p-4 rounded-xl border border-wood-700/50 hover:border-gold-500/50 transition-colors"
+                  >
+                    <div className="w-12 h-12 bg-black/40 rounded flex items-center justify-center text-2xl shrink-0 mr-4">
+                      {def.icon || "📦"}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-parchment-100 flex justify-between">
+                        <span>{def.name}</span>
+                        <span className="text-xs text-wood-500 uppercase">
+                          {stats.timesTriggered} triggers
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-4 mt-2">
+                        {stats.damageDealt > 0 && (
+                          <ItemMetric
+                            label="Damage"
+                            value={stats.damageDealt}
+                            color="text-red-400"
+                          />
+                        )}
+                        {stats.blockGenerated > 0 && (
+                          <ItemMetric
+                            label="Block"
+                            value={stats.blockGenerated}
+                            color="text-cyan-400"
+                          />
+                        )}
+                        {stats.damageMitigated > 0 && (
+                          <ItemMetric
+                            label="Mitigated"
+                            value={stats.damageMitigated}
+                            color="text-indigo-400"
+                          />
+                        )}
+                        {stats.healsDone > 0 && (
+                          <ItemMetric
+                            label="Healing"
+                            value={stats.healsDone}
+                            color="text-green-400"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+
+        <div className="p-6 border-t-2 border-wood-700 bg-wood-800/50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-4 bg-gold-600 hover:bg-gold-500 text-wood-950 font-black rounded-xl text-xl uppercase tracking-widest transition-all shadow-lg active:scale-95"
+          >
+            Return to Expedition
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+const SummaryStat = ({
+  label,
+  value,
+  color,
+}: { label: string; value: number | string; color: string }) => (
+  <div className="flex justify-between items-center text-lg">
+    <span className="text-parchment-400 font-medium">{label}</span>
+    <span className={clsx("font-black font-mono", color)}>{value}</span>
+  </div>
+)
+
+const ItemMetric = ({
+  label,
+  value,
+  color,
+}: { label: string; value: number; color: string }) => (
+  <div className="flex flex-col">
+    <span className="text-[10px] text-wood-500 uppercase font-black tracking-widest">
+      {label}
+    </span>
+    <span className={clsx("font-bold font-mono", color)}>
+      {Math.round(value)}
     </span>
   </div>
 )

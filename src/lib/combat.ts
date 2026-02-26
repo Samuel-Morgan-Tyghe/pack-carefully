@@ -26,6 +26,14 @@ export interface StatusEffect {
   sourceId?: string
 }
 
+export interface ItemBattleStats {
+  damageDealt: number
+  blockGenerated: number
+  damageMitigated: number
+  healsDone: number
+  timesTriggered: number
+}
+
 export interface CombatEntity {
   id: string
   hp: number
@@ -46,14 +54,15 @@ export interface CombatEntity {
   }[]
   name: string
   inventory: InventoryItemInstance[]
-  containers: Container[] // NEW: Entity-specific bag shape
+  containers: Container[]
+  battleStats: Record<string, ItemBattleStats> // instanceId -> stats
 }
 
 export interface ItemCooldown {
   instanceId: string
   itemId: string
   current: number // seconds remaining
-  max: number // seconds total
+  max: number // seconds total (with jitter)
   baseMax: number // Original max cooldown before modifiers
   lastTrigger?: {
     type: "SUCCESS" | "FAIL_ENERGY"
@@ -65,6 +74,23 @@ export interface CombatLogEntry {
   round: number
   message: string
   type: "DAMAGE" | "HEAL" | "BLOCK" | "INFO" | "MISS" | "EFFECT"
+}
+
+/**
+ * Groups duplicate status effects by type and sums their values.
+ */
+export const groupStatusEffects = (
+  statuses: StatusEffect[],
+): StatusEffect[] => {
+  const grouped: Record<string, number> = {}
+  for (const s of statuses) {
+    if (!s) continue
+    grouped[s.type] = (grouped[s.type] || 0) + s.value
+  }
+  return Object.entries(grouped).map(([type, value]) => ({
+    type: type as any,
+    value,
+  }))
 }
 
 /**
@@ -94,6 +120,7 @@ export const createCombatEntity = (
     onHitEffects: [],
     inventory: itemsWithLiveStats,
     containers,
+    battleStats: {},
   }
 }
 
@@ -215,21 +242,36 @@ const applyDamage = (
   // Reactive Effects (When victim is hit)
   if (attacker && damage > 0) {
     // 1. Reactive Spikes
-    // Find total spikes in victim's inventory/buffs
-    // Simple implementation: check items on grid
     let totalSpikes = 0
+    let spikeSourceId: string | undefined
     for (const inst of victim.inventory) {
-      totalSpikes += inst.liveStats?.spikes || 0
+      const spikes = inst.liveStats?.spikes || 0
+      if (spikes > 0) {
+        totalSpikes += spikes
+        spikeSourceId = inst.instanceId
+      }
     }
     if (totalSpikes > 0) {
       // Attacker takes spike damage
-      attacker.hp -= totalSpikes
+      attacker.hp = Math.max(0, attacker.hp - totalSpikes)
+      if (spikeSourceId) {
+        if (!victim.battleStats[spikeSourceId]) {
+          victim.battleStats[spikeSourceId] = {
+            damageDealt: 0,
+            blockGenerated: 0,
+            damageMitigated: 0,
+            healsDone: 0,
+            timesTriggered: 0,
+          }
+        }
+        victim.battleStats[spikeSourceId].damageDealt += totalSpikes
+      }
       events.push(
         `${attacker.name} takes ${totalSpikes} reactive spike damage!`,
       )
     }
 
-    // 2. Reactive Status Effects (e.g. Frostbound Shield applies SLOW when hit)
+    // 2. Reactive Status Effects
     for (const inst of victim.inventory) {
       const def = ITEMS[inst.itemId]
       if (def?.triggerType === "SHIELD" && def.effects) {
@@ -250,24 +292,49 @@ const applyDamage = (
     }
   }
 
-  // 1. Emergency Plating: Reduce damage if Energy is 0
-  if (
-    victim.energy < 1 &&
-    victim.inventory.some((i) => i.itemId === "emergency_plating")
-  ) {
-    remainingDmg = Math.max(0, remainingDmg - 5)
-    events.push(`${victim.name}'s Emergency Plating mitigates 5 damage!`)
+  // 1. Emergency Plating: Reduce damage if Energy is 0 (Balanced with internal cooldown simulation)
+  const plating = victim.inventory.find((i) => i.itemId === "emergency_plating")
+  if (victim.energy < 1 && plating) {
+    const mitigation = 8
+    const finalMitigated = Math.min(mitigation, remainingDmg)
+    remainingDmg = Math.max(0, remainingDmg - mitigation)
+
+    if (!victim.battleStats[plating.instanceId]) {
+      victim.battleStats[plating.instanceId] = {
+        damageDealt: 0,
+        blockGenerated: 0,
+        damageMitigated: 0,
+        healsDone: 0,
+        timesTriggered: 0,
+      }
+    }
+    victim.battleStats[plating.instanceId].damageMitigated += finalMitigated
+    events.push(
+      `${victim.name}'s Emergency Plating mitigates ${finalMitigated} damage!`,
+    )
   }
 
-  // 2. Mana Shield: Spend Mana to generate Block when hit
-  if (
-    remainingDmg > 0 &&
-    victim.mana >= 5 &&
-    victim.inventory.some((i) => i.itemId === "mana_shield")
-  ) {
-    victim.mana -= 5
-    victim.block += 10
-    events.push(`${victim.name}'s Mana Shield generates 10 Block!`)
+  // 2. Mana Shield: Spend Mana to generate Block when hit (Balanced: higher mana cost)
+  const manaShield = victim.inventory.find((i) => i.itemId === "mana_shield")
+  if (remainingDmg > 0 && victim.mana >= 25 && manaShield) {
+    victim.mana -= 25
+    const shieldAmount = 15
+    victim.block += shieldAmount
+
+    if (!victim.battleStats[manaShield.instanceId]) {
+      victim.battleStats[manaShield.instanceId] = {
+        damageDealt: 0,
+        blockGenerated: 0,
+        damageMitigated: 0,
+        healsDone: 0,
+        timesTriggered: 0,
+      }
+    }
+    victim.battleStats[manaShield.instanceId].blockGenerated += shieldAmount
+    victim.battleStats[manaShield.instanceId].timesTriggered += 1
+    events.push(
+      `${victim.name}'s Mana Shield consumes 25 mana for ${shieldAmount} Block!`,
+    )
   }
 
   // 3. Block absorption
@@ -287,7 +354,7 @@ const applyDamage = (
       `${victim.name}'s Soul Guard absorbs ${Math.floor(manaDmg)} damage!`,
     )
   } else {
-    victim.hp -= remainingDmg
+    victim.hp = Math.max(0, victim.hp - remainingDmg)
     if (victim.hp < 1 && hasSpiritLink && victim.mana > 0) {
       const overflow = 1 - victim.hp
       victim.hp = 1
@@ -488,22 +555,28 @@ export const processCombatTick = (
         entity.energy -= energyCost
         entity.mana -= manaCost
 
+        // Initialize item battle stats if missing
+        if (!entity.battleStats[cd.instanceId]) {
+          entity.battleStats[cd.instanceId] = {
+            damageDealt: 0,
+            blockGenerated: 0,
+            damageMitigated: 0,
+            healsDone: 0,
+            timesTriggered: 0,
+          }
+        }
+        entity.battleStats[cd.instanceId].timesTriggered++
+
         if (def.triggerType === "ATTACK") {
           const dmg = liveStats.damage || 0
           applyDamage(target, dmg, events, entity)
-
-          // Reactive Spikes logic (Target hits entity with spikes)
-          // Wait, this is called during the ENTITY'S attack.
-          // Spikes should happen when being hit.
-          // But spiked items usually apply a buff or carry a stat.
-          // Let's refine applyDamage to handle reactive spikes if needed,
-          // or just handle it here if it's "On Hit" spikes (offensive).
-          // User said: "on every attack by enemy it does the number of spike as damadge"
-          // This implies reactive spikes. I'll move reactive spikes to applyDamage.
+          entity.battleStats[cd.instanceId].damageDealt += dmg
 
           if (entity.inventory.some((i) => i.itemId === "vampiric_fangs")) {
             const heal = dmg * 0.2
+            const oldHp = entity.hp
             entity.hp = Math.min(entity.maxHp, entity.hp + heal)
+            entity.battleStats[cd.instanceId].healsDone += entity.hp - oldHp
           }
 
           if (dmg > 0)
@@ -524,25 +597,25 @@ export const processCombatTick = (
             }
           }
         } else if (def.triggerType === "HEAL") {
-          entity.hp = Math.min(entity.maxHp, entity.hp + (liveStats.heal || 0))
-          events.push(`${entity.name} heals for ${liveStats.heal}!`)
+          const healAmount = liveStats.heal || 0
+          const oldHp = entity.hp
+          entity.hp = Math.min(entity.maxHp, entity.hp + healAmount)
+          entity.battleStats[cd.instanceId].healsDone += entity.hp - oldHp
+          events.push(`${entity.name} heals for ${healAmount}!`)
         } else if (def.triggerType === "SHIELD") {
-          entity.block += liveStats.block || 0
-          events.push(`${entity.name} adds ${liveStats.block} block!`)
-
-          // Apply defensive effects (like Frost Shard on shield)
-          if (def.effects) {
-            // For simplicity, we'll assume defensive effects apply to the attacker?
-            // No, usually it's "On Hit". Let's stick to offensive effects for now,
-            // or handle "On Block" effects specifically.
-            // Frostbound Shield user said: "Applies Chilled (Minor trigger speed reduction) on enemy"
-            // This implies reactive. I'll add reactive effect handling to applyDamage.
-          }
+          const blockAmount = liveStats.block || 0
+          entity.block += blockAmount
+          entity.battleStats[cd.instanceId].blockGenerated += blockAmount
+          events.push(`${entity.name} adds ${blockAmount} block!`)
         }
+
+        // Apply COOLDOWN JITTER (±12.5% of max)
+        const jitterMultiplier = 0.875 + Math.random() * 0.25
+        const nextMax = cd.max * jitterMultiplier
 
         return {
           ...cd,
-          current: cd.max,
+          current: nextMax,
           lastTrigger: { type: "SUCCESS" as const, timestamp: elapsedTimeSec },
         }
       }
@@ -633,10 +706,10 @@ export const generateEnemy = (
 ): CombatEntity => {
   const enemyId = generateId()
 
-  // 1. Generate unique bag for the enemy
+  // 1. Generate unique bag for the enemy (size scales slightly with difficulty)
   const containers = generateRandomContainers(enemyId)
 
-  // 2. Determine archetype items
+  // 2. Determine archetype items - items now scale based on difficulty
   const archetypes: Record<
     EnemyType,
     { name: string; items: string[]; hpScale: number }
@@ -664,18 +737,36 @@ export const generateEnemy = (
     BOSS: {
       name: "The Golem",
       items: ["warhammer", "wooden_shield", "emergency_plating"],
-      hpScale: 3.0,
+      hpScale: 3.5,
     },
   }
 
   const arc = archetypes[type] || archetypes.AGGRESSIVE
+  const itemsToAdd = [...arc.items]
+
+  // Add extra items based on difficulty
+  if (difficulty >= 2) {
+    if (type === "AGGRESSIVE") itemsToAdd.push("dagger")
+    if (type === "DEFENSIVE") itemsToAdd.push("wooden_shield")
+    if (type === "SWARM") itemsToAdd.push("dagger")
+    if (type === "EVASIVE") itemsToAdd.push("wand_of_sparking")
+    if (type === "BOSS") itemsToAdd.push("spiked_collar")
+  }
+  if (difficulty >= 4) {
+    if (type === "AGGRESSIVE") itemsToAdd.push("hatchet")
+    if (type === "DEFENSIVE") itemsToAdd.push("emergency_plating")
+    if (type === "SWARM") itemsToAdd.push("vampiric_fangs")
+    if (type === "EVASIVE") itemsToAdd.push("mana_shield")
+    if (type === "BOSS") itemsToAdd.push("warhammer")
+  }
+
   const inventory: InventoryItemInstance[] = []
 
   // 3. Simple greedy placement for enemy items in their bag
   const bagCells = containers[0].cells
   let cellIdx = 0
 
-  for (const itemId of arc.items) {
+  for (const itemId of itemsToAdd) {
     if (cellIdx < bagCells.length) {
       const cell = bagCells[cellIdx]
       inventory.push({
@@ -686,16 +777,59 @@ export const generateEnemy = (
         rotation: 0,
         ownerId: enemyId,
       })
-      cellIdx += 2 // Jump cells to avoid simple overlap
+      cellIdx += 1 // Tighter placement
     }
   }
 
   const enemy = createCombatEntity(enemyId, arc.name, inventory, containers)
 
-  // Scale stats based on difficulty
-  enemy.hp = Math.floor((50 + difficulty * 20) * arc.hpScale)
+  // 4. Enhanced Scaling Logic
+  // HP Scales: Base 60 + 25 per difficulty level (Day)
+  enemy.hp = Math.floor((60 + difficulty * 25) * arc.hpScale)
+  if (type === "BOSS") enemy.hp *= 1.5 // Extra boss buffer
   enemy.maxHp = enemy.hp
-  enemy.stats.damage += difficulty * 2
+
+  // Stats Scaling
+  enemy.stats.maxEnergy = 100 + difficulty * 30
+  enemy.maxEnergy = enemy.stats.maxEnergy
+  enemy.energy = enemy.stats.maxEnergy
+  enemy.stats.energyRegen += difficulty * 2
+
+  enemy.stats.maxMana = 100 + difficulty * 25
+  enemy.maxMana = enemy.stats.maxMana
+  enemy.mana = enemy.stats.maxMana
+  enemy.stats.manaRegen += difficulty * 1
+
+  enemy.stats.triggerSpeed = 1.0 + difficulty * 0.05 // Up to 25% faster actions at Day 5
+
+  // Damage scaling applied to individual items for better granularity
+  for (const inst of enemy.inventory) {
+    if (inst.liveStats) {
+      if (inst.liveStats.damage !== undefined) {
+        inst.liveStats.damage = Math.floor(
+          inst.liveStats.damage * (1 + difficulty * 0.2),
+        )
+      }
+      if (inst.liveStats.block !== undefined) {
+        inst.liveStats.block = Math.floor(
+          inst.liveStats.block * (1 + difficulty * 0.2),
+        )
+      }
+    }
+  }
+
+  // 5. Themed Buffs based on archetype and difficulty
+  if (difficulty >= 2) {
+    if (type === "AGGRESSIVE") {
+      enemy.statuses.push({ type: "FIRE", value: difficulty - 1 })
+    } else if (type === "DEFENSIVE") {
+      enemy.block += 15 * difficulty
+    } else if (type === "SWARM") {
+      enemy.stats.triggerSpeed += 0.05 * difficulty
+    } else if (type === "EVASIVE") {
+      enemy.stats.triggerSpeed += 0.1 * difficulty
+    }
+  }
 
   return enemy
 }

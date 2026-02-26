@@ -1,3 +1,4 @@
+import { persistentAtom } from "@nanostores/persistent"
 import { atom, computed } from "nanostores"
 import { DEFAULT_BLOCK_DECAY } from "../lib/constants"
 import { generateRandomContainers } from "../lib/generators"
@@ -16,11 +17,31 @@ import type {
 } from "../types"
 
 // State Atoms
-export const $phase = atom<GamePhase>("LOBBY")
-export const $players = atom<Player[]>([])
-export const $containers = atom<Container[]>([])
-export const $currentPlayerId = atom<string | null>(null)
-export const $itemsOnGrid = atom<InventoryItemInstance[]>([])
+export const $phase = persistentAtom<GamePhase>("pack_carefully_phase", "LOBBY")
+export const $players = persistentAtom<Player[]>("pack_carefully_players", [], {
+  encode: JSON.stringify,
+  decode: (val) => JSON.parse(val || "[]"),
+})
+export const $containers = persistentAtom<Container[]>(
+  "pack_carefully_containers",
+  [],
+  {
+    encode: JSON.stringify,
+    decode: (val) => JSON.parse(val || "[]"),
+  },
+)
+export const $currentPlayerId = persistentAtom<string | undefined>(
+  "pack_carefully_current_player_id",
+  undefined,
+)
+export const $itemsOnGrid = persistentAtom<InventoryItemInstance[]>(
+  "pack_carefully_items_on_grid",
+  [],
+  {
+    encode: JSON.stringify,
+    decode: (val) => JSON.parse(val || "[]"),
+  },
+)
 export const $draggedItem = atom<string | null>(null)
 export const $draggedInstanceId = atom<string | null>(null)
 export const $dragSessionId = atom<number>(0)
@@ -98,16 +119,13 @@ export const getPixelCoords = (gx: number, gy: number) => {
 }
 
 // Multiplayer Identity & Sync
-export const $localPlayerId = atom<
-  string | (typeof localStorage extends undefined ? null : string | null)
->(
-  typeof localStorage !== "undefined"
-    ? localStorage.getItem("pack_carefully_player_id")
-    : null,
+export const $localPlayerId = persistentAtom<string | undefined>(
+  "pack_carefully_local_player_id",
+  undefined,
 )
 
 // Local View State (not synced)
-export const $viewingPlayerId = atom<string | null>(null)
+export const $viewingPlayerId = atom<string | undefined>(undefined)
 
 // BroadcastChannel for cross-tab sync
 const syncChannel =
@@ -115,22 +133,17 @@ const syncChannel =
     ? new BroadcastChannel("pack_carefully_sync")
     : null
 
-export const setLocalPlayer = (id: string | null) => {
+export const setLocalPlayer = (id: string | undefined) => {
   $localPlayerId.set(id)
   if (id !== "OBSERVER") {
     $viewingPlayerId.set(id)
-  }
-  if (id && typeof localStorage !== "undefined") {
-    localStorage.setItem("pack_carefully_player_id", id)
-  } else if (typeof localStorage !== "undefined") {
-    localStorage.removeItem("pack_carefully_player_id")
   }
 }
 
 // Flag to prevent broadcast cycles
 let isSyncing = false
 
-export const setViewingPlayer = (id: string | null) => {
+export const setViewingPlayer = (id: string | undefined) => {
   $viewingPlayerId.set(id)
 }
 
@@ -142,24 +155,6 @@ if (syncChannel) {
     isSyncing = true
     try {
       switch (type) {
-        case "PHASE_UPDATE":
-          $phase.set(payload)
-          break
-        case "PLAYERS_UPDATE":
-          $players.set(payload)
-          break
-        case "CONTAINERS_UPDATE":
-          $containers.set(payload)
-          break
-        case "ITEMS_UPDATE":
-          $itemsOnGrid.set(payload)
-          break
-        case "GAME_STATE_UPDATE":
-          $gameState.set(payload)
-          break
-        case "DRAFT_STATE_UPDATE":
-          $draftState.set(payload)
-          break
         case "DRAGGED_ITEM_UPDATE":
           $draggedItem.set(payload)
           break
@@ -180,36 +175,57 @@ const broadcast = (type: string, payload: unknown) => {
 
 // Gamification State
 
-export const $gameState = atom<GameState>({
-  day: 1,
-  round: 1,
-  morale: 100,
-  isGameOver: false,
-  gameResult: null,
-  journeyStage: "SELECTION",
-  selectedPath: null,
-  pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
-  lastEncounterResult: null,
-  blockDecayRate: DEFAULT_BLOCK_DECAY, // Global block decay per second
-})
+export const $gameState = persistentAtom<GameState>(
+  "pack_carefully_game_state",
+  {
+    day: 1,
+    round: 1,
+    morale: 100,
+    isGameOver: false,
+    gameResult: null,
+    journeyStage: "SELECTION",
+    selectedPath: null,
+    pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
+    lastEncounterResult: null,
+    blockDecayRate: DEFAULT_BLOCK_DECAY,
+  },
+  {
+    encode: JSON.stringify,
+    decode: (val) => JSON.parse(val || "{}"),
+  },
+)
 
 // Draft State moved to types
 
-export const $draftState = atom<DraftState>({
-  availableItems: {},
-  selections: {},
-  confirmed: [],
-  roundNumber: 1,
-})
+export const $draftState = persistentAtom<DraftState>(
+  "pack_carefully_draft_state",
+  {
+    availableItems: {},
+    selections: {},
+    confirmed: [],
+    roundNumber: 1,
+  },
+  {
+    encode: JSON.stringify,
+    decode: (val) => JSON.parse(val || "{}"),
+  },
+)
 
-// Sync listeners (moved after all atoms declared)
-$phase.listen((val) => broadcast("PHASE_UPDATE", val))
-$players.listen((val) => broadcast("PLAYERS_UPDATE", val))
-$containers.listen((val) => broadcast("CONTAINERS_UPDATE", val))
-$itemsOnGrid.listen((val) => broadcast("ITEMS_UPDATE", val))
-$gameState.listen((val) => broadcast("GAME_STATE_UPDATE", val))
-$draftState.listen((val) => broadcast("DRAFT_STATE_UPDATE", val))
+// Sync listeners for non-persisted state
 $draggedItem.listen((val) => broadcast("DRAGGED_ITEM_UPDATE", val))
+
+export const resetGame = () => {
+  // Clear all persistent keys
+  if (typeof localStorage !== "undefined") {
+    const keys = Object.keys(localStorage)
+    for (const key of keys) {
+      if (key.startsWith("pack_carefully_")) {
+        localStorage.removeItem(key)
+      }
+    }
+  }
+  window.location.reload()
+}
 
 // Helper to get cells occupied by an item
 export const getItemCells = (
@@ -422,7 +438,7 @@ export const startGame = () => {
   }))
 
   $players.set(newPlayers)
-  $currentPlayerId.set(currentPlayers[0]?.id || null)
+  $currentPlayerId.set(currentPlayers[0]?.id || undefined)
 
   // Reset Containers/Items (Players start fresh)
   $containers.set([])
@@ -763,25 +779,7 @@ export const rotateItemCounterClockwise = (instanceId: string) => {
   moveItem(instanceId, item.x, item.y, newRot)
 }
 
-export const resetGame = () => {
-  $phase.set("LOBBY")
-  $itemsOnGrid.set([])
-  $players.set([])
-  $containers.set([]) // Reset containers
-  $currentPlayerId.set(null)
-  $gameState.set({
-    day: 1,
-    round: 1,
-    morale: 100,
-    isGameOver: false,
-    gameResult: null,
-    journeyStage: "SELECTION",
-    selectedPath: null,
-    pathStatus: { LEFT: "PENDING", RIGHT: "PENDING" },
-    lastEncounterResult: null,
-    blockDecayRate: DEFAULT_BLOCK_DECAY,
-  })
-}
+// Hard reset - cleared by new implementation above
 
 export const damageMorale = (amount: number) => {
   const current = $gameState.get()

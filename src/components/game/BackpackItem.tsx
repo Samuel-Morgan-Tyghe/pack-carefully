@@ -32,6 +32,8 @@ interface BackpackItemProps {
   cooldown?: number // 0-100%
   isSelected?: boolean
   onSelect?: () => void
+  onHoverStart?: () => void
+  onHoverEnd?: () => void
   adjacencyResult?: AdjacencyResult
   viewOnly?: boolean
 }
@@ -48,6 +50,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
   cooldown = 0,
   isSelected = false,
   onSelect,
+  onHoverStart,
+  onHoverEnd,
   adjacencyResult,
   viewOnly = false,
 }) => {
@@ -145,6 +149,8 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
             ? "z-10"
             : "z-20",
       )}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
     >
       {/* TRUE SHAPE RENDERING */}
       {visualCells.map((cell: Coordinate, idx: number) => (
