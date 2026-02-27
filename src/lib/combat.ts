@@ -347,20 +347,19 @@ const applyDamage = (
   // 4. HP damage with Spirit Link fallback
   const hasSpiritLink = victim.inventory.some((i) => i.itemId === "spirit_link")
 
-  if (hasSpiritLink && victim.hp <= 1 && victim.mana > 0) {
-    const manaDmg = remainingDmg
-    victim.mana = Math.max(0, victim.mana - manaDmg)
-    events.push(
-      `${victim.name}'s Soul Guard absorbs ${Math.floor(manaDmg)} damage!`,
-    )
-  } else {
-    victim.hp = Math.max(0, victim.hp - remainingDmg)
-    if (victim.hp < 1 && hasSpiritLink && victim.mana > 0) {
-      const overflow = 1 - victim.hp
+  victim.hp -= remainingDmg
+
+  if (victim.hp < 1 && hasSpiritLink) {
+    const manaNeeded = 1 - victim.hp
+    if (victim.mana >= manaNeeded) {
+      victim.mana -= manaNeeded
       victim.hp = 1
-      victim.mana = Math.max(0, victim.mana - overflow)
       events.push(`${victim.name}'s Spirit Link triggers! Mana consumed.`)
+    } else {
+      victim.hp = Math.max(0, victim.hp)
     }
+  } else {
+    victim.hp = Math.max(0, victim.hp)
   }
 }
 
@@ -784,8 +783,8 @@ export const generateEnemy = (
   const enemy = createCombatEntity(enemyId, arc.name, inventory, containers)
 
   // 4. Enhanced Scaling Logic
-  // HP Scales: Base 60 + 25 per difficulty level (Day)
-  enemy.hp = Math.floor((60 + difficulty * 25) * arc.hpScale)
+  // HP Scales: Base 60 + 15 per difficulty level (Day)
+  enemy.hp = Math.floor((60 + difficulty * 15) * arc.hpScale)
   if (type === "BOSS") enemy.hp *= 1.5 // Extra boss buffer
   enemy.maxHp = enemy.hp
 
@@ -793,7 +792,7 @@ export const generateEnemy = (
   enemy.stats.maxEnergy = 100 + difficulty * 30
   enemy.maxEnergy = enemy.stats.maxEnergy
   enemy.energy = enemy.stats.maxEnergy
-  enemy.stats.energyRegen += difficulty * 2
+  enemy.stats.energyRegen += difficulty * 1
 
   enemy.stats.maxMana = 100 + difficulty * 25
   enemy.maxMana = enemy.stats.maxMana
@@ -807,12 +806,12 @@ export const generateEnemy = (
     if (inst.liveStats) {
       if (inst.liveStats.damage !== undefined) {
         inst.liveStats.damage = Math.floor(
-          inst.liveStats.damage * (1 + difficulty * 0.2),
+          inst.liveStats.damage * (1 + difficulty * 0.1),
         )
       }
       if (inst.liveStats.block !== undefined) {
         inst.liveStats.block = Math.floor(
-          inst.liveStats.block * (1 + difficulty * 0.2),
+          inst.liveStats.block * (1 + difficulty * 0.1),
         )
       }
     }

@@ -222,90 +222,11 @@ const AutoBattler: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 px-2 md:px-4 py-4 h-full overflow-hidden">
       <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
-        {/* PLAYER SIDE */}
-        <div className="flex-1 flex flex-col gap-4 bg-wood-950/40 rounded-2xl p-4 border-2 border-wood-700/50 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
-            <Sword size={120} />
-          </div>
-
-          <div className="flex justify-between items-center relative z-10">
-            <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2 drop-shadow-md">
-              <span className="text-blue-400">{player.name}</span>
-              <div className="flex gap-1">
-                {groupStatusEffects(player.statuses).map((s, i) => (
-                  <StatusBadge key={`${s.type}-${i}`} status={s} />
-                ))}
-              </div>
-            </h2>
-            <div className="text-right font-mono font-bold text-blue-300 flex flex-col items-end">
-              <div className="flex items-center gap-2 text-xs opacity-70">
-                <Shield size={12} className="text-cyan-400" />
-                <span>BLOCK: {Math.round(player.block)}</span>
-              </div>
-              <div>
-                {Math.round(player.hp)} / {player.maxHp} HP
-              </div>
-            </div>
-          </div>
-
-          <HealthBar
-            current={player.hp}
-            max={player.maxHp}
-            block={player.block}
-            color="bg-blue-600"
-            side="player"
-          />
-          <BuffHUD entity={player} />
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <EnergyBar current={player.energy} max={player.maxEnergy} />
-            <ManaBar current={player.mana} max={player.maxMana} />
-          </div>
-
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
-            <StatBox
-              icon={<Sword size={14} className="text-red-400" />}
-              value={player.stats.damage}
-              label="DMG"
-              tooltip="Total damage output per trigger of your weapons."
-            />
-            <StatBox
-              icon={<Shield size={14} className="text-blue-400" />}
-              value={Math.round(player.block)}
-              label="BLK"
-              tooltip="Current damage absorption. Block decays over time."
-            />
-            <StatBox
-              icon={<Battery size={14} className="text-amber-400" />}
-              value={`${Math.round(player.stats.energyRegen)}/s`}
-              label="NRG"
-              tooltip="Energy regeneration rate per second."
-            />
-            <StatBox
-              icon={<Zap size={14} className="text-purple-400" />}
-              value={`${player.stats.triggerSpeed.toFixed(1)}x`}
-              label="SPD"
-              tooltip="Trigger speed multiplier for all items."
-            />
-          </div>
-
-          <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
-            <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
-              <Inventory
-                playerId={player.id}
-                items={player.inventory}
-                containers={player.containers}
-                viewOnly={true}
-                cooldowns={Object.fromEntries(
-                  playerCooldowns.map((cd) => [
-                    cd.instanceId,
-                    (1 - cd.current / cd.max) * 100,
-                  ]),
-                )}
-                className="!p-4"
-              />
-            </div>
-          </div>
-        </div>
+        <CombatantCard
+          entity={player}
+          cooldowns={playerCooldowns}
+          side="player"
+        />
 
         {/* CENTER HUB */}
         <div className="lg:w-80 flex flex-col gap-4 shrink-0">
@@ -424,11 +345,11 @@ const AutoBattler: React.FC = () => {
             </div>
             <div className="flex-1 space-y-1 overflow-y-auto pr-2 custom-scrollbar max-h-[240px]">
               <AnimatePresence initial={false}>
-                {combatLog.map((entry, idx) => (
+                {[...combatLog].reverse().map((entry, idx) => (
                   <motion.div
-                    key={`${idx}-${entry.message}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    key={`${combatLog.length - idx}-${entry.message}`}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className={clsx(
                       "text-[11px] py-1 border-b border-white/5 last:border-0",
                       entry.type === "DAMAGE"
@@ -436,7 +357,9 @@ const AutoBattler: React.FC = () => {
                         : "text-red-300",
                     )}
                   >
-                    <span className="opacity-40 mr-2 font-mono">{idx + 1}</span>
+                    <span className="opacity-40 mr-2 font-mono">
+                      {combatLog.length - idx}
+                    </span>
                     {entry.message}
                   </motion.div>
                 ))}
@@ -445,90 +368,7 @@ const AutoBattler: React.FC = () => {
           </div>
         </div>
 
-        {/* ENEMY SIDE */}
-        <div className="flex-1 flex flex-col gap-4 bg-red-950/20 rounded-2xl p-4 border-2 border-red-900/30 relative overflow-hidden">
-          <div className="absolute top-0 left-0 p-2 opacity-5 pointer-events-none">
-            <Skull size={120} />
-          </div>
-
-          <div className="flex justify-between items-center relative z-10">
-            <div className="text-left font-mono font-bold text-red-300 flex flex-col items-start">
-              <div className="flex items-center gap-2 text-xs opacity-70">
-                <Shield size={12} className="text-red-400" />
-                <span>BLOCK: {Math.round(enemy.block)}</span>
-              </div>
-              <div>
-                {Math.round(enemy.hp)} / {enemy.maxHp} HP
-              </div>
-            </div>
-            <h2 className="text-xl md:text-2xl font-black text-red-500 flex items-center gap-2 drop-shadow-md">
-              <div className="flex gap-1">
-                {groupStatusEffects(enemy.statuses).map((s, i) => (
-                  <StatusBadge key={`${s.type}-${i}`} status={s} />
-                ))}
-              </div>
-              <span>{enemy.name}</span>
-            </h2>
-          </div>
-
-          <HealthBar
-            current={enemy.hp}
-            max={enemy.maxHp}
-            block={enemy.block}
-            color="bg-red-600"
-            side="enemy"
-          />
-          <BuffHUD entity={enemy} />
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <EnergyBar current={enemy.energy} max={enemy.maxEnergy} />
-            <ManaBar current={enemy.mana} max={enemy.maxMana} />
-          </div>
-
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
-            <StatBox
-              icon={<Sword size={14} className="text-red-400" />}
-              value={enemy.stats.damage}
-              label="DMG"
-              tooltip="Total damage output per trigger of enemy weapons."
-            />
-            <StatBox
-              icon={<Shield size={14} className="text-blue-400" />}
-              value={Math.round(enemy.block)}
-              label="BLK"
-              tooltip="Current damage absorption for the enemy."
-            />
-            <StatBox
-              icon={<Battery size={14} className="text-amber-400" />}
-              value={`${Math.round(enemy.stats.energyRegen)}/s`}
-              label="NRG"
-              tooltip="Enemy energy regeneration rate."
-            />
-            <StatBox
-              icon={<Zap size={14} className="text-purple-400" />}
-              value={`${enemy.stats.triggerSpeed.toFixed(1)}x`}
-              label="SPD"
-              tooltip="Enemy trigger speed multiplier."
-            />
-          </div>
-
-          <div className="flex-1 flex items-center justify-center p-2 min-h-0">
-            <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center opacity-90">
-              <Inventory
-                playerId={enemy.id}
-                items={enemy.inventory}
-                containers={enemy.containers}
-                viewOnly={true}
-                cooldowns={Object.fromEntries(
-                  enemyCooldowns.map((cd) => [
-                    cd.instanceId,
-                    (1 - cd.current / cd.max) * 100,
-                  ]),
-                )}
-                className="!p-4"
-              />
-            </div>
-          </div>
-        </div>
+        <CombatantCard entity={enemy} cooldowns={enemyCooldowns} side="enemy" />
       </div>
 
       <Tooltip id="combat-tooltip" />
@@ -572,8 +412,7 @@ const HealthBar = ({
     {block > 0 && (
       <motion.div
         className={clsx(
-          "absolute top-0 h-full bg-cyan-400/40 border-cyan-300",
-          side === "player" ? "left-0 border-r-2" : "right-0 border-l-2",
+          "absolute top-0 h-full bg-cyan-400/40 border-cyan-300 right-0 border-l-2",
         )}
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(100, (block / max) * 100)}%` }}
@@ -682,6 +521,153 @@ const BuffHUD = ({ entity }: { entity: CombatEntity }) => {
       {grouped.map((s) => (
         <StatusBadge key={s.type} status={s} />
       ))}
+    </div>
+  )
+}
+
+const CombatantCard = ({
+  entity,
+  cooldowns,
+  side,
+}: {
+  entity: CombatEntity
+  cooldowns: ItemCooldown[]
+  side: "player" | "enemy"
+}) => {
+  const isPlayer = side === "player"
+  const bgColor = isPlayer ? "bg-wood-950/40" : "bg-red-950/20"
+  const borderColor = isPlayer ? "border-wood-700/50" : "border-red-900/30"
+  const iconColor = isPlayer ? "text-blue-400" : "text-red-500"
+  const barColor = isPlayer ? "bg-blue-600" : "bg-red-600"
+  const statsColor = isPlayer ? "text-blue-300" : "text-red-300"
+  const MainIcon = isPlayer ? Sword : Skull
+
+  return (
+    <div
+      className={clsx(
+        "flex-1 flex flex-col gap-4 rounded-2xl p-4 border-2 relative overflow-hidden",
+        bgColor,
+        borderColor,
+      )}
+    >
+      <div
+        className={clsx(
+          "absolute top-0 p-2 opacity-5 pointer-events-none",
+          isPlayer ? "right-0" : "left-0",
+        )}
+      >
+        <MainIcon size={120} />
+      </div>
+
+      <div
+        className={clsx(
+          "flex justify-between items-center relative z-10",
+          !isPlayer && "flex-row-reverse",
+        )}
+      >
+        <h2
+          className={clsx(
+            "text-xl md:text-2xl font-black flex items-center gap-2 drop-shadow-md",
+            iconColor,
+          )}
+        >
+          {isPlayer ? (
+            <>
+              <span>{entity.name}</span>
+              <div className="flex gap-1">
+                {groupStatusEffects(entity.statuses).map((s, i) => (
+                  <StatusBadge key={`${s.type}-${i}`} status={s} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-1">
+                {groupStatusEffects(entity.statuses).map((s, i) => (
+                  <StatusBadge key={`${s.type}-${i}`} status={s} />
+                ))}
+              </div>
+              <span>{entity.name}</span>
+            </>
+          )}
+        </h2>
+        <div
+          className={clsx(
+            "font-mono font-bold flex flex-col",
+            statsColor,
+            isPlayer ? "items-end text-right" : "items-start text-left",
+          )}
+        >
+          <div className="flex items-center gap-2 text-xs opacity-70">
+            <Shield
+              size={12}
+              className={isPlayer ? "text-cyan-400" : "text-red-400"}
+            />
+            <span>BLOCK: {Math.round(entity.block)}</span>
+          </div>
+          <div>
+            {Math.round(entity.hp)} / {entity.maxHp} HP
+          </div>
+        </div>
+      </div>
+
+      <HealthBar
+        current={entity.hp}
+        max={entity.maxHp}
+        block={entity.block}
+        color={barColor}
+        side={side}
+      />
+      <BuffHUD entity={entity} />
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <EnergyBar current={entity.energy} max={entity.maxEnergy} />
+        <ManaBar current={entity.mana} max={entity.maxMana} />
+      </div>
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
+        <StatBox
+          icon={<Sword size={14} className="text-red-400" />}
+          value={entity.stats.damage}
+          label="DMG"
+          tooltip={`Total damage output per trigger of ${isPlayer ? "your" : "enemy"} weapons.`}
+        />
+        <StatBox
+          icon={<Shield size={14} className="text-blue-400" />}
+          value={Math.round(entity.block)}
+          label="BLK"
+          tooltip={`Current damage absorption${isPlayer ? ". Block decays over time." : " for the enemy."}`}
+        />
+        <StatBox
+          icon={<Battery size={14} className="text-amber-400" />}
+          value={`${Math.round(entity.stats.energyRegen)}/s`}
+          label="NRG"
+          tooltip={`${isPlayer ? "Energy" : "Enemy energy"} regeneration rate per second.`}
+        />
+        <StatBox
+          icon={<Zap size={14} className="text-purple-400" />}
+          value={`${entity.stats.triggerSpeed.toFixed(1)}x`}
+          label="SPD"
+          tooltip={`${isPlayer ? "Trigger" : "Enemy trigger"} speed multiplier.`}
+        />
+      </div>
+
+      <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
+        <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
+          <Inventory
+            playerId={entity.id}
+            items={entity.inventory}
+            containers={entity.containers}
+            viewOnly={true}
+            cooldowns={Object.fromEntries(
+              cooldowns.map((cd) => [
+                cd.instanceId,
+                (1 - cd.current / cd.max) * 100,
+              ]),
+            )}
+            className="!p-4"
+          />
+        </div>
+      </div>
     </div>
   )
 }

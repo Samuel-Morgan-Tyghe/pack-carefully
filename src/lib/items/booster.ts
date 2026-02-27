@@ -101,6 +101,7 @@ export const boosters: Record<string, Item> = {
     name: "Energy Capacitor",
     description: "Reduces the energy cost of adjacent items by 25%.",
     icon: "Zap",
+    triggerType: "PASSIVE",
     synergies: [
       {
         pattern: "ADJACENT",
