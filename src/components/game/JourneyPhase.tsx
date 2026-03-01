@@ -2,6 +2,7 @@ import { useStore } from "@nanostores/react"
 import { ArrowRight, Skull, Sparkles } from "lucide-react"
 import type React from "react"
 import {
+  $currentPlayerId,
   $gameState,
   $players,
   assignPlayerToPath,
@@ -70,9 +71,7 @@ const JourneySelection: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              for (const p of undecidedPlayers) {
-                assignPlayerToPath(p.id, "LEFT")
-              }
+              assignPlayerToPath($currentPlayerId.get() ?? "", "LEFT")
             }}
             className="w-full py-3 bg-red-800 hover:bg-red-700 text-white font-bold rounded"
           >
@@ -137,9 +136,7 @@ const JourneySelection: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              for (const p of undecidedPlayers) {
-                assignPlayerToPath(p.id, "RIGHT")
-              }
+              assignPlayerToPath($currentPlayerId.get() ?? "", "RIGHT")
             }}
             className="w-full py-3 bg-indigo-800 hover:bg-indigo-700 text-white font-bold rounded"
           >
