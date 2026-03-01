@@ -130,7 +130,7 @@ const PlayerBagEditor: React.FC<{
                 title={`Toggle cell ${x},${y}`}
                 className={clsx(
                   "w-full h-full aspect-square rounded-sm transition-colors border outline-none",
-                  "flex items-center justify-center", // For safety
+                  "flex items-center justify-center p-0", // For safety
                   isSelected
                     ? isMe
                       ? "bg-amber-600 border-amber-400"

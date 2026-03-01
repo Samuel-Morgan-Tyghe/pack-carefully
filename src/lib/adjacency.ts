@@ -1,8 +1,4 @@
-import type {
-  AdjacencyPattern,
-  InventoryItemInstance,
-  SynergyResult,
-} from "../types"
+import type { AdjacencyPattern, InventoryItemInstance } from "../types"
 import { GRID_SIZE, ITEMS } from "./items/items"
 
 export interface SynergySquare {
@@ -98,10 +94,24 @@ const checkPattern = (
 export const getAdjacencyBonuses = (
   gridItems: InventoryItemInstance[],
 ): Record<string, AdjacencyResult> => {
+  const start = performance.now()
   const results: Record<string, AdjacencyResult> = {}
-  const cellBoosts = new Map<string, Set<string>>()
 
+  // 1. Build lookup maps for O(1) performance
+  const instanceMap = new Map<string, InventoryItemInstance>()
+  const itemCellsCache = new Map<string, { x: number; y: number }[]>()
+  const cellToInstanceMap = new Map<string, string>()
+  const cellBoostsMap = new Map<string, Set<string>>() // Squares boosted by specific items
+
+  // Early population of items and their cells
   for (const item of gridItems) {
+    instanceMap.set(item.instanceId, item)
+    const cells = getItemCells(item)
+    itemCellsCache.set(item.instanceId, cells)
+    for (const cell of cells) {
+      cellToInstanceMap.set(`${cell.x},${cell.y}`, item.instanceId)
+    }
+
     results[item.instanceId] = {
       instanceId: item.instanceId,
       totalBuff: 0,
@@ -114,128 +124,100 @@ export const getAdjacencyBonuses = (
     }
   }
 
-  for (const sourceItem of gridItems) {
-    const sourceDef = ITEMS[sourceItem.itemId]
-    if (!sourceDef) continue
+  // 2. Pre-calculate global boost squares (e.g., boosters affecting cells)
+  for (const item of gridItems) {
+    const def = ITEMS[item.itemId]
+    if (!def?.synergies) continue
 
-    if (sourceDef.synergies) {
-      for (const syn of sourceDef.synergies) {
-        if (syn.isBoostSquare) {
-          const cells = getItemCells(sourceItem)
-          for (const cell of cells) {
-            const footprint: { x: number; y: number }[] = []
-            if (Array.isArray(syn.pattern)) {
-              for (const off of syn.pattern) {
-                const { rdx, rdy } = getRotatedOffset(
-                  off.dx,
-                  off.dy,
-                  sourceItem.rotation,
-                )
-                footprint.push({ x: cell.x + rdx, y: cell.y + rdy })
-              }
-            } else if (syn.pattern === "ADJACENT") {
-              footprint.push(
-                { x: cell.x + 1, y: cell.y },
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.y + 1, y: cell.y }, // BUG FIX: should be x, y+1
-                { x: cell.x, y: cell.y - 1 },
-              )
-            }
-
-            for (const t of footprint) {
-              if (t.x < 0 || t.x >= GRID_SIZE || t.y < 0 || t.y >= GRID_SIZE)
-                continue
-              const key = `${t.x},${t.y}`
-              if (!cellBoosts.has(key)) cellBoosts.set(key, new Set())
-              cellBoosts.get(key)?.add(sourceItem.instanceId)
-              results[sourceItem.instanceId].boostedSquares.push(t)
-            }
+    for (const syn of def.synergies) {
+      if (!syn.isBoostSquare) continue
+      const cells = itemCellsCache.get(item.instanceId) || []
+      for (const cell of cells) {
+        const footprint: { x: number; y: number }[] = []
+        if (Array.isArray(syn.pattern)) {
+          for (const off of syn.pattern) {
+            const { rdx, rdy } = getRotatedOffset(off.dx, off.dy, item.rotation)
+            footprint.push({ x: cell.x + rdx, y: cell.y + rdy })
           }
+        } else if (syn.pattern === "ADJACENT") {
+          footprint.push(
+            { x: cell.x + 1, y: cell.y },
+            { x: cell.x - 1, y: cell.y },
+            { x: cell.x, y: cell.y + 1 },
+            { x: cell.x, y: cell.y - 1 },
+          )
+        }
+
+        for (const t of footprint) {
+          if (t.x < 0 || t.x >= GRID_SIZE || t.y < 0 || t.y >= GRID_SIZE)
+            continue
+          const key = `${t.x},${t.y}`
+          if (!cellBoostsMap.has(key)) cellBoostsMap.set(key, new Set())
+          cellBoostsMap.get(key)?.add(item.instanceId)
+          results[item.instanceId].boostedSquares.push(t)
         }
       }
     }
   }
 
+  // 3. Main Synergy Logic
   for (const sourceItem of gridItems) {
     const sourceDef = ITEMS[sourceItem.itemId]
-    if (!sourceDef) continue
+    if (!sourceDef?.synergies) continue
 
-    const cellsA = getItemCells(sourceItem)
-    const allRules = sourceDef.synergies || []
+    const cellsA = itemCellsCache.get(sourceItem.instanceId) || []
 
-    for (const rule of allRules) {
-      if (rule.isBoostSquare) continue
+    for (const syn of sourceDef.synergies) {
+      if (syn.isBoostSquare) continue
 
-      const footprint: { x: number; y: number }[] = []
-      const pattern = rule.pattern
-
+      // For visual feedback (stars), we look at all squares in the pattern
+      const footprintSet = new Set<string>()
       for (const ca of cellsA) {
-        if (Array.isArray(pattern)) {
-          for (const off of pattern) {
+        if (Array.isArray(syn.pattern)) {
+          for (const off of syn.pattern) {
             const { rdx, rdy } = getRotatedOffset(
               off.dx,
               off.dy,
               sourceItem.rotation,
             )
-            footprint.push({ x: ca.x + rdx, y: ca.y + rdy })
+            footprintSet.add(`${ca.x + rdx},${ca.y + rdy}`)
           }
-        } else {
-          if (pattern === "ADJACENT")
-            footprint.push(
-              { x: ca.x + 1, y: ca.y },
-              { x: ca.x - 1, y: ca.y },
-              { x: ca.x, y: ca.y + 1 },
-              { x: ca.x, y: ca.y - 1 },
-            )
-          else if (pattern === "PARALLEL")
-            footprint.push(
-              { x: ca.x + 2, y: ca.y },
-              { x: ca.x - 2, y: ca.y },
-              { x: ca.x, y: ca.y + 2 },
-              { x: ca.x, y: ca.y - 2 },
-            )
-          else if (pattern === "TWO_ACROSS")
-            footprint.push(
-              { x: ca.x + 2, y: ca.y + 2 },
-              { x: ca.x - 2, y: ca.y - 2 },
-              { x: ca.x + 2, y: ca.y - 2 },
-              { x: ca.x - 2, y: ca.y + 2 },
-            )
+        } else if (syn.pattern === "ADJACENT") {
+          footprintSet.add(`${ca.x + 1},${ca.y}`)
+          footprintSet.add(`${ca.x - 1},${ca.y}`)
+          footprintSet.add(`${ca.x},${ca.y + 1}`)
+          footprintSet.add(`${ca.x},${ca.y - 1}`)
+        } else if (syn.pattern === "PARALLEL") {
+          footprintSet.add(`${ca.x + 2},${ca.y}`)
+          footprintSet.add(`${ca.x - 2},${ca.y}`)
+          footprintSet.add(`${ca.x},${ca.y + 2}`)
+          footprintSet.add(`${ca.x},${ca.y - 2}`)
+        } else if (syn.pattern === "TWO_ACROSS") {
+          footprintSet.add(`${ca.x + 2},${ca.y + 2}`)
+          footprintSet.add(`${ca.x - 2},${ca.y - 2}`)
+          footprintSet.add(`${ca.x + 2},${ca.y - 2}`)
+          footprintSet.add(`${ca.x - 2},${ca.y + 2}`)
         }
       }
 
-      const cellsAKeys = new Set(cellsA.map((c) => `${c.x},${c.y}`))
-      const uniqueFootprint = Array.from(
-        new Set(footprint.map((f) => `${f.x},${f.y}`)),
-      )
-        .map((s) => {
-          const [x, y] = s.split(",").map(Number)
-          return { x, y }
-        })
-        .filter(
-          (f) =>
-            f.x >= 0 &&
-            f.x < GRID_SIZE &&
-            f.y >= 0 &&
-            f.y < GRID_SIZE &&
-            !cellsAKeys.has(`${f.x},${f.y}`),
-        )
+      // Check all target items that overlap with this footprint
+      const targetIdsInFootprint = new Set<string>()
+      for (const fKey of footprintSet) {
+        const [fx, fy] = fKey.split(",").map(Number)
+        if (fx < 0 || fx >= GRID_SIZE || fy < 0 || fy >= GRID_SIZE) continue
 
-      for (const square of uniqueFootprint) {
-        const targetItem = gridItems.find((gi) => {
-          if (gi.instanceId === sourceItem.instanceId) return false
-          return getItemCells(gi).some(
-            (tc) => tc.x === square.x && tc.y === square.y,
-          )
-        })
+        const targetId = cellToInstanceMap.get(fKey)
+        if (targetId && targetId !== sourceItem.instanceId) {
+          targetIdsInFootprint.add(targetId)
+        }
 
+        // Add to potential/active synergy visual representation
         let icon = "Star"
-        const desc = rule.description.toLowerCase()
+        const desc = syn.description.toLowerCase()
         if (
           desc.includes("damage") ||
           desc.includes("weapon") ||
-          desc.includes("attack") ||
-          desc.includes("sword")
+          desc.includes("attack")
         )
           icon = "Swords"
         else if (
@@ -251,129 +233,117 @@ export const getAdjacencyBonuses = (
         else if (desc.includes("mana") || desc.includes("magic"))
           icon = "Droplets"
 
-        if (targetItem) {
-          const res: SynergyResult = rule.apply(
-            sourceItem,
-            targetItem,
-            gridItems,
-          )
-          const isActive = !!(
+        const targetItem = targetId ? instanceMap.get(targetId) : null
+        if (targetItem && targetItem.instanceId !== sourceItem.instanceId) {
+          const res = syn.apply(sourceItem, targetItem, gridItems)
+          if (
             (res.buffs && Object.keys(res.buffs).length > 0) ||
             (res.multipliers && Object.keys(res.multipliers).length > 0)
-          )
-
-          if (isActive) {
+          ) {
             results[sourceItem.instanceId].activeSynergySquares.push({
-              ...square,
+              x: fx,
+              y: fy,
               icon,
             })
           } else {
             results[sourceItem.instanceId].potentialSynergySquares.push({
-              ...square,
+              x: fx,
+              y: fy,
               icon,
             })
           }
         } else {
           results[sourceItem.instanceId].potentialSynergySquares.push({
-            ...square,
+            x: fx,
+            y: fy,
             icon,
           })
+        }
+      }
+
+      // Apply actual combat bonuses
+      for (const targetId of targetIdsInFootprint) {
+        const targetItem = instanceMap.get(targetId)
+        if (!targetItem) continue
+
+        if (checkPattern(sourceItem, targetItem, syn.pattern)) {
+          const res = syn.apply(sourceItem, targetItem, gridItems)
+          const effectTargetId = syn.targetIsSelf
+            ? sourceItem.instanceId
+            : targetItem.instanceId
+
+          if (res.buffs) {
+            for (const [stat, val] of Object.entries(res.buffs)) {
+              results[effectTargetId].buffs[stat] =
+                (results[effectTargetId].buffs[stat] || 0) + (val as number)
+              if (
+                stat === "damage" ||
+                stat === "block" ||
+                stat === "heal" ||
+                stat === "spikes"
+              ) {
+                results[effectTargetId].totalBuff += val as number
+              }
+            }
+          }
+          if (res.multipliers) {
+            for (const [stat, val] of Object.entries(res.multipliers)) {
+              results[effectTargetId].multipliers[stat] =
+                (results[effectTargetId].multipliers[stat] || 1) *
+                (val as number)
+            }
+          }
+          results[effectTargetId].activeRules.push(
+            `From ${sourceDef.name}: ${syn.description}`,
+          )
+        }
+      }
+    }
+
+    // 4. Handle Boost Squares (e.g. boosters affecting this item)
+    for (const ca of cellsA) {
+      const boosters = cellBoostsMap.get(`${ca.x},${ca.y}`)
+      if (!boosters) continue
+
+      for (const boosterId of boosters) {
+        const boosterItem = instanceMap.get(boosterId)
+        if (!boosterItem) continue
+        const boosterDef = ITEMS[boosterItem.itemId]
+        if (!boosterDef?.synergies) continue
+
+        for (const syn of boosterDef.synergies) {
+          if (!syn.isBoostSquare) continue
+          const res = syn.apply(boosterItem, sourceItem, gridItems)
+          if (res.buffs) {
+            for (const [stat, val] of Object.entries(res.buffs)) {
+              results[sourceItem.instanceId].buffs[stat] =
+                (results[sourceItem.instanceId].buffs[stat] || 0) +
+                (val as number)
+              if (stat === "damage" || stat === "block" || stat === "heal") {
+                results[sourceItem.instanceId].totalBuff += val as number
+              }
+            }
+          }
+          if (res.multipliers) {
+            for (const [stat, val] of Object.entries(res.multipliers)) {
+              results[sourceItem.instanceId].multipliers[stat] =
+                (results[sourceItem.instanceId].multipliers[stat] || 1) *
+                (val as number)
+            }
+          }
+          results[sourceItem.instanceId].activeRules.push(
+            `From ${boosterDef.name}: ${syn.description}`,
+          )
         }
       }
     }
   }
 
-  for (let i = 0; i < gridItems.length; i++) {
-    const sourceItem = gridItems[i]
-    const sourceDef = ITEMS[sourceItem.itemId]
-    if (!sourceDef) continue
-
-    for (let j = 0; j < gridItems.length; j++) {
-      if (i === j) continue
-      const targetItem = gridItems[j]
-
-      if (sourceDef.synergies) {
-        for (const syn of sourceDef.synergies) {
-          if (syn.isBoostSquare) continue
-          if (checkPattern(sourceItem, targetItem, syn.pattern)) {
-            const res = syn.apply(sourceItem, targetItem, gridItems)
-            const effectTargetId = syn.targetIsSelf
-              ? sourceItem.instanceId
-              : targetItem.instanceId
-
-            if (res.buffs) {
-              for (const [stat, val] of Object.entries(res.buffs)) {
-                results[effectTargetId].buffs[stat] =
-                  (results[effectTargetId].buffs[stat] || 0) + (val as number)
-                if (stat === "damage" || stat === "block" || stat === "heal") {
-                  results[effectTargetId].totalBuff += val as number
-                }
-              }
-            }
-            if (res.multipliers) {
-              for (const [stat, val] of Object.entries(res.multipliers)) {
-                results[effectTargetId].multipliers[stat] =
-                  (results[effectTargetId].multipliers[stat] || 1) *
-                  (val as number)
-              }
-            }
-            if (
-              (res.buffs && Object.keys(res.buffs).length > 0) ||
-              (res.multipliers && Object.keys(res.multipliers).length > 0)
-            ) {
-              results[effectTargetId].activeRules.push(
-                `From ${sourceDef.name}: ${syn.description}`,
-              )
-            }
-          }
-        }
-      }
-    }
-
-    const cells = getItemCells(sourceItem)
-    for (const c of cells) {
-      const boostingInstanceIds = cellBoosts.get(`${c.x},${c.y}`)
-      if (boostingInstanceIds) {
-        for (const boosterId of boostingInstanceIds) {
-          const boosterItem = gridItems.find(
-            (item) => item.instanceId === boosterId,
-          )
-          if (!boosterItem) continue
-          const boosterDef = ITEMS[boosterItem.itemId]
-          if (!boosterDef) continue
-
-          if (boosterDef.synergies) {
-            for (const syn of boosterDef.synergies) {
-              if (syn.isBoostSquare) {
-                const res = syn.apply(boosterItem, sourceItem, gridItems)
-                if (res.buffs) {
-                  for (const [stat, val] of Object.entries(res.buffs)) {
-                    results[sourceItem.instanceId].buffs[stat] =
-                      (results[sourceItem.instanceId].buffs[stat] || 0) +
-                      (val as number)
-                    if (
-                      stat === "damage" ||
-                      stat === "block" ||
-                      stat === "heal"
-                    ) {
-                      results[sourceItem.instanceId].totalBuff += val as number
-                    }
-                  }
-                }
-                if (
-                  (res.buffs && Object.keys(res.buffs).length > 0) ||
-                  (res.multipliers && Object.keys(res.multipliers).length > 0)
-                ) {
-                  results[sourceItem.instanceId].activeRules.push(
-                    `From ${boosterDef.name}: ${syn.description}`,
-                  )
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+  const end = performance.now()
+  if (end - start > 16) {
+    console.log(
+      `[Synergy] ${(end - start).toFixed(2)}ms | Items: ${gridItems.length}`,
+    )
   }
 
   return results

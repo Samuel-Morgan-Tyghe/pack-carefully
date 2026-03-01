@@ -5,13 +5,19 @@ import React from "react"
 import { getAdjacencyBonuses } from "../../lib/adjacency"
 import { ITEMS } from "../../lib/items/items"
 import { $itemsOnGrid } from "../../store/gameStore"
+import type { CombatEntity, StatusEffect } from "../../types"
 
 interface ItemTooltipProps {
   itemId: string
   instanceId?: string
+  combatEntity?: CombatEntity | null
 }
 
-const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
+const ItemTooltip: React.FC<ItemTooltipProps> = ({
+  itemId,
+  instanceId,
+  combatEntity,
+}) => {
   const itemsOnGrid = useStore($itemsOnGrid)
 
   const def = ITEMS[itemId]
@@ -40,23 +46,61 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
 
   const liveStats = itemInstance?.liveStats
 
-  // FALLBACK: If no instance (on shelf), calculate base rates from definition
-  const baseRates = React.useMemo(() => {
-    if (liveStats) return null
-    if (!def.combatStats) return null
-    const cooldown = def.combatStats.baseCooldown || 5.0
-    const triggerSpeed = def.combatStats.triggerSpeed || 1.0
-    const actualCD = cooldown / triggerSpeed
-    return {
-      dps: Number(((def.combatStats.damage || 0) / actualCD).toFixed(1)),
-      eps: Number(((def.combatStats.energyCost || 0) / actualCD).toFixed(1)),
-      mps: Number(((def.combatStats.manaCost || 0) / actualCD).toFixed(1)),
-    }
-  }, [def, liveStats])
+  // Determine active SLOW penalty from the battle entity
+  const slowStacks = combatEntity?.statuses
+    ? combatEntity.statuses
+        .filter((s: StatusEffect) => s.type === "SLOW")
+        .reduce((sum: number, s: StatusEffect) => sum + s.value, 0)
+    : 0
+  const slowPenalty = Math.min(0.5, slowStacks * 0.05)
+  const hasSlow = slowPenalty > 0
 
-  const displayDps = liveStats?.dps ?? baseRates?.dps
-  const displayEps = liveStats?.eps ?? baseRates?.eps
-  const displayMps = liveStats?.mps ?? baseRates?.mps
+  // Calculate effective combat stats including synergies and debuffs
+  const baseRates = React.useMemo(() => {
+    if (!def.combatStats) return null
+
+    // 1. Start with base definition stats
+    const stats = { ...def.combatStats }
+
+    // 2. Apply Adjacency Buffs
+    if (adjacencyResult?.buffs) {
+      const b = adjacencyResult.buffs as any
+      stats.damage = (stats.damage || 0) + (b.damage || 0)
+      stats.block = (stats.block || 0) + (b.block || 0)
+      stats.heal = (stats.heal || 0) + (b.heal || 0)
+      stats.energyCost = (stats.energyCost || 0) + (b.energyCost || 0)
+      stats.manaCost = (stats.manaCost || 0) + (b.manaCost || 0)
+    }
+
+    // 3. Apply Adjacency Multipliers
+    let triggerSpeed = stats.triggerSpeed || 1.0
+    if (adjacencyResult?.multipliers) {
+      const m = adjacencyResult.multipliers as any
+      if (m.damage) stats.damage = (stats.damage || 0) * m.damage
+      if (m.block) stats.block = (stats.block || 0) * m.block
+      if (m.heal) stats.heal = (stats.heal || 0) * m.heal
+      if (m.energyCost)
+        stats.energyCost = (stats.energyCost || 0) * m.energyCost
+      if (m.triggerSpeed) triggerSpeed *= m.triggerSpeed
+      if (m.manaCost) stats.manaCost = (stats.manaCost || 0) * m.manaCost
+    }
+
+    // 4. Apply Combat SLOW debuff
+    triggerSpeed *= 1 - slowPenalty
+
+    const actualCD = (stats.baseCooldown || 5.0) / triggerSpeed
+
+    return {
+      dps: Number(((stats.damage || 0) / actualCD).toFixed(1)),
+      eps: Number(((stats.energyCost || 0) / actualCD).toFixed(1)),
+      mps: Number(((stats.manaCost || 0) / actualCD).toFixed(1)),
+      actualCD: Number(actualCD.toFixed(1)),
+    }
+  }, [def, adjacencyResult, slowPenalty])
+
+  const displayDps = baseRates?.dps
+  const displayEps = baseRates?.eps
+  const displayMps = baseRates?.mps
 
   const renderStatBadge = (
     icon: React.ReactNode,
@@ -238,11 +282,11 @@ const ItemTooltip: React.FC<ItemTooltipProps> = ({ itemId, instanceId }) => {
             <LucideIcons.Clock size={9} />,
             "baseCooldown",
             def.combatStats?.baseCooldown,
-            liveStats?.baseCooldown,
-            "text-slate-300",
-            "bg-slate-950/50",
-            "border-slate-800/50",
-            "s",
+            baseRates ? baseRates.actualCD : liveStats?.baseCooldown,
+            hasSlow ? "text-cyan-300" : "text-slate-300",
+            hasSlow ? "bg-cyan-950/70" : "bg-slate-950/50",
+            hasSlow ? "border-cyan-500" : "border-slate-800/50",
+            hasSlow ? "s (Slowed)" : "s",
           )}
           {renderStatBadge(
             <LucideIcons.Activity size={9} />,

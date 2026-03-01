@@ -253,19 +253,57 @@ const Settings: React.FC = () => {
                   </div>
                 </section>
 
-                {/* Reset Button */}
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <LucideIcons.LogOut size={24} className="text-red-400" />
+                    <h3 className="text-xl font-bold text-white uppercase tracking-wider">
+                      Expedition
+                    </h3>
+                  </div>
+                  <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4">
+                    <p className="text-red-200/70 text-sm mb-4">
+                      Abandon your current journey and return to the lobby. This
+                      will reset all character progress, inventory, and group
+                      status.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Abandon expedition and reset all progress? This cannot be undone.",
+                          )
+                        ) {
+                          import("../../store/gameStore").then((m) =>
+                            m.resetGame(),
+                          )
+                        }
+                      }}
+                      className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-red-500/40 flex items-center justify-center gap-2"
+                    >
+                      <LucideIcons.Trash2 size={18} />
+                      Quit & Reset Progress
+                    </button>
+                  </div>
+                </section>
+
+                {/* Reset Settings Button */}
                 <div className="pt-4 border-t border-slate-700">
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm("Reset all settings to default?")) {
+                      if (
+                        confirm(
+                          "Reset all settings (Audio/Difficulty) to default?",
+                        )
+                      ) {
                         resetSettings()
                       }
                     }}
-                    className="w-full py-3 bg-red-600/20 hover:bg-red-600/30 border-2 border-red-600 text-red-400 font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-slate-700/50 hover:bg-slate-700 border-2 border-slate-600 text-slate-300 font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <LucideIcons.RotateCcw size={18} />
-                    Reset to Default
+                    Reset Settings to Default
                   </button>
                 </div>
               </div>

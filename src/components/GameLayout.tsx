@@ -2,7 +2,12 @@ import type React from "react"
 import { Tooltip } from "react-tooltip"
 import "react-tooltip/dist/react-tooltip.css"
 import { useStore } from "@nanostores/react"
-import { $gameState, $phase, $viewingPlayerId } from "../store/gameStore"
+import {
+  $gameState,
+  $hoveredCombatant,
+  $phase,
+  $viewingPlayerId,
+} from "../store/gameStore"
 import Campfire from "./Campfire"
 import Inventory from "./Inventory"
 import GameHUD from "./layout/GameHUD"
@@ -23,6 +28,7 @@ const GameLayout: React.FC = () => {
   const phase = useStore($phase)
   const gameState = useStore($gameState)
   const viewingPlayerId = useStore($viewingPlayerId)
+  const hoveredCombatant = useStore($hoveredCombatant)
 
   return (
     <div className="min-h-screen w-full bg-wood-900 text-parchment-100 font-sans select-none relative flex flex-col overflow-auto">
@@ -78,7 +84,13 @@ const GameLayout: React.FC = () => {
           const instanceId =
             activeAnchor?.getAttribute("data-instance-id") || undefined
           if (!itemId) return null
-          return <ItemTooltip itemId={itemId} instanceId={instanceId} />
+          return (
+            <ItemTooltip
+              itemId={itemId}
+              instanceId={instanceId}
+              combatEntity={hoveredCombatant}
+            />
+          )
         }}
       />
     </div>

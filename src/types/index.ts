@@ -195,3 +195,73 @@ export interface DraftState {
   confirmed: string[] // PlayerIDs who have locked in their choice
   roundNumber: number // 1, 2, 3...
 }
+
+export interface CombatStats {
+  damage: number
+  block: number
+  heal: number
+  maxHp: number
+  healthRegen?: number
+  maxMana: number
+  manaRegen: number
+  maxEnergy: number
+  energyRegen: number
+  triggerSpeed: number // Multiplier
+  spikes?: number
+}
+
+export interface StatusEffect {
+  type: "POISON" | "FIRE" | "STUN" | "SLOW" | "BLEED"
+  value: number // Stacks or Duration
+  sourceId?: string
+}
+
+export interface ItemBattleStats {
+  damageDealt: number
+  blockGenerated: number
+  damageMitigated: number
+  healsDone: number
+  timesTriggered: number
+}
+
+export interface CombatEntity {
+  id: string
+  hp: number
+  maxHp: number
+  block: number
+  mana: number
+  maxMana: number
+  energy: number
+  maxEnergy: number
+  image?: string
+  stats: CombatStats
+  statuses: StatusEffect[]
+  synergies?: SynergyEffect[]
+  onHitEffects?: {
+    type: StatusEffect["type"]
+    value: number
+    chance?: number
+  }[]
+  name: string
+  inventory: InventoryItemInstance[]
+  containers: Container[]
+  battleStats: Record<string, ItemBattleStats> // instanceId -> stats
+}
+
+export interface ItemCooldown {
+  instanceId: string
+  itemId: string
+  current: number // seconds remaining
+  max: number // seconds total (with jitter)
+  baseMax: number // Original max cooldown before modifiers
+  lastTrigger?: {
+    type: "SUCCESS" | "FAIL_ENERGY"
+    timestamp: number // Combat elapsed time in seconds
+  } | null
+}
+
+export interface CombatLogEntry {
+  round: number
+  message: string
+  type: "DAMAGE" | "HEAL" | "BLOCK" | "INFO" | "MISS" | "EFFECT"
+}

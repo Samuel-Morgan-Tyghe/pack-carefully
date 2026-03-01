@@ -2,8 +2,9 @@ import { useStore } from "@nanostores/react"
 import clsx from "clsx"
 import type { PanInfo } from "framer-motion"
 import * as LucideIcons from "lucide-react"
-import React, { useRef, useState, useEffect, useMemo } from "react"
-import { type AdjacencyResult, getAdjacencyBonuses } from "../lib/adjacency"
+import type React from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { AdjacencyResult } from "../lib/adjacency"
 import { calculatePlayerCombatInfo } from "../lib/combat"
 import { ITEMS } from "../lib/items/items"
 import {
@@ -30,7 +31,7 @@ import {
   rotateItemCounterClockwise,
   toggleLock,
 } from "../store/gameStore"
-import type { Container, InventoryItemInstance } from "../types"
+import type { Container, Coordinate, InventoryItemInstance } from "../types"
 import BackpackGhost from "./game/BackpackGhost"
 import BackpackItem from "./game/BackpackItem"
 
@@ -62,13 +63,41 @@ const Inventory: React.FC<InventoryProps> = (props) => {
 
   const gridRef = useRef<HTMLDivElement>(null)
 
-  const [ghostPosition, setGhostPosition] = useState<{
+  const [ghostPosition, _setGhostPosition] = useState<{
     x: number
     y: number
     gridX: number
     gridY: number
     valid: boolean
   } | null>(null)
+
+  // Wrapper to prevent state oscillations causing infinite render loops
+  const setGhostPosition = useCallback(
+    (
+      newPos: {
+        x: number
+        y: number
+        gridX: number
+        gridY: number
+        valid: boolean
+      } | null,
+    ) => {
+      _setGhostPosition((prev) => {
+        if (!prev && !newPos) return prev
+        if (
+          prev &&
+          newPos &&
+          prev.gridX === newPos.gridX &&
+          prev.gridY === newPos.gridY &&
+          prev.valid === newPos.valid
+        ) {
+          return prev // Prevent state change if grid coords and validity are identical
+        }
+        return newPos
+      })
+    },
+    [],
+  )
   const [isGhostValid, setIsGhostValid] = useState(true)
   const [draggedInstanceId, setDraggedInstanceId] = useState<string | null>(
     null,
@@ -125,15 +154,17 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     setPendingRotation(0)
   }, [])
 
-  const itemsOnGrid = (
-    itemsProp || allItemsOnGrid.filter((i) => i.ownerId === ownerId)
-  ).sort((a, b) => {
-    const catA = ITEMS[a.itemId].category
-    const catB = ITEMS[b.itemId].category
-    if (catA === "CONTAINER" && catB !== "CONTAINER") return -1
-    if (catA !== "CONTAINER" && catB === "CONTAINER") return 1
-    return 0
-  })
+  const itemsOnGrid = useMemo(() => {
+    const base =
+      itemsProp || allItemsOnGrid.filter((i) => i.ownerId === ownerId)
+    return [...base].sort((a, b) => {
+      const catA = ITEMS[a.itemId].category
+      const catB = ITEMS[b.itemId].category
+      if (catA === "CONTAINER" && catB !== "CONTAINER") return -1
+      if (catA !== "CONTAINER" && catB === "CONTAINER") return 1
+      return 0
+    })
+  }, [itemsProp, allItemsOnGrid, ownerId])
 
   // LOCAL GRID STATE: If containersProp or itemsProp are provided, we calculate a local state
   // instead of using the global one.
@@ -213,20 +244,17 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     draggedInstanceId,
     externalInstanceId,
     externalDraggedItem,
-    ghostPosition,
+    ghostPosition?.valid,
+    ghostPosition?.gridX,
+    ghostPosition?.gridY,
     pendingRotation,
     ownerId,
   ])
 
-  const { itemsWithLiveStats: liveVirtualItems } = useMemo(
-    () => calculatePlayerCombatInfo(virtualItems),
-    [virtualItems],
-  )
-
-  const virtualResults = React.useMemo(
-    () => getAdjacencyBonuses(liveVirtualItems),
-    [liveVirtualItems],
-  )
+  const { itemsWithLiveStats: liveVirtualItems, bonusesMap: virtualResults } =
+    useMemo(() => {
+      return calculatePlayerCombatInfo(virtualItems)
+    }, [virtualItems])
   const allStarredSquares = Object.values(virtualResults).flatMap(
     (res: AdjacencyResult) => res.boostedSquares || [],
   )
@@ -339,13 +367,15 @@ const Inventory: React.FC<InventoryProps> = (props) => {
       if (draggedInstanceId || externalDraggedItem) {
         if (e.key.toLowerCase() === "r" || e.key.toLowerCase() === "e") {
           e.preventDefault()
-          if (draggedInstanceId) rotateItem(draggedInstanceId)
+          if (draggedInstanceId) {
+            rotateItem(draggedInstanceId)
+          }
 
           // ALWAYS update pendingRotation if an external item is active
           if (externalDraggedItem) {
-            setPendingRotation(
-              (prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270,
-            )
+            setPendingRotation((prev) => {
+              return ((prev + 90) % 360) as 0 | 90 | 180 | 270
+            })
           }
           return
         }
@@ -386,6 +416,7 @@ const Inventory: React.FC<InventoryProps> = (props) => {
     draggedInstanceId,
     externalDraggedItem,
     canInteract,
+    setGhostPosition,
   ])
 
   const handleDragStart = (instanceId: string, _info: PanInfo) => {
@@ -709,11 +740,11 @@ const Inventory: React.FC<InventoryProps> = (props) => {
                 const key = `${cell.x},${cell.y}`
                 const isGlobalStar = starredKeys.has(key)
                 const activeSyn = displayResult?.activeSynergySquares.find(
-                  (s) => s.x === cell.x && s.y === cell.y,
+                  (s: Coordinate) => s.x === cell.x && s.y === cell.y,
                 )
                 const potentialSyn =
                   displayResult?.potentialSynergySquares.find(
-                    (s) => s.x === cell.x && s.y === cell.y,
+                    (s: Coordinate) => s.x === cell.x && s.y === cell.y,
                   )
                 if (isGlobalStar || activeSyn || potentialSyn) {
                   const isFilled = isGlobalStar || !!activeSyn

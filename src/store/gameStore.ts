@@ -5,6 +5,7 @@ import { generateRandomContainers } from "../lib/generators"
 import { GRID_SIZE, ITEMS } from "../lib/items/items"
 import { generateId } from "../lib/utils"
 import type {
+  CombatEntity,
   Container,
   Coordinate,
   DraftState,
@@ -50,6 +51,8 @@ export const $activePreview = atom<{
   id: string
 } | null>(null)
 export const $craftingHighlights = atom<string[]>([]) // IDs (instanceId or itemId) to highlight
+
+export const $hoveredCombatant = atom<CombatEntity | null>(null) // Used to pass the CombatEntity down to tooltips without circular dependencies
 
 // Grid Configuration
 export const $gridConfig = atom({
@@ -631,11 +634,20 @@ export const moveItem = (
   y: number,
   rotation?: 0 | 90 | 180 | 270,
 ): boolean => {
+  const start = performance.now()
   const items = $itemsOnGrid.get()
   const item = items.find((i) => i.instanceId === instanceId)
   if (!item) return false
 
   const finalRot = rotation ?? item.rotation
+  if (item.x === x && item.y === y && item.rotation === finalRot) {
+    console.log(`[Interaction] Move Item: ${instanceId} - No change detected`)
+    return true
+  }
+
+  console.log(
+    `[Interaction] Move Item: ${instanceId} (${item.itemId}) to (${x}, ${y}) @ ${finalRot}°`,
+  )
 
   const itemDef = ITEMS[item.itemId]
   const w = finalRot === 90 || finalRot === 270 ? itemDef.height : itemDef.width
@@ -669,13 +681,27 @@ export const moveItem = (
       i.instanceId === instanceId ? { ...i, x, y, rotation: finalRot } : i,
     ),
   )
+
+  const end = performance.now()
+  console.log(
+    `[Interaction] Move Item Completed: ${instanceId} in ${(end - start).toFixed(2)}ms`,
+  )
+  if (end - start > 10) {
+    console.warn(
+      `[Interaction] Slow move detected: ${(end - start).toFixed(2)}ms`,
+    )
+  }
   return true
 }
 
 export const rotateItem = (instanceId: string) => {
+  console.log(`[Interaction] Rotate Item Request: ${instanceId}`)
   const items = $itemsOnGrid.get()
   const item = items.find((i) => i.instanceId === instanceId)
-  if (!item || item.locked) return // Cannot rotate locked items
+  if (!item || item.locked) {
+    console.log("[Interaction] Rotate Item Failed: Item not found or locked")
+    return // Cannot rotate locked items
+  }
 
   const newRot = ((item.rotation + 90) % 360) as 0 | 90 | 180 | 270
 

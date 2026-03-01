@@ -59,6 +59,11 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
   const disguiseDef = item.disguiseItemId ? ITEMS[item.disguiseItemId] : null
   const displayDef = disguiseDef || itemDef
 
+  if (!displayDef) {
+    console.error(`[BackpackItem] No definition found for item: ${item.itemId}`)
+    return null
+  }
+
   const isDragging = draggedInstanceId === item.instanceId
   const canInteract = !viewOnly
 
@@ -93,7 +98,6 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
       animate={{
         x: coords.x,
         y: coords.y,
-        rotate: item.rotation,
       }}
       transition={{ type: "spring", stiffness: 1200, damping: 50 }}
       initial={false}
@@ -190,7 +194,10 @@ const BackpackItem: React.FC<BackpackItemProps> = ({
 
       {/* Content Container */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30">
-        <div className="transition-transform duration-300">
+        <div
+          className="transition-transform duration-300"
+          style={{ transform: `rotate(${item.rotation}deg)` }}
+        >
           {React.createElement(
             (LucideIcons as any)[displayDef.icon] || LucideIcons.Box,
             {

@@ -1,80 +1,17 @@
 import { $gameState } from "../store/gameStore"
-import type { Container, InventoryItemInstance, SynergyEffect } from "../types"
-import { getAdjacencyBonuses } from "./adjacency"
+import type {
+  CombatEntity,
+  CombatStats,
+  Container,
+  InventoryItemInstance,
+  ItemCooldown,
+  StatusEffect,
+} from "../types"
+import { type AdjacencyResult, getAdjacencyBonuses } from "./adjacency"
 import { DEFAULT_ENERGY_REGEN, DEFAULT_MANA_REGEN } from "./constants"
 import { generateRandomContainers } from "./generators"
 import { ITEMS } from "./items/items"
 import { generateId } from "./utils"
-
-export interface CombatStats {
-  damage: number
-  block: number
-  heal: number
-  maxHp: number
-  healthRegen?: number
-  maxMana: number
-  manaRegen: number
-  maxEnergy: number
-  energyRegen: number
-  triggerSpeed: number // Multiplier
-  spikes?: number
-}
-
-export interface StatusEffect {
-  type: "POISON" | "FIRE" | "STUN" | "SLOW" | "BLEED"
-  value: number // Stacks or Duration
-  sourceId?: string
-}
-
-export interface ItemBattleStats {
-  damageDealt: number
-  blockGenerated: number
-  damageMitigated: number
-  healsDone: number
-  timesTriggered: number
-}
-
-export interface CombatEntity {
-  id: string
-  hp: number
-  maxHp: number
-  block: number
-  mana: number
-  maxMana: number
-  energy: number
-  maxEnergy: number
-  image?: string
-  stats: CombatStats
-  statuses: StatusEffect[]
-  synergies?: SynergyEffect[]
-  onHitEffects?: {
-    type: StatusEffect["type"]
-    value: number
-    chance?: number
-  }[]
-  name: string
-  inventory: InventoryItemInstance[]
-  containers: Container[]
-  battleStats: Record<string, ItemBattleStats> // instanceId -> stats
-}
-
-export interface ItemCooldown {
-  instanceId: string
-  itemId: string
-  current: number // seconds remaining
-  max: number // seconds total (with jitter)
-  baseMax: number // Original max cooldown before modifiers
-  lastTrigger?: {
-    type: "SUCCESS" | "FAIL_ENERGY"
-    timestamp: number // Combat elapsed time in seconds
-  } | null
-}
-
-export interface CombatLogEntry {
-  round: number
-  message: string
-  type: "DAMAGE" | "HEAL" | "BLOCK" | "INFO" | "MISS" | "EFFECT"
-}
 
 /**
  * Groups duplicate status effects by type and sums their values.
@@ -129,7 +66,11 @@ export const calculatePlayerCombatInfo = (
 ): {
   stats: CombatStats
   itemsWithLiveStats: InventoryItemInstance[]
+  bonusesMap: Record<string, AdjacencyResult>
 } => {
+  console.log(
+    `[Combat] calculatePlayerCombatInfo START (${items.length} items)`,
+  )
   const totalStats: CombatStats = {
     damage: 0,
     block: 0,
@@ -145,87 +86,98 @@ export const calculatePlayerCombatInfo = (
 
   const bonusesMap = getAdjacencyBonuses(items)
 
-  const itemsWithLiveStats = items.map((instance) => {
-    const def = ITEMS[instance.itemId]
-    const bonus = bonusesMap[instance.instanceId]
-
-    // Base stats from item definition
-    const liveStats = {
-      damage: def.combatStats?.damage || 0,
-      block: def.combatStats?.block || 0,
-      heal: def.combatStats?.heal || 0,
-      spikes: def.combatStats?.spikes || 0,
-      energyCost: def.combatStats?.energyCost || 0,
-      manaCost: def.combatStats?.manaCost || 0,
-      triggerSpeed: def.combatStats?.triggerSpeed || 1.0,
-      baseCooldown: def.combatStats?.baseCooldown || 5.0, // ALREADY IN SECONDS
-    }
-
-    // Apply additive buffs
-    if (bonus?.buffs) {
-      liveStats.damage += bonus.buffs.damage || 0
-      liveStats.block += bonus.buffs.block || 0
-      liveStats.heal += bonus.buffs.heal || 0
-      liveStats.spikes += bonus.buffs.spikes || 0
-      liveStats.manaCost += bonus.buffs.manaCost || 0
-      liveStats.energyCost += bonus.buffs.energyCost || 0
-    }
-
-    // Apply multipliers
-    if (bonus?.multipliers) {
-      if (bonus.multipliers.damage)
-        liveStats.damage = Math.floor(
-          liveStats.damage * bonus.multipliers.damage,
+  const itemsWithLiveStats = items
+    .filter((instance) => {
+      const exists = !!ITEMS[instance.itemId]
+      if (!exists)
+        console.warn(
+          `[Combat] Skipping item with unknown ID: ${instance.itemId}`,
         )
-      if (bonus.multipliers.block)
-        liveStats.block = Math.floor(liveStats.block * bonus.multipliers.block)
-      if (bonus.multipliers.heal)
-        liveStats.heal = Math.floor(liveStats.heal * bonus.multipliers.heal)
-      if (bonus.multipliers.triggerSpeed)
-        liveStats.triggerSpeed *= bonus.multipliers.triggerSpeed
-      if (bonus.multipliers.energyCost)
-        liveStats.energyCost = Math.floor(
-          liveStats.energyCost * bonus.multipliers.energyCost,
-        )
-      if (bonus.multipliers.manaCost)
-        liveStats.manaCost = Math.floor(
-          liveStats.manaCost * bonus.multipliers.manaCost,
-        )
-    }
+      return exists
+    })
+    .map((instance) => {
+      const def = ITEMS[instance.itemId]
+      const bonus = bonusesMap[instance.instanceId]
 
-    // Accumulate global passive stats from ALL items (weapons can have passives too)
-    totalStats.maxHp += def.combatStats?.maxHp || 0
-    totalStats.maxEnergy += def.combatStats?.maxEnergy || 0
-    totalStats.energyRegen += def.combatStats?.energyRegen || 0
-    totalStats.maxMana += def.combatStats?.maxMana || 0
-    totalStats.manaRegen += def.combatStats?.manaRegen || 0
-    totalStats.block += def.combatStats?.block || 0
-    totalStats.healthRegen =
-      (totalStats.healthRegen || 0) + (def.combatStats?.healthRegen || 0)
+      // Base stats from item definition
+      const liveStats = {
+        damage: def.combatStats?.damage || 0,
+        block: def.combatStats?.block || 0,
+        heal: def.combatStats?.heal || 0,
+        spikes: def.combatStats?.spikes || 0,
+        energyCost: def.combatStats?.energyCost || 0,
+        manaCost: def.combatStats?.manaCost || 0,
+        triggerSpeed: def.combatStats?.triggerSpeed || 1.0,
+        baseCooldown: def.combatStats?.baseCooldown || 5.0, // ALREADY IN SECONDS
+      }
 
-    // Trigger Speed multiplier only accumulates from PASSIVE items (like bags/charms)
-    if (def.triggerType === "PASSIVE" || !def.triggerType) {
-      totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0
-    }
+      // Apply additive buffs
+      if (bonus?.buffs) {
+        liveStats.damage += bonus.buffs.damage || 0
+        liveStats.block += bonus.buffs.block || 0
+        liveStats.heal += bonus.buffs.heal || 0
+        liveStats.spikes += bonus.buffs.spikes || 0
+        liveStats.manaCost += bonus.buffs.manaCost || 0
+        liveStats.energyCost += bonus.buffs.energyCost || 0
+      }
 
-    // Calculate derived rates (DPS, EPS, MPS)
-    const cooldown = liveStats.baseCooldown / liveStats.triggerSpeed
-    const dps = Number((liveStats.damage / cooldown).toFixed(1))
-    const eps = Number((liveStats.energyCost / cooldown).toFixed(1))
-    const mps = Number((liveStats.manaCost / cooldown).toFixed(1))
+      // Apply multipliers
+      if (bonus?.multipliers) {
+        if (bonus.multipliers.damage)
+          liveStats.damage = Math.floor(
+            liveStats.damage * bonus.multipliers.damage,
+          )
+        if (bonus.multipliers.block)
+          liveStats.block = Math.floor(
+            liveStats.block * bonus.multipliers.block,
+          )
+        if (bonus.multipliers.heal)
+          liveStats.heal = Math.floor(liveStats.heal * bonus.multipliers.heal)
+        if (bonus.multipliers.triggerSpeed)
+          liveStats.triggerSpeed *= bonus.multipliers.triggerSpeed
+        if (bonus.multipliers.energyCost)
+          liveStats.energyCost = Math.floor(
+            liveStats.energyCost * bonus.multipliers.energyCost,
+          )
+        if (bonus.multipliers.manaCost)
+          liveStats.manaCost = Math.floor(
+            liveStats.manaCost * bonus.multipliers.manaCost,
+          )
+      }
 
-    return {
-      ...instance,
-      liveStats: {
-        ...liveStats,
-        dps,
-        eps,
-        mps,
-      },
-    }
-  })
+      // Accumulate global passive stats from ALL items (weapons can have passives too)
+      totalStats.maxHp += def.combatStats?.maxHp || 0
+      totalStats.maxEnergy += def.combatStats?.maxEnergy || 0
+      totalStats.energyRegen += def.combatStats?.energyRegen || 0
+      totalStats.maxMana += def.combatStats?.maxMana || 0
+      totalStats.manaRegen += def.combatStats?.manaRegen || 0
+      totalStats.block += def.combatStats?.block || 0
+      totalStats.healthRegen =
+        (totalStats.healthRegen || 0) + (def.combatStats?.healthRegen || 0)
 
-  return { stats: totalStats, itemsWithLiveStats }
+      // Trigger Speed multiplier only accumulates from PASSIVE items (like bags/charms)
+      if (def.triggerType === "PASSIVE" || !def.triggerType) {
+        totalStats.triggerSpeed *= def.combatStats?.triggerSpeed || 1.0
+      }
+
+      // Calculate derived rates (DPS, EPS, MPS)
+      const cooldown = liveStats.baseCooldown / liveStats.triggerSpeed
+      const dps = Number((liveStats.damage / cooldown).toFixed(1))
+      const eps = Number((liveStats.energyCost / cooldown).toFixed(1))
+      const mps = Number((liveStats.manaCost / cooldown).toFixed(1))
+
+      return {
+        ...instance,
+        liveStats: {
+          ...liveStats,
+          dps,
+          eps,
+          mps,
+        },
+      }
+    })
+
+  return { stats: totalStats, itemsWithLiveStats, bonusesMap }
 }
 
 /**

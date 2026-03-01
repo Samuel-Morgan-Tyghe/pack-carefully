@@ -154,13 +154,35 @@ const GameHUD: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={nextPhase}
-          className="px-2 md:px-6 py-1 md:py-2 bg-forest-700/90 border-2 border-forest-500 rounded-lg hover:bg-forest-600 text-parchment-100 text-[8px] md:text-xs uppercase font-bold tracking-wider shadow-lg hover:shadow-xl hover:scale-105 pointer-events-auto transition-all backdrop-blur-sm"
-        >
-          {phase === "DRAFT" ? "Ready" : "Next"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Abandon expedition and return to Lobby?")) {
+                import("../../store/gameStore").then((m) => m.resetGame())
+              }
+            }}
+            className="hidden sm:flex px-3 py-1.5 md:py-2 bg-red-900/40 border border-red-700/50 rounded-lg hover:bg-red-800/60 text-red-100 text-[8px] md:text-xs uppercase font-black tracking-tighter hover:scale-105 pointer-events-auto transition-all backdrop-blur-sm group"
+          >
+            <LucideIcons.LogOut
+              size={12}
+              className="mr-1 group-hover:translate-x-0.5 transition-transform"
+            />
+            Quit
+          </button>
+
+          <button
+            type="button"
+            onClick={nextPhase}
+            className="px-4 md:px-8 py-1.5 md:py-2 bg-forest-700/90 border-2 border-forest-500 rounded-lg hover:bg-forest-600 text-parchment-100 text-[8px] md:text-xs uppercase font-black tracking-widest shadow-lg hover:shadow-forest-500/30 hover:scale-105 pointer-events-auto transition-all backdrop-blur-sm"
+          >
+            {phase === "DRAFT"
+              ? "Ready"
+              : phase === "CAMPFIRE" && gameState.day === 5
+                ? "Finish"
+                : "Next"}
+          </button>
+        </div>
       </div>
     </>
   )

@@ -1,41 +1,32 @@
 import { useStore } from "@nanostores/react"
 import clsx from "clsx"
 import { AnimatePresence, motion } from "framer-motion"
-import {
-  Activity,
-  Battery,
-  Droplets,
-  Pause,
-  Play,
-  Shield,
-  Skull,
-  Sword,
-  Trophy,
-  Zap,
-} from "lucide-react"
+import { Activity, Pause, Play, Skull, Trophy } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { Tooltip } from "react-tooltip"
-import type {
-  CombatEntity,
-  CombatLogEntry,
-  EnemyType,
-  ItemCooldown,
-} from "../../lib/combat"
+import type { EnemyType } from "../../lib/combat"
 import {
   createCombatEntity,
   generateEnemy,
-  groupStatusEffects,
   processCombatTick,
 } from "../../lib/combat"
 import { ITEMS } from "../../lib/items/items"
 import {
   $containers,
   $gameState,
+  $hoveredCombatant,
   $itemsOnGrid,
   $localPlayerId,
 } from "../../store/gameStore"
-import Inventory from "../Inventory"
+import type {
+  CombatEntity,
+  CombatLogEntry,
+  InventoryItemInstance,
+  ItemCooldown,
+} from "../../types"
+import BattleSummary from "./battle/BattleSummary"
+import CombatantCard from "./battle/CombatantCard"
 
 const AutoBattler: React.FC = () => {
   const items = useStore($itemsOnGrid)
@@ -82,8 +73,11 @@ const AutoBattler: React.FC = () => {
     setPlayer(newPlayer)
 
     const pCooldowns: ItemCooldown[] = newPlayer.inventory
-      .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
-      .map((inst) => {
+      .filter(
+        (inst: InventoryItemInstance) =>
+          ITEMS[inst.itemId].triggerType !== "PASSIVE",
+      )
+      .map((inst: InventoryItemInstance) => {
         const baseCd = inst.liveStats?.baseCooldown || 5.0
         return {
           instanceId: inst.instanceId,
@@ -108,8 +102,11 @@ const AutoBattler: React.FC = () => {
     setEnemy(newEnemy)
 
     const eCooldowns: ItemCooldown[] = newEnemy.inventory
-      .filter((inst) => ITEMS[inst.itemId].triggerType !== "PASSIVE")
-      .map((inst) => {
+      .filter(
+        (inst: InventoryItemInstance) =>
+          ITEMS[inst.itemId].triggerType !== "PASSIVE",
+      )
+      .map((inst: InventoryItemInstance) => {
         const baseCd = inst.liveStats?.baseCooldown || 5.0
         return {
           instanceId: inst.instanceId,
@@ -222,11 +219,17 @@ const AutoBattler: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 px-2 md:px-4 py-4 h-full overflow-hidden">
       <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
-        <CombatantCard
-          entity={player}
-          cooldowns={playerCooldowns}
-          side="player"
-        />
+        <div
+          className="flex-1 flex flex-col"
+          onMouseEnter={() => $hoveredCombatant.set(player)}
+          onMouseLeave={() => $hoveredCombatant.set(null)}
+        >
+          <CombatantCard
+            entity={player}
+            cooldowns={playerCooldowns}
+            side="player"
+          />
+        </div>
 
         {/* CENTER HUB */}
         <div className="lg:w-80 flex flex-col gap-4 shrink-0">
@@ -368,7 +371,17 @@ const AutoBattler: React.FC = () => {
           </div>
         </div>
 
-        <CombatantCard entity={enemy} cooldowns={enemyCooldowns} side="enemy" />
+        <div
+          className="flex-1 flex flex-col"
+          onMouseEnter={() => $hoveredCombatant.set(enemy)}
+          onMouseLeave={() => $hoveredCombatant.set(null)}
+        >
+          <CombatantCard
+            entity={enemy}
+            cooldowns={enemyCooldowns}
+            side="enemy"
+          />
+        </div>
       </div>
 
       <Tooltip id="combat-tooltip" />
@@ -382,484 +395,5 @@ const AutoBattler: React.FC = () => {
     </div>
   )
 }
-
-// Helper Components
-const HealthBar = ({
-  current,
-  max,
-  block,
-  color,
-  side = "player",
-}: {
-  current: number
-  max: number
-  block: number
-  color: string
-  side?: "player" | "enemy"
-}) => (
-  <div
-    className="w-full bg-slate-900 h-6 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
-    data-tooltip-id="combat-tooltip"
-    data-tooltip-content={`HP: ${Math.round(current)}/${max}${block > 0 ? ` + Block: ${Math.round(block)}` : ""}`}
-  >
-    {/* Base Health */}
-    <motion.div
-      className={clsx("h-full absolute top-0", color)}
-      style={{ [side === "player" ? "left" : "right"]: 0 }}
-      animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
-    />
-    {/* Block Overlay */}
-    {block > 0 && (
-      <motion.div
-        className={clsx(
-          "absolute top-0 h-full bg-cyan-400/40 border-cyan-300 right-0 border-l-2",
-        )}
-        initial={{ width: 0 }}
-        animate={{ width: `${Math.min(100, (block / max) * 100)}%` }}
-      />
-    )}
-    <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-bold text-white drop-shadow-md z-10">
-      <span>{side === "player" ? Math.round(current) : Math.round(max)}</span>
-      <span>{side === "player" ? Math.round(max) : Math.round(current)}</span>
-    </div>
-  </div>
-)
-
-const EnergyBar = ({ current, max }: { current: number; max: number }) => (
-  <div
-    className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
-    data-tooltip-id="combat-tooltip"
-    data-tooltip-content={`Energy: ${Math.round(current)}/${max}`}
-  >
-    <motion.div
-      className="h-full bg-indigo-600"
-      animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
-    />
-    <div className="absolute inset-0 flex items-center justify-between px-3 text-[9px] font-bold text-white drop-shadow-md">
-      <span>⚡ {Math.round(current)}</span>
-      <span>{Math.round(max)}</span>
-    </div>
-  </div>
-)
-
-const ManaBar = ({ current, max }: { current: number; max: number }) => (
-  <div
-    className="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-600 relative shadow-inner"
-    data-tooltip-id="combat-tooltip"
-    data-tooltip-content={`Mana: ${Math.round(current)}/${max}`}
-  >
-    <motion.div
-      className="h-full bg-cyan-600"
-      animate={{ width: `${Math.max(0, (current / max) * 100)}%` }}
-    />
-    <div className="absolute inset-0 flex items-center justify-between px-3 text-[9px] font-bold text-white drop-shadow-md">
-      <span>
-        <Droplets size={8} className="inline mr-1" /> {Math.round(current)}
-      </span>
-      <span>{Math.round(max)}</span>
-    </div>
-  </div>
-)
-
-const StatusBadge = ({
-  status,
-}: { status: { type: string; value: number } }) => {
-  const colors: Record<string, string> = {
-    POISON: "border-green-500 text-green-400 bg-green-950/40",
-    FIRE: "border-orange-500 text-orange-400 bg-orange-950/40",
-    STUN: "border-yellow-500 text-yellow-400 bg-yellow-950/40",
-    SLOW: "border-blue-400 text-blue-300 bg-blue-950/40",
-    BLEED: "border-red-600 text-red-500 bg-red-950/40",
-  }
-
-  return (
-    <div
-      className={clsx(
-        "text-[10px] px-1.5 py-0.5 rounded border font-black uppercase flex items-center gap-1 shadow-sm",
-        colors[status.type] || "border-slate-600 text-slate-300 bg-slate-800",
-      )}
-    >
-      <span>{status.type}</span>
-      {status.value > 1 && (
-        <span className="bg-white/20 px-1 rounded-sm text-[8px]">
-          {status.value}
-        </span>
-      )}
-    </div>
-  )
-}
-
-const StatBox = ({
-  icon,
-  value,
-  label,
-  tooltip,
-}: {
-  icon: React.ReactNode
-  value: number | string
-  label: string
-  tooltip?: string
-}) => (
-  <div
-    className="bg-slate-900 p-2 rounded flex flex-col items-center border border-slate-700 hover:bg-slate-800 transition-colors"
-    data-tooltip-id="combat-tooltip"
-    data-tooltip-content={tooltip}
-  >
-    <div className="mb-1">{icon}</div>
-    <span className="text-lg font-black text-white">{value}</span>
-    <span className="text-[10px] text-slate-500 uppercase tracking-wider">
-      {label}
-    </span>
-  </div>
-)
-
-const BuffHUD = ({ entity }: { entity: CombatEntity }) => {
-  const grouped = groupStatusEffects(entity.statuses)
-
-  return (
-    <div className="flex flex-wrap gap-1 mt-1 empty:hidden">
-      {grouped.map((s) => (
-        <StatusBadge key={s.type} status={s} />
-      ))}
-    </div>
-  )
-}
-
-const CombatantCard = ({
-  entity,
-  cooldowns,
-  side,
-}: {
-  entity: CombatEntity
-  cooldowns: ItemCooldown[]
-  side: "player" | "enemy"
-}) => {
-  const isPlayer = side === "player"
-  const bgColor = isPlayer ? "bg-wood-950/40" : "bg-red-950/20"
-  const borderColor = isPlayer ? "border-wood-700/50" : "border-red-900/30"
-  const iconColor = isPlayer ? "text-blue-400" : "text-red-500"
-  const barColor = isPlayer ? "bg-blue-600" : "bg-red-600"
-  const statsColor = isPlayer ? "text-blue-300" : "text-red-300"
-  const MainIcon = isPlayer ? Sword : Skull
-
-  return (
-    <div
-      className={clsx(
-        "flex-1 flex flex-col gap-4 rounded-2xl p-4 border-2 relative overflow-hidden",
-        bgColor,
-        borderColor,
-      )}
-    >
-      <div
-        className={clsx(
-          "absolute top-0 p-2 opacity-5 pointer-events-none",
-          isPlayer ? "right-0" : "left-0",
-        )}
-      >
-        <MainIcon size={120} />
-      </div>
-
-      <div
-        className={clsx(
-          "flex justify-between items-center relative z-10",
-          !isPlayer && "flex-row-reverse",
-        )}
-      >
-        <h2
-          className={clsx(
-            "text-xl md:text-2xl font-black flex items-center gap-2 drop-shadow-md",
-            iconColor,
-          )}
-        >
-          {isPlayer ? (
-            <>
-              <span>{entity.name}</span>
-              <div className="flex gap-1">
-                {groupStatusEffects(entity.statuses).map((s, i) => (
-                  <StatusBadge key={`${s.type}-${i}`} status={s} />
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex gap-1">
-                {groupStatusEffects(entity.statuses).map((s, i) => (
-                  <StatusBadge key={`${s.type}-${i}`} status={s} />
-                ))}
-              </div>
-              <span>{entity.name}</span>
-            </>
-          )}
-        </h2>
-        <div
-          className={clsx(
-            "font-mono font-bold flex flex-col",
-            statsColor,
-            isPlayer ? "items-end text-right" : "items-start text-left",
-          )}
-        >
-          <div className="flex items-center gap-2 text-xs opacity-70">
-            <Shield
-              size={12}
-              className={isPlayer ? "text-cyan-400" : "text-red-400"}
-            />
-            <span>BLOCK: {Math.round(entity.block)}</span>
-          </div>
-          <div>
-            {Math.round(entity.hp)} / {entity.maxHp} HP
-          </div>
-        </div>
-      </div>
-
-      <HealthBar
-        current={entity.hp}
-        max={entity.maxHp}
-        block={entity.block}
-        color={barColor}
-        side={side}
-      />
-      <BuffHUD entity={entity} />
-      <div className="grid grid-cols-2 gap-2 mt-2">
-        <EnergyBar current={entity.energy} max={entity.maxEnergy} />
-        <ManaBar current={entity.mana} max={entity.maxMana} />
-      </div>
-
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 relative z-10">
-        <StatBox
-          icon={<Sword size={14} className="text-red-400" />}
-          value={entity.stats.damage}
-          label="DMG"
-          tooltip={`Total damage output per trigger of ${isPlayer ? "your" : "enemy"} weapons.`}
-        />
-        <StatBox
-          icon={<Shield size={14} className="text-blue-400" />}
-          value={Math.round(entity.block)}
-          label="BLK"
-          tooltip={`Current damage absorption${isPlayer ? ". Block decays over time." : " for the enemy."}`}
-        />
-        <StatBox
-          icon={<Battery size={14} className="text-amber-400" />}
-          value={`${Math.round(entity.stats.energyRegen)}/s`}
-          label="NRG"
-          tooltip={`${isPlayer ? "Energy" : "Enemy energy"} regeneration rate per second.`}
-        />
-        <StatBox
-          icon={<Zap size={14} className="text-purple-400" />}
-          value={`${entity.stats.triggerSpeed.toFixed(1)}x`}
-          label="SPD"
-          tooltip={`${isPlayer ? "Trigger" : "Enemy trigger"} speed multiplier.`}
-        />
-      </div>
-
-      <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-visible">
-        <div className="scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 transition-transform origin-center">
-          <Inventory
-            playerId={entity.id}
-            items={entity.inventory}
-            containers={entity.containers}
-            viewOnly={true}
-            cooldowns={Object.fromEntries(
-              cooldowns.map((cd) => [
-                cd.instanceId,
-                (1 - cd.current / cd.max) * 100,
-              ]),
-            )}
-            className="!p-4"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const BattleSummary = ({
-  player,
-  enemy,
-  onClose,
-}: {
-  player: CombatEntity
-  enemy: CombatEntity
-  onClose: () => void
-}) => {
-  const allPlayerStats = Object.values(player.battleStats)
-  const allEnemyStats = Object.values(enemy.battleStats)
-
-  return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-wood-900 border-4 border-wood-700 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-      >
-        <div className="p-6 border-b-2 border-wood-700 flex justify-between items-center bg-wood-800/50">
-          <h2 className="text-3xl font-black text-gold-500 uppercase tracking-tighter">
-            Battle Summary
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-parchment-400"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="bg-blue-950/20 p-6 rounded-2xl border-2 border-blue-900/30">
-              <h3 className="text-xl font-bold text-blue-400 mb-4 uppercase tracking-widest border-b border-blue-900/30 pb-2">
-                Offensive Stats
-              </h3>
-              <div className="space-y-3">
-                <SummaryStat
-                  label="Total Damage"
-                  value={allPlayerStats.reduce((s, i) => s + i.damageDealt, 0)}
-                  color="text-red-400"
-                />
-                <SummaryStat
-                  label="Average DPS"
-                  value={(
-                    allPlayerStats.reduce((s, i) => s + i.damageDealt, 0) / 10
-                  ).toFixed(1)}
-                  color="text-orange-400"
-                />
-                <SummaryStat
-                  label="Enemy Damage"
-                  value={allEnemyStats.reduce((s, i) => s + i.damageDealt, 0)}
-                  color="text-red-600"
-                />
-              </div>
-            </div>
-
-            <div className="bg-cyan-950/20 p-6 rounded-2xl border-2 border-cyan-900/30">
-              <h3 className="text-xl font-bold text-cyan-400 mb-4 uppercase tracking-widest border-b border-cyan-900/30 pb-2">
-                Defensive Stats
-              </h3>
-              <div className="space-y-3">
-                <SummaryStat
-                  label="Total Block"
-                  value={allPlayerStats.reduce(
-                    (s, i) => s + i.blockGenerated,
-                    0,
-                  )}
-                  color="text-cyan-400"
-                />
-                <SummaryStat
-                  label="Damage Mitigated"
-                  value={allPlayerStats.reduce(
-                    (s, i) => s + i.damageMitigated,
-                    0,
-                  )}
-                  color="text-indigo-400"
-                />
-                <SummaryStat
-                  label="Heals Received"
-                  value={allPlayerStats.reduce((s, i) => s + i.healsDone, 0)}
-                  color="text-green-400"
-                />
-              </div>
-            </div>
-          </div>
-
-          <h3 className="text-2xl font-black text-parchment-200 mb-6 uppercase tracking-tighter">
-            Item Performance
-          </h3>
-          <div className="grid gap-4">
-            {player.inventory
-              .filter((inst) => player.battleStats[inst.instanceId])
-              .map((inst) => {
-                const stats = player.battleStats[inst.instanceId]
-                const def = ITEMS[inst.itemId]
-                return (
-                  <div
-                    key={inst.instanceId}
-                    className="flex bg-wood-800/40 p-4 rounded-xl border border-wood-700/50 hover:border-gold-500/50 transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-black/40 rounded flex items-center justify-center text-2xl shrink-0 mr-4">
-                      {def.icon || "📦"}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-bold text-parchment-100 flex justify-between">
-                        <span>{def.name}</span>
-                        <span className="text-xs text-wood-500 uppercase">
-                          {stats.timesTriggered} triggers
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-4 mt-2">
-                        {stats.damageDealt > 0 && (
-                          <ItemMetric
-                            label="Damage"
-                            value={stats.damageDealt}
-                            color="text-red-400"
-                          />
-                        )}
-                        {stats.blockGenerated > 0 && (
-                          <ItemMetric
-                            label="Block"
-                            value={stats.blockGenerated}
-                            color="text-cyan-400"
-                          />
-                        )}
-                        {stats.damageMitigated > 0 && (
-                          <ItemMetric
-                            label="Mitigated"
-                            value={stats.damageMitigated}
-                            color="text-indigo-400"
-                          />
-                        )}
-                        {stats.healsDone > 0 && (
-                          <ItemMetric
-                            label="Healing"
-                            value={stats.healsDone}
-                            color="text-green-400"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        </div>
-
-        <div className="p-6 border-t-2 border-wood-700 bg-wood-800/50">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-4 bg-gold-600 hover:bg-gold-500 text-wood-950 font-black rounded-xl text-xl uppercase tracking-widest transition-all shadow-lg active:scale-95"
-          >
-            Return to Expedition
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  )
-}
-
-const SummaryStat = ({
-  label,
-  value,
-  color,
-}: { label: string; value: number | string; color: string }) => (
-  <div className="flex justify-between items-center text-lg">
-    <span className="text-parchment-400 font-medium">{label}</span>
-    <span className={clsx("font-black font-mono", color)}>{value}</span>
-  </div>
-)
-
-const ItemMetric = ({
-  label,
-  value,
-  color,
-}: { label: string; value: number; color: string }) => (
-  <div className="flex flex-col">
-    <span className="text-[10px] text-wood-500 uppercase font-black tracking-widest">
-      {label}
-    </span>
-    <span className={clsx("font-bold font-mono", color)}>
-      {Math.round(value)}
-    </span>
-  </div>
-)
 
 export default AutoBattler
