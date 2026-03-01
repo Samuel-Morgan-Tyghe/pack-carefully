@@ -19,6 +19,7 @@ export const HealthBar: React.FC<HealthBarProps> = ({
 }) => {
   const hpPercent = (current / max) * 100
   const blockPercent = (block / max) * 100
+  const isPlayer = side === "player"
 
   return (
     <div className="w-full h-8 bg-slate-900/50 rounded-lg border-2 border-slate-700/50 relative overflow-hidden shadow-inner">
@@ -30,7 +31,7 @@ export const HealthBar: React.FC<HealthBarProps> = ({
         )}
         style={{
           width: `${hpPercent}%`,
-          float: side === "player" ? "right" : "left",
+          float: "left",
         }}
       />
       {/* Block Overlay */}
@@ -39,13 +40,13 @@ export const HealthBar: React.FC<HealthBarProps> = ({
           className="absolute top-0 bottom-0 bg-cyan-400/40 border-x border-cyan-300/50 backdrop-blur-[2px] transition-all duration-300 z-10 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
           style={{
             width: `${blockPercent}%`,
-            [side === "player" ? "right" : "left"]: 0,
+            [isPlayer ? "right" : "left"]: 0,
           }}
         />
       )}
       <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] font-black text-white mix-blend-difference z-20">
         <span className="uppercase tracking-widest opacity-80">
-          {side === "player" ? "YOU" : "FOE"}
+          {isPlayer ? "YOU" : "FOE"}
         </span>
         <span className="font-mono">
           {Math.round(current)} / {max} HP

@@ -23,7 +23,6 @@ const CombatantCard: React.FC<CombatantCardProps> = ({
   const bgColor = isPlayer ? "bg-wood-950/40" : "bg-red-950/20"
   const borderColor = isPlayer ? "border-wood-700/50" : "border-red-900/30"
   const iconColor = isPlayer ? "text-blue-400" : "text-red-500"
-  const barColor = isPlayer ? "bg-blue-600" : "bg-red-600"
   const statsColor = isPlayer ? "text-blue-300" : "text-red-300"
   const MainIcon = isPlayer ? Sword : Skull
 
@@ -107,7 +106,7 @@ const CombatantCard: React.FC<CombatantCardProps> = ({
         current={entity.hp}
         max={entity.maxHp}
         block={entity.block}
-        color={barColor}
+        color={"bg-red-600"}
         side={side}
       />
       <BuffHUD entity={entity} />
