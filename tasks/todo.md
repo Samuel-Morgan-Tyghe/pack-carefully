@@ -12,6 +12,7 @@
   - [x] Test `processCombatTick` locally
 - [x] **E2E Playwright Setup**:
   - [x] Boot dev server autonomously via Playwright config.
-  - [x] Write `smoke.test.ts` to click through Lobby -> Sandbox routing.
+  - [x] Write `smoke.test.ts` to click through Lobby -> Bag Building -> Draft routing.
 - [x] Ensure `npx vitest run` passes autonomously.
 - [x] Ensure `npm run test:e2e` passes autonomously.
+- [x] Add testing suites into Husky Pre-commit checks.
