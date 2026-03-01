@@ -59,6 +59,12 @@ export interface SynergyResult {
       number
     >
   >
+  /** On-hit status effects to grant to this item when it triggers (ATTACK or SHIELD) */
+  effects?: {
+    type: "POISON" | "FIRE" | "STUN" | "SLOW" | "BLEED"
+    value: number
+    chance?: number
+  }[]
 }
 
 export interface FunctionalSynergy {
@@ -186,6 +192,7 @@ export interface InventoryItemInstance {
     dps?: number // Calculated Damage Per Second
     eps?: number // Calculated Energy Per Second
     mps?: number // Calculated Mana Per Second
+    effects?: { type: string; value: number; chance?: number }[] // Adjacency-granted on-hit effects
   }
 }
 

@@ -27,3 +27,5 @@ dist-ssr
 tasks/todo.md
 tasks/*
 tasks/todo.md
+test-results/*
+playwright-report/*

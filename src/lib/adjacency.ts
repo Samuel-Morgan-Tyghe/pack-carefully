@@ -12,6 +12,7 @@ export interface AdjacencyResult {
   totalBuff: number
   buffs: Record<string, number> // stat -> additive value
   multipliers: Record<string, number> // stat -> multiplier
+  effects: { type: string; value: number; chance?: number }[] // on-hit status effects granted by adjacency
   activeRules: string[]
   boostedSquares: { x: number; y: number }[] // Squares boosted by this item
   activeSynergySquares: SynergySquare[] // Squares where synergy is active
@@ -117,6 +118,7 @@ export const getAdjacencyBonuses = (
       totalBuff: 0,
       buffs: {},
       multipliers: {},
+      effects: [],
       activeRules: [],
       boostedSquares: [],
       activeSynergySquares: [],
@@ -238,7 +240,8 @@ export const getAdjacencyBonuses = (
           const res = syn.apply(sourceItem, targetItem, gridItems)
           if (
             (res.buffs && Object.keys(res.buffs).length > 0) ||
-            (res.multipliers && Object.keys(res.multipliers).length > 0)
+            (res.multipliers && Object.keys(res.multipliers).length > 0) ||
+            (res.effects && res.effects.length > 0)
           ) {
             results[sourceItem.instanceId].activeSynergySquares.push({
               x: fx,
@@ -291,6 +294,11 @@ export const getAdjacencyBonuses = (
               results[effectTargetId].multipliers[stat] =
                 (results[effectTargetId].multipliers[stat] || 1) *
                 (val as number)
+            }
+          }
+          if (res.effects) {
+            for (const eff of res.effects) {
+              results[effectTargetId].effects.push(eff)
             }
           }
           results[effectTargetId].activeRules.push(

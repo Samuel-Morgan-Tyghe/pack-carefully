@@ -1,56 +1,44 @@
+import { beforeEach, describe, expect, it } from "vitest"
 import {
+  $draftState,
   $itemsOnGrid,
   SANDBOX_PLAYER_ID,
   addPlayer,
+  craftItem,
   enterSandbox,
   placeItem,
   resetGame,
 } from "../store/gameStore"
 
-async function runCraftingTests() {
-  console.log("Running Crafting Tests...")
-
-  // Test 1: Wooden Sword + Rock -> Hero Sword
-  {
+describe("Crafting System", () => {
+  beforeEach(() => {
     resetGame()
     addPlayer("Crafter")
     enterSandbox()
+  })
+
+  it("can craft a Viper Blade from Rusty Dagger and Poison Shard", async () => {
     const pId = SANDBOX_PLAYER_ID
 
-    // Place Wooden Sword (1x3)
-    placeItem("wooden_sword", 0, 0, 0, pId)
+    // Place Rusty Dagger (1x2)
+    placeItem("rusty_dagger", 0, 0, 0, pId)
 
-    // Place Rock (2x2) adjacent to sword (at x=1, y=0)
-    placeItem("rock", 1, 0, 0, pId)
+    // Place Poison Shard (2x2) adjacent to dagger (at x=1, y=0)
+    placeItem("poison_shard", 1, 0, 0, pId)
+
+    // Trigger craft for player
+    await craftItem(pId)
 
     const items = $itemsOnGrid.get()
-    console.log(
-      "Items on grid after placement:",
-      items.map((i) => i.itemId),
-    )
+    const pool = $draftState.get().availableItems[pId] || []
 
-    const hasHeroSword = items.some((i) => i.itemId === "hero_sword")
-    const hasWoodSword = items.some((i) => i.itemId === "wooden_sword")
-    const hasRock = items.some((i) => i.itemId === "rock")
+    // The result goes to the draft pool (shelf), the consumed items leave the grid.
+    const hasViperBladeInPool = pool.includes("viper_blade")
+    const hasDaggerOnGrid = items.some((i) => i.itemId === "rusty_dagger")
+    const hasShardOnGrid = items.some((i) => i.itemId === "poison_shard")
 
-    if (hasHeroSword && !hasWoodSword && !hasRock) {
-      console.log(
-        "✅ Crafting Successful: Hero Sword created, ingredients consumed.",
-      )
-    } else {
-      console.error("❌ Crafting Failed!")
-      console.log(
-        "Status: HeroSword:",
-        hasHeroSword,
-        "WoodSword:",
-        hasWoodSword,
-        "Rock:",
-        hasRock,
-      )
-    }
-  }
-
-  console.log("Crafting Tests Completed.")
-}
-
-runCraftingTests().catch(console.error)
+    expect(hasViperBladeInPool).toBe(true)
+    expect(hasDaggerOnGrid).toBe(false)
+    expect(hasShardOnGrid).toBe(false)
+  })
+})

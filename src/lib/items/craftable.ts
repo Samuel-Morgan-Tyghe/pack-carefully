@@ -1,4 +1,5 @@
 import type { Item } from "../../types"
+import { ITEMS } from "./items"
 
 const RUSTY_DAGGER_STATS = {
   damage: 4,
@@ -117,7 +118,8 @@ export const craftableItems: Record<string, Item> = {
   poison_shard: {
     id: "poison_shard",
     name: "Poison Shard",
-    description: "A toxic fragment. Applies poison on hit.",
+    description:
+      "Adjacent weapons and shields apply Poison on hit (+1 stack per connection).",
     category: "TOOL",
     width: 2,
     height: 2,
@@ -128,12 +130,46 @@ export const craftableItems: Record<string, Item> = {
     ],
     icon: "Skull",
     rarity: "COMMON",
-    effects: [{ type: "POISON", value: 2 }],
+    synergies: [
+      {
+        pattern: "ADJACENT",
+        description: "Poison on Hit (+2 per connection)",
+        targetIsSelf: false,
+        apply: (source, target, allItems) => {
+          const targetDef = ITEMS[target.itemId]
+          if (
+            targetDef?.category !== "WEAPON" &&
+            targetDef?.triggerType !== "SHIELD"
+          )
+            return {}
+          // Count how many weapon/shield items this shard is adjacent to (including this one)
+          const adjacentCount = allItems.filter((other) => {
+            if (other.instanceId === source.instanceId) return false
+            const otherDef = ITEMS[other.itemId]
+            if (
+              otherDef?.category !== "WEAPON" &&
+              otherDef?.triggerType !== "SHIELD"
+            )
+              return false
+            // Quick adjacency check: any cell of source is adjacent to any cell of other
+
+            return (
+              Math.abs(source.x - other.x) <= 2 ||
+              Math.abs(source.y - other.y) <= 2
+            )
+          }).length
+          return {
+            effects: [{ type: "POISON" as const, value: 1 + adjacentCount }],
+          }
+        },
+      },
+    ],
   },
   fire_shard: {
     id: "fire_shard",
     name: "Fire Shard",
-    description: "A burning fragment. Applies burn on hit.",
+    description:
+      "Adjacent weapons and shields apply Fire on hit (+1 stack per connection).",
     category: "TOOL",
     width: 2,
     height: 2,
@@ -144,12 +180,43 @@ export const craftableItems: Record<string, Item> = {
     ],
     icon: "Flame",
     rarity: "COMMON",
-    effects: [{ type: "FIRE", value: 2 }],
+    synergies: [
+      {
+        pattern: "ADJACENT",
+        description: "Fire on Hit (+2 per connection)",
+        targetIsSelf: false,
+        apply: (source, target, allItems) => {
+          const targetDef = ITEMS[target.itemId]
+          if (
+            targetDef?.category !== "WEAPON" &&
+            targetDef?.triggerType !== "SHIELD"
+          )
+            return {}
+          const adjacentCount = allItems.filter((other) => {
+            if (other.instanceId === source.instanceId) return false
+            const otherDef = ITEMS[other.itemId]
+            if (
+              otherDef?.category !== "WEAPON" &&
+              otherDef?.triggerType !== "SHIELD"
+            )
+              return false
+            return (
+              Math.abs(source.x - other.x) <= 2 ||
+              Math.abs(source.y - other.y) <= 2
+            )
+          }).length
+          return {
+            effects: [{ type: "FIRE" as const, value: 1 + adjacentCount }],
+          }
+        },
+      },
+    ],
   },
   frost_shard: {
     id: "frost_shard",
     name: "Frost Shard",
-    description: "A chilling fragment. Applies slow on hit.",
+    description:
+      "Adjacent weapons and shields apply Slow on hit (+1 stack per connection).",
     category: "TOOL",
     width: 2,
     height: 2,
@@ -160,7 +227,37 @@ export const craftableItems: Record<string, Item> = {
     ],
     icon: "Snowflake",
     rarity: "COMMON",
-    effects: [{ type: "SLOW", value: 2 }],
+    synergies: [
+      {
+        pattern: "ADJACENT",
+        description: "Slow on Hit (+2 per connection)",
+        targetIsSelf: false,
+        apply: (source, target, allItems) => {
+          const targetDef = ITEMS[target.itemId]
+          if (
+            targetDef?.category !== "WEAPON" &&
+            targetDef?.triggerType !== "SHIELD"
+          )
+            return {}
+          const adjacentCount = allItems.filter((other) => {
+            if (other.instanceId === source.instanceId) return false
+            const otherDef = ITEMS[other.itemId]
+            if (
+              otherDef?.category !== "WEAPON" &&
+              otherDef?.triggerType !== "SHIELD"
+            )
+              return false
+            return (
+              Math.abs(source.x - other.x) <= 2 ||
+              Math.abs(source.y - other.y) <= 2
+            )
+          }).length
+          return {
+            effects: [{ type: "SLOW" as const, value: 1 + adjacentCount }],
+          }
+        },
+      },
+    ],
   },
   viper_blade: {
     id: "viper_blade",

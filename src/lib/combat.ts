@@ -100,6 +100,7 @@ export const calculatePlayerCombatInfo = (
       const bonus = bonusesMap[instance.instanceId]
 
       // Base stats from item definition
+      const baseEffects = def.effects ? [...def.effects] : []
       const liveStats = {
         damage: def.combatStats?.damage || 0,
         block: def.combatStats?.block || 0,
@@ -109,6 +110,11 @@ export const calculatePlayerCombatInfo = (
         manaCost: def.combatStats?.manaCost || 0,
         triggerSpeed: def.combatStats?.triggerSpeed || 1.0,
         baseCooldown: def.combatStats?.baseCooldown || 5.0, // ALREADY IN SECONDS
+        effects: baseEffects as {
+          type: string
+          value: number
+          chance?: number
+        }[],
       }
 
       // Apply additive buffs
@@ -143,6 +149,17 @@ export const calculatePlayerCombatInfo = (
           liveStats.manaCost = Math.floor(
             liveStats.manaCost * bonus.multipliers.manaCost,
           )
+      }
+      // Merge adjacency-granted effects into liveStats.effects
+      if (bonus?.effects && bonus.effects.length > 0) {
+        for (const eff of bonus.effects) {
+          const existing = liveStats.effects.find((e) => e.type === eff.type)
+          if (existing) {
+            existing.value += eff.value // stack values
+          } else {
+            liveStats.effects.push({ ...eff })
+          }
+        }
       }
 
       // Accumulate global passive stats from ALL items (weapons can have passives too)
@@ -533,13 +550,19 @@ export const processCombatTick = (
           if (dmg > 0)
             events.push(`${entity.name} hits for ${Math.floor(dmg)}!`)
 
-          // Apply Effects from item
-          if (def.effects) {
-            for (const effect of def.effects) {
+          // Apply on-hit effects: from item definition + adjacency-granted effects
+          const allEffects = [
+            ...(def.effects || []),
+            ...(liveStats.effects?.filter(
+              (e) => !def.effects?.some((d) => d.type === e.type),
+            ) || []),
+          ]
+          if (allEffects.length > 0) {
+            for (const effect of allEffects) {
               const roll = Math.random() * 100
               if (roll <= (effect.chance ?? 100)) {
                 target.statuses.push({
-                  type: effect.type,
+                  type: effect.type as any,
                   value: effect.value,
                   sourceId: cd.instanceId,
                 })
@@ -558,6 +581,26 @@ export const processCombatTick = (
           entity.block += blockAmount
           entity.battleStats[cd.instanceId].blockGenerated += blockAmount
           events.push(`${entity.name} adds ${blockAmount} block!`)
+          // Apply shield-on-hit effects (adjacency-granted effects on SHIELD items)
+          const shieldEffects = [
+            ...(def.effects || []),
+            ...(liveStats.effects?.filter(
+              (e) => !def.effects?.some((d) => d.type === e.type),
+            ) || []),
+          ]
+          for (const effect of shieldEffects) {
+            const roll = Math.random() * 100
+            if (roll <= (effect.chance ?? 100)) {
+              target.statuses.push({
+                type: effect.type as any,
+                value: effect.value,
+                sourceId: cd.instanceId,
+              })
+              events.push(
+                `${target.name} is chilled by ${entity.name}'s shield!`,
+              )
+            }
+          }
         }
 
         // Apply COOLDOWN JITTER (±12.5% of max)

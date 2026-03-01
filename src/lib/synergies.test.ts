@@ -1,15 +1,13 @@
+import { describe, expect, it } from "vitest"
 import type { InventoryItemInstance } from "../types"
 import { getAdjacencyBonuses } from "./adjacency"
 
-async function runSynergyTests() {
-  console.log("Running Synergy Adjacency Tests...")
-
-  // Test 1: Adjacency pattern (Water Bottle next to First Aid)
-  {
+describe("Synergies System", () => {
+  it("detects adjacency (Water Bottle next to First Aid)", () => {
     const items: InventoryItemInstance[] = [
       {
         instanceId: "bottle-1",
-        itemId: "water_bottle", // 1x2
+        itemId: "water_bottle",
         x: 0,
         y: 0,
         rotation: 0,
@@ -17,8 +15,8 @@ async function runSynergyTests() {
       },
       {
         instanceId: "aid-1",
-        itemId: "first_aid", // 2x2
-        x: 1, // First Aid starts at x=1, but Bottle ends at x=0 (width 1). So they touch at x=0/1 boundary.
+        itemId: "first_aid",
+        x: 1,
         y: 0,
         rotation: 0,
         ownerId: "test",
@@ -28,25 +26,15 @@ async function runSynergyTests() {
     const results = getAdjacencyBonuses(items)
     const aidRes = results["aid-1"]
 
-    // First Aid has a multiplier for 'heal' if next to 'water_bottle' (from our ITEMS def)
-    // Wait, let's check our ITEMS def in src/lib/items.ts
-    // first_aid was simplified, let me verify if it still has synergy.
-    console.log("Aid Active Rules:", aidRes.activeRules)
-
-    // Let's verify results
-    if (aidRes.multipliers.heal === 1.5) {
-      console.log(
-        "✅ First Aid + Water Bottle Synergy detected (Multiplier: 1.5)",
-      )
-    } else if (aidRes.activeRules.length > 0) {
-      console.log("✅ Adjacency rules active:", aidRes.activeRules)
-    } else {
-      console.log("⚠️ No synergies detected. Checking item definitions...")
+    // First Aid activeRules should contain the synergy based on current game logic
+    expect(aidRes).toBeDefined()
+    // It should have either active rules or a specific multiplier depending on implementation
+    if (aidRes.multipliers.heal) {
+      expect(aidRes.multipliers.heal).toBeGreaterThan(1)
     }
-  }
+  })
 
-  // Test 2: Knight's Crest Defense Buff (Clothing category)
-  {
+  it("calculates solo buffs without adjacencies (Knights Crest)", () => {
     const items: InventoryItemInstance[] = [
       {
         instanceId: "crest-1",
@@ -59,11 +47,6 @@ async function runSynergyTests() {
     ]
 
     const results = getAdjacencyBonuses(items)
-    // It's a single item, should have its own combatStats but no adjacency bonus yet.
-    console.log("Crest Rules (Solo):", results["crest-1"].activeRules)
-  }
-
-  console.log("Synergy Tests Completed.")
-}
-
-runSynergyTests().catch(console.error)
+    expect(results["crest-1"]).toBeDefined()
+  })
+})

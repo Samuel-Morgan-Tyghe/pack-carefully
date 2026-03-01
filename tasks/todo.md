@@ -1,11 +1,17 @@
-# Task: Run and Fix Lint Errors
+# Testing Implementation Plan
 
-## Plan
-- [x] Run `npm run lint` to identify issues <!-- id: 0 -->
-- [x] Fix identified lint errors <!-- id: 1 -->
-- [x] Verify fix by running `npm run lint` again <!-- id: 2 -->
-- [x] Run `npm run typecheck` as a final sanity check <!-- id: 3 -->
-- [x] Attempt a commit to verify pre-commit hooks <!-- id: 4 -->
-
-## Review
-(To be filled after completion)
+- [x] Install Vitest and testing-library for React/DOM
+- [x] Configure `vite.config.ts` to include Vitest
+- [x] Add `"test": "vitest"` script to `package.json`
+- [x] **Vitest Without Mocks Approach**:
+  - [x] Create a `gameStore.test.ts` to test internal logic (`placeItem`, state transitions, draft phase updates).
+  - [x] Inject real item definitions inside the test runtime.
+- [x] **Combat and Synergy Refactor**:
+  - [x] Port `crafting.test.ts` into a Vitest suite.
+  - [x] Port `synergies.test.ts` into a Vitest suite.
+  - [x] Test `processCombatTick` locally
+- [x] **E2E Playwright Setup**:
+  - [x] Boot dev server autonomously via Playwright config.
+  - [x] Write `smoke.test.ts` to click through Lobby -> Sandbox routing.
+- [x] Ensure `npx vitest run` passes autonomously.
+- [x] Ensure `npm run test:e2e` passes autonomously.
