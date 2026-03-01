@@ -30,7 +30,7 @@ const JourneySelection: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-8">
+    <div className="flex flex-col  items-center justify-center min-h-screen bg-slate-900 text-white p-8">
       <h2 className="text-4xl font-black mb-2 uppercase tracking-widest text-yellow-500">
         Choose Your Path
       </h2>
@@ -39,7 +39,7 @@ const JourneySelection: React.FC = () => {
         or stick together for safety?
       </p>
 
-      <div className="flex flex-col md:gap-8 w-full max-w-5xl gap-4">
+      <div className="flex flex-col md:flex-row md:gap-8 w-full max-w-5xl gap-4">
         {/* LEFT PATH */}
         <div className="flex-1 bg-red-900/20 border-2 border-red-900/50 rounded-xl p-6 relative hover:bg-red-900/30 transition-colors">
           <div className="absolute top-4 left-4">
